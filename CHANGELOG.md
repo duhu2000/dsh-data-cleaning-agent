@@ -4,8 +4,12 @@
 
 ## [Unreleased]
 
-### Added
-- 开源社区化工程骨架（README 双语、LICENSE、CONTRIBUTING、install.sh、marketing 元数据、CI/Release workflow）。
+## [0.2.1] - 2026-09-01
+
+> OIDC 可信发布链路验证版本，无功能变更。
+
+### Changed
+- 发布流程：接入 npm OIDC Trusted Publishing（`release.yml` + `--provenance`），`v*` tag 自动发布并生成 GitHub Release。
 
 ## [0.2.0] - 2026-09-01
 
@@ -13,6 +17,7 @@
 > 以便社区 fork / PR / npm 公开安装。
 
 ### Added
+- 开源社区化工程骨架（README 双语、LICENSE、CONTRIBUTING、install.sh、marketing 元数据、CI/Release workflow）。
 - MVP 全量能力：CSV/XLSX/JSON 解析、清洗（trim / 手机号规范化 / 缺失剔除 / 负金额剔除 / 去重）、
   确定性补全、概览画像、CSV 回写（`lib/engine.js`）。
 - 三个模型工具：`data_clean_rows` / `data_complete_rows` / `data_profile`（`lib/tools.js`）。
