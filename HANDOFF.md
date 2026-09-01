@@ -1,0 +1,263 @@
+# 数据清洗补全智能体 · 项目移交文档（Handoff）
+
+> 目的：让接手的 GPT / 协作者无需回溯全部对话，即可掌握项目全貌、当前基线、已完成事项、待办与后续规划，并直接续做剩余开发任务。
+> 生成日期：2026-09-01
+> 当前版本：**0.3.0**（npm `latest` 已指向，GitHub Release `v0.3.0` 已发布）
+
+---
+
+## 0. 一句话定位
+
+在 DeepSeek Harness（DSH）中清洗、补全、画像企业名单数据的智能体插件：
+本地 CSV/XLSX/JSON 引擎（清洗 / 补全 / 画像 / 去重）+ 内嵌 Skill + 异步任务状态机，
+**可选**接入企查查（Qichacha/QCC）MCP 做企业工商数据补全。由企查查团队发起并维护，MIT 开源。
+
+---
+
+## 1. 关键坐标（接手必读）
+
+| 项 | 值 |
+| --- | --- |
+| 本机仓库路径 | `/Users/qcc/Documents/DuHu/QCC/beichacha_doc/云聚接口/MCP/MCP/workspace/dsh-data-cleaning-agent` |
+| Git 远端 | `https://github.com/duhu2000/dsh-data-cleaning-agent.git`（分支 `main`） |
+| npm 包名 | `dsh-data-cleaning-agent`（无 scope，public） |
+| npm `latest` | `0.3.0`（带 OIDC provenance） |
+| GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
+| Git tags | `v0.2.1`、`v0.3.0` |
+| 工作树状态 | clean（全部提交已 push） |
+| git 身份 | `DuHu <duhu@greatld.com>` |
+| gh 账号 | `duhu2000` |
+| npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
+| license | MIT |
+| 本机 DSH 框架 | `0.1.1-rc.2`（`@deepseek-ai/*` 包线；launcher 为 `dsh-plugin-desktop@2.0.2`） |
+| 生产 GUI | `http://127.0.0.1:43120`（profile：`~/.dsh/profiles/web`）——**冒烟测试严禁触碰** |
+
+> npm 缓存坑：本机 `/Users/qcc/.npm/_cacache` 曾被 root 占用导致 `npm view` EPERM，
+> 解决办法是 `npm ... --cache .npm-cache`（项目本地缓存目录）。
+
+---
+
+## 2. 版本时间线
+
+| 版本 | 日期 | 内容 | 状态 |
+| --- | --- | --- | --- |
+| 0.1.0-mvp | 2026-08-31 | 内部 MVP，双基线（rc.2 + alpha.2）端到端验证通过；`@qcc` scope，**未对外发布** | ✅ 完成（仅本机） |
+| 0.2.0 | 2026-09-01 | 开源化 G1：改名 `dsh-data-cleaning-agent`，补齐 README/LICENSE/CONTRIBUTING/install.sh/marketing/CI 骨架 | ✅ 已发布 |
+| 0.2.1 | 2026-09-01 | G2 补充：npm OIDC Trusted Publishing 发布链路验证（无功能变更） | ✅ 已发布 |
+| 0.3.0 | 2026-09-01 | G4 方案 A：内嵌 `enterprise-enrichment` Skill，模型中介式调企查查 MCP 补全企业名单 | ✅ 已发布（当前） |
+
+---
+
+## 3. 仓库结构（核心文件）
+
+```
+dsh-data-cleaning-agent/
+├── package.json              # dsh.bundle.patch + dsh.client + exports["./client"]
+├── cordis.patch.yml          # bundle patch 入口
+├── lib/
+│   ├── index.js              # apply(ctx)：注入 tools/skills/jobs/storageDomain/web/client
+│   ├── engine.js             # 纯函数引擎：parseCsv/Xlsx/Json、cleanRows、completeRows、profileRows、toCsv、normalizePhone
+│   ├── tools.js              # data_clean_rows / data_complete_rows / data_profile
+│   ├── skill.js              # 内嵌 Skill：data-cleaning
+│   ├── skill-enrich.js       # 内嵌 Skill：enterprise-enrichment（QCC 方案 A，0.3.0 新增）
+│   ├── jobs.js               # 异步任务状态机 + storageDomain dc_tasks_v1
+│   ├── web.js                # Host 半区路由 + UI（/data-cleaning/ 前缀）
+│   └── client.js             # Client 半区 seam（window.__ModuleLoader__.load）
+├── test/engine.test.js       # 引擎单测 13 例
+├── scripts/
+│   ├── check-marketing.mjs   # marketing/metadata.json 结构校验
+│   ├── check-readme-version.mjs  # README 版本标记同步校验
+│   └── verify-pack.mjs       # 打包内容白名单校验
+├── marketing/metadata.json   # 市场/npm/GitHub/README 元数据（G3 市场收录用）
+├── .github/workflows/
+│   ├── ci.yml                # Node 22/24 + Windows + PR 预发布包
+│   ├── release.yml           # v* tag → npm OIDC 发布 + GitHub Release
+│   └── market-registration.yml # 每小时市场验收（校验 metadata）
+├── install.sh                # 一键安装脚本（dsh CLI → pnpm 回退）
+├── docs/                     # 见下
+├── HANDOFF.md                # 本文档
+├── verify-mvp.sh             # 双基线 web 冒烟脚本（仅本机隔离 home 使用）
+└── mvp/ spike1~6/            # 本机验证产物（.gitignore 排除，不进仓库）
+```
+
+### docs/ 关键文档
+
+| 文档 | 作用 |
+| --- | --- |
+| `PLAN-OSS.md` | 开源社区化 + QCC 接入总规划（G0–G6 门禁路线图） |
+| `QCC-ENRICHMENT-DESIGN.md` | G4 方案 A 设计（v1 字段契约、消歧规则、安全不变量、验收门） |
+| `QCC-PHASES-ROADMAP.md` | 二期/三期/四期路线图 + 185 工具完整维度→字段→来源工具清单 |
+| `USER-GUIDE.md` | 用户手册（安装、数据清洗、企业名单补全边界） |
+| `COMPATIBILITY.md` | 与 `qcc-dsh-mcp-oauth` 共存兼容表 |
+| `FIRST-CONTRIBUTION.md` | 首次贡献路径 |
+| `adr/0001-dsh-baseline.md` | DSH 基线 ADR |
+| `mvp.md` | MVP 交付说明 + 6 条工程踩坑 |
+| `spike-1~6-*.md` | 六个技术 Spike 结论 |
+
+---
+
+## 4. 已完成事项（G0–G4 全部落地）
+
+### G0 拍板 ✅
+- 命名/scope/license/团队署名/仓库 URL 全部确定（见 §1 坐标表）。
+
+### G1 开源化 ✅（v0.2.0）
+- 包名 `@qcc/dsh-data-cleaning-agent` → `dsh-data-cleaning-agent`（无 scope）。
+- README 中英双语 + 徽章矩阵、LICENSE（MIT）、CONTRIBUTING、FIRST-CONTRIBUTION、install.sh、
+  marketing/metadata.json、`.github/workflows`（ci / release / market-registration）、CHANGELOG。
+
+### G2 建仓发布 ✅（v0.2.1）
+- GitHub 建仓 push、CI 绿、npm OIDC Trusted Publishing 跑通、GitHub Release 自动生成。
+
+### G4 企查查接入 · 方案 A（模型中介式）✅（v0.3.0）
+- 新增 `lib/skill-enrich.js` → Skill `enterprise-enrichment`。
+- Skill 工作流：`qcc_oauth_status` 检测连接 → 逐个企业 `get_company_by_query` 消歧
+  （唯一→锁定；多候选→**必须询问用户**；无→标记 unresolved）→
+  `get_company_registration_info` 取工商字段 → `get_company_risk_scan` 取风险标签。
+- v1 字段契约：`credit_no / legal_rep / reg_capital / establish_date / reg_status / biz_status / risk_tags`。
+- `lib/index.js` 同时注册 `registerSkill`（data-cleaning）与 `registerEnrichSkill`（enterprise-enrichment）。
+
+### MVP 核心能力（沿用自 0.1.0-mvp，0.2.0 起公开）
+- 引擎：CSV/XLSX/JSON 解析、清洗（trim/手机号规范化/缺失剔除/负金额剔除/去重）、确定性补全、概览画像、CSV 回写。
+- 三工具：`data_clean_rows` / `data_complete_rows` / `data_profile`（只回摘要，不回原始行）。
+- Skill：`data-cleaning`。
+- 异步任务：`queued → running → completed | failed | killed`，持久化 `dc_tasks_v1`。
+- Web 半区：`/data-cleaning/` UI 与 `/data-cleaning/api/mvp/*`（seam/parse/clean/complete/profile/jobs/job/<id>）。
+- 引擎单测 13 例全绿。
+
+---
+
+## 5. 待办（TODO，按优先级）
+
+### P0 —— 让插件出现在「视觉插件市场」（G3，未开始）
+- **现状**：dshmarket（视觉市场）只安装 curated registry 条目，来源
+  `https://awesome-dsh-plugin.com/plugins.json`（当前 2777 条）；**本插件尚未被收录**（hitCount=0）。
+- **要做**：向 `awesome-dsh-plugin` 提交 PR（含 YAML 上架描述；对标 connector 的"每小时市场验收"流程）。
+- **就绪条件**：仓库 public + `main` 分支 + `dsh-plugin` topic + `marketing/metadata.json` 字段齐备（均已满足）。
+- **验收**：市场可搜索 + 一键安装成功。
+
+### P0 —— 方案 B 批量后端（G5，未开始，被 Spike #7 阻塞）
+- **要做**：先做 Spike #7，验证 `ctx.loader` 创建的 `@deepseek-ai/dsh-mcp-client` 条目能否被插件代码直接
+  `tools/call` 程序化调用；可行后再实现 `lib/qcc.js` 后台批量补全（批量快、不占模型上下文）。
+- **共享**：§5 字段契约、§6 消歧策略、未连接引导路径（与方案 A 一致，不重定义）。
+- **验收**：后台批量补全端到端通过、token 刷新正确、未授权引导正确。
+
+### P1 —— 二期 0.4.0（工商全景 + 股权穿透，Skill 扩展）
+- 覆盖 `mcp__qcc-company__*` 16 工具 + 历史工商：实控人、受益所有人、股东、对外投资、分支机构、
+  主要人员、变更记录、年报、联系方式、开票、上市、财务等（详见 `QCC-PHASES-ROADMAP.md` §3）。
+- 验收门：20 条名单每企业 ≥15 个维度；消歧规则不变；金额/比例/计数逐字引用。
+
+### P1 —— 三期 0.5.0（风险/知产/经营 + 方案 B 批量后端）
+- 覆盖风险 38 + 知产 18 + 经营 35 工具（详见 `QCC-PHASES-ROADMAP.md` §4）。
+
+### P2 —— 四期 0.6.0（可选，历史轨迹 + 董监高 + 招投标）
+- 覆盖历史 34 + 人员 44 + 招投标 6；历史域需**企业认证账号**（未授权须显式降级）。
+
+### P2 —— MVP 遗留未决项（`docs/mvp.md` §5）
+1. **异步任务明细结果不落盘**：`result.rows` 当前只经内存闭包消费；"任务完成后下载明细"需把结果写入
+   storage 表或临时文件。
+2. **XLSX 大文件异步化**：CSV 路径已完整实测；XLSX 大文件留产品阶段。
+3. **web 组合内联模型 dispatch seam 未接活 LLM**：真实模型端到端仅在 headless 组合验证过。
+
+### P3 —— 工程口径收敛
+1. **Node engine 不一致**：`package.json` 写 `>=20`，但 DSH Desktop `engines` 为 `^22.19.0 || >=24.0.0`；
+   建议收敛为 22/24（CI 已是 22/24，见 `PLAN-REVIEW.md` §4）。
+2. **双基线兼容口径**：公开 README 不得把 alpha.2 的 `@Remote` 当稳定 API。
+
+---
+
+## 6. 规划全景（分期 + 工具面）
+
+### 6.1 企查查 MCP 工具面（6 大资源域 185 个 + 招投标 6 个）
+
+| 资源域 | MCP 前缀 | 工具数 | 授权 | 数据主题 |
+| --- | --- | --- | --- | --- |
+| 工商 | `mcp__qcc-company__*` | 16 | 基础 | 主体、股权、人员、财务、上市 |
+| 风险 | `mcp__qcc-risk__*` | 38 | 基础 | 司法、失信、执行、处罚、冻结 |
+| 知产 | `mcp__qcc-ipr__*` | 18 | 基础 | 专利、商标、软著、数字资产 |
+| 经营 | `mcp__qcc-operation__*` | 35 | 基础 | 资质、招投标、融资、舆情、监管 |
+| 历史 | `mcp__qcc-history__*` | 34 | **企业认证账号** | 历史股东/法人/变更/风险 |
+| 人员 | `mcp__qcc-executive__*` | 44 | 基础 | 董监高个人风险与关联 |
+| 招投标（附加） | `mcp__qcc-tender__*` | 6 | 基础 | 标讯、拟建项目、企业标讯画像 |
+
+### 6.2 分期总览（对应版本）
+
+| 阶段 | 版本 | 交付形态 | 覆盖 | 状态 |
+| --- | --- | --- | --- | --- |
+| 一期 | 0.3.0 | 方案 A Skill `enterprise-enrichment` | 核心工商 7 字段 + 风险标签 | ✅ 已发布 |
+| 二期 | 0.4.0 | 方案 A 扩展 Skill | 工商全景 16 + 历史工商 | ⬜ 待做 |
+| 三期 | 0.5.0 | 方案 A 扩展 + 方案 B 批量后端 | 风险 38 + 知产 18 + 经营 35 | ⬜ 待做 |
+| 四期 | 0.6.0 | （可选） | 历史 34 + 人员 44 + 招投标 6 | ⬜ 待做 |
+
+### 6.3 可清洗补全的 10 大通用维度族（跨期复用的"列"模型）
+身份 / 主体 / 股权 / 人员 / 财务 / 合规风险 / 司法风险 / 知产 / 经营资质 / 市场活动
+（逐项明细见 `QCC-PHASES-ROADMAP.md` §6）。
+
+---
+
+## 7. 安全不变量（任何一期都必须遵守）
+
+1. **不编造字段**：QCC 工具没返回的字段，绝不臆测填充。
+2. **消歧硬规则**：`get_company_by_query` 多候选时**禁止自动取第一名**，必须让用户确认。
+3. **逐字引用**：金额/比例/计数/评级一律逐字引用工具返回值；禁止自行加总、相乘、推断或"四舍五入"圆场。
+4. **模型不回原始行**：模型只拿统计摘要；原始明细只经同源 web 下载链路交付。
+5. **凭据红线**：企业名单、QCC token 严禁进 Issue/PR/日志/截图/夹具；token 只走 `ctx.storageDomain`（0700），不落仓库。
+6. **未连接降级**：未连企查查时补全流程显式引导 `qcc_oauth_connect`，不得假装补全。
+
+### 工程契约（易踩坑，接手必读）
+- 工具契约：`ctx.tools.register` 需 `output.render [{type:'text',text}]` + `output.schema`；对象级 `required`；工具名不能叫 `run_code`。
+- Skill 契约：name `^[a-z0-9]+(?:-[a-z0-9]+)*$`、非空 description、truthy `get()`；用 `skills.register`。
+- 共存契约：本插件 `data_*` 工具 + `data-cleaning`/`enterprise-enrichment` 两 Skill，与
+  `qcc-dsh-mcp-oauth` 的 `qcc_oauth_*` + `mcp__qcc-*` 前缀、存储域 `dc_tasks_v1` 全独立，可共存。
+- `npm run check` = lint + docs:check + marketing:check + verify-pack + test，**合入前必须全绿**。
+
+---
+
+## 8. 发布与验证流程（接手后复用）
+
+### 日常检查
+```bash
+cd <repo>
+npm run check                # 必须全绿
+npm view dsh-data-cleaning-agent version --cache .npm-cache   # 查看远端版本
+```
+
+### 版本发布（v* tag 自动触发 release.yml）
+```bash
+# 1) 改 package.json version、README.md/README.en.md 版本标记、CHANGELOG 新条目
+# 2) 本地检查
+npm run check
+# 3) 提交 + 打 tag + 推送
+git add -A && git commit -m "feat: X.Y.Z — ..."
+git tag vX.Y.Z
+git push origin main && git push origin vX.Y.Z
+# 4) 等 release workflow 绿（自动 npm OIDC 发布 + GitHub Release）
+gh run watch
+gh release view vX.Y.Z
+```
+
+### 本机安装冒烟（隔离 profile，不碰生产 GUI）
+```bash
+# 已用 mvp/home-market 做过一次：dsh plugin add dsh-data-cleaning-agent@0.3.0
+export DSH_HOME="$PWD/mvp/home-market"
+dsh plugin --profile web add dsh-data-cleaning-agent@0.3.0
+# 清理旧 @qcc 残留、bundle 名改为 dsh-data-cleaning-agent 后：
+DSH_HOME="$DSH_HOME" dsh web --port 43136 --no-open &
+# seam 报告应含：enrichSkillRegistered:true, skillRegistered:true, 3 工具, webMounted:true
+curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/api/mvp/seam
+```
+> 2026-09-01 实测：npm 包 0.3.0 在隔离 home 安装、启动、seam、parse/clean/complete/profile/jobs 全 PASS，
+> `enrichSkillRegistered:true` 确认企业补全 Skill 已在真实 host 注册。
+
+---
+
+## 9. 给接手的「第一优先」建议
+
+1. **先补 G3（市场收录 PR）**：这是"走插件市场下载安装"能被用户搜到的唯一缺口，材料已齐，只差 PR。
+2. **再开 Spike #7（方案 B 可程序化调用的可行性验证）**：直接决定 0.5.0 的工程量与排期。
+3. 然后按 0.4.0 → 0.5.0 → 0.6.0 顺序扩展 Skill 字段面（材料都在 `QCC-PHASES-ROADMAP.md`）。
+4. 每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
+
+---
+
+*本文档与代码同步生成；若代码库有更新，以仓库内 `docs/PLAN-OSS.md`、`docs/QCC-PHASES-ROADMAP.md`、`CHANGELOG.md` 为准。*
