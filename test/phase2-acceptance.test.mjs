@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
 import test from 'node:test';
 
 import {
@@ -158,12 +159,13 @@ test('验收报告不携带输入字段值', async () => {
 
 test('报告覆盖写后仍强制 0600 权限', async () => {
   const calls = [];
-  const target = await writePhase2AcceptanceReport('/tmp/phase2-report.json', { passed: true }, {
+  const output = 'phase2-report.json';
+  const target = await writePhase2AcceptanceReport(output, { passed: true }, {
     mkdirImpl: async (_path, options) => calls.push(['mkdir', options]),
     writeFileImpl: async (_path, _body, options) => calls.push(['write', options]),
     chmodImpl: async (_path, mode) => calls.push(['chmod', mode]),
   });
-  assert.equal(target, '/tmp/phase2-report.json');
+  assert.equal(target, resolve(output));
   assert.equal(calls[1][1].mode, 0o600);
   assert.equal(calls[2][1], 0o600);
 });
