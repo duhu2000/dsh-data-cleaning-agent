@@ -1,0 +1,13 @@
+{
+  "headers": ["name"],
+  "nameField": "name",
+  "includeRisk": false,
+  "concurrency": 1,
+  "rows": [
+    { "name": "测试甲企业" },
+    { "name": "测试多候选企业" },
+    { "name": "测试未匹配企业" }
+  ],
+  "selections": [],
+  "retryCompanyNames": []
+}

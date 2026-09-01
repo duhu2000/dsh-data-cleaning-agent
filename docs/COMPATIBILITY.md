@@ -46,7 +46,8 @@
 - 若 qcc-dsh-mcp-oauth 未安装或未授权，`enterprise-enrichment` Skill 的第一步
   `qcc_oauth_status` 即会中断并引导用户先连接，不会假装补全。
 - G5 Host Bridge 不读取 grant/token，也不访问 mcp-client 私有 client；只经共享 `ctx.tools`
-  调用动态注册的 `mcp__qcc-*` 工具。Mock/Contract 已通过，真实 OAuth 刷新与 QCC E2E 尚未验收。
+  调用动态注册的 `mcp__qcc-*` 工具。G5-2 增加幂等、候选续跑、人工重试与安全审计；
+  run 明细仅驻留 Host 内存。Mock/Contract 已通过，真实 OAuth 刷新与 QCC E2E 尚未验收。
 
 ## 5. 已知限制
 
@@ -54,4 +55,4 @@
 - web 半区仅 web 组合可用；headless 组合自动跳过（工具与 Skill 仍注册）。
 - XLSX 解析依赖 `xlsx`（懒加载），缺失时返回 `XLSX_UNAVAILABLE` 而非崩溃。
 - `/data-cleaning/api/g5/enrich` 当前为 Unreleased 能力，单批上限 100 行、并发上限 4，
-  且必须显式 `confirmPaidCalls:true`；未完成真实 E2E 前不作生产可用承诺。
+  且必须显式 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；未完成真实 E2E 前不作生产可用承诺。

@@ -209,7 +209,8 @@ content:
 
 - 方案 A 不改 `lib/`（最多可选加 `data_rows_to_csv` 工具）。
 - 方案 B 已新增 `lib/qcc.js`：Spike #7 双基线证明公共 `ctx.tools.execute()` 可程序化调度动态
-  MCP 工具；G5-1 Mock/Contract 已通过。禁止访问 mcp-client 私有 client，真实 OAuth/刷新/QCC
+  MCP 工具；G5-2 幂等、候选续跑、人工重试与安全 Runner 的 Mock/Contract 已通过。
+  禁止访问 mcp-client 私有 client，真实 OAuth/刷新/QCC
   调用仍须完成 E2E 验收。
 - 两者**共享**：§5 字段契约、§6 消歧策略、§7 未连接引导。方案 B 落地时直接复用，
   不重定义契约。

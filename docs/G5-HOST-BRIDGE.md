@@ -1,7 +1,7 @@
 # G5 Host Bridge：方案 B 批量补全基础层
 
 - 日期：2026-09-01
-- 状态：**G5-1 已实现并通过 Mock/Contract 测试；真实 E2E 待验收**
+- 状态：**G5-2.1～G5-2.5 已实现并通过 Mock/Contract 测试；真实 E2E 待验收**
 - 发布状态：`main` 的 Unreleased 变更，尚未发布 npm 新版本
 - 决策依据：`docs/adr/0002-programmatic-mcp-tool-execution.md`
 
@@ -37,6 +37,7 @@
 `GET /data-cleaning/api/g5/capabilities`
 
 只检查工具是否注册，不调用 OAuth 或任何计费 QCC 工具。返回 Bridge marker、连接态推断和批量限制。
+同时声明 `idempotencyRequired / candidateResume / manualRetry`，run 状态仅为 `host-memory`。
 
 ### 批量补全
 
@@ -44,6 +45,7 @@
 
 ```json
 {
+  "idempotencyKey": "client-generated-unique-key",
   "confirmPaidCalls": true,
   "rows": [{ "name": "示例企业" }],
   "headers": ["name"],
@@ -56,14 +58,43 @@
 约束：
 
 - `confirmPaidCalls` 必须严格为 `true`，否则在任何工具调用前返回 `QCC_CONFIRM_REQUIRED`。
+- `idempotencyKey` 必填；相同键与相同请求复用首个结果，不重复调用工具；同键不同请求返回冲突。
 - 单批最多 100 行，并发范围 1–4；重复企业只检索一次。
 - 响应包含 `summary / reviewQueue / errors / rows / csv`；完整明细不得转发给模型。
-- 多候选不会自动取第一项。未来 UI 应让用户明确选择后，再用独立“确认候选”请求续跑。
+- 多候选不会自动取第一项；响应提供 `runId`，状态为 `awaiting-review`。
+
+### 候选确认、人工重试与 run 查询
+
+- `POST /data-cleaning/api/g5/resolve`：传入 `runId / companyName / selectedCreditNo / idempotencyKey / confirmPaidCalls:true`。信用代码必须存在于该公司的待复核候选列表；成功后直接调用工商详情和可选风险，不重复实体检索。
+- `POST /data-cleaning/api/g5/retry`：传入 `runId / companyNames / idempotencyKey / confirmPaidCalls:true`。只允许重试错误队列中 `retryable:true` 的企业，且不会自动触发。
+- `GET /data-cleaning/api/g5/run/<runId>`：读取当前同源 run 状态，不调用 QCC 工具。
+
+run 状态为 `awaiting-review / needs-retry / completed-with-errors / completed`。明细、候选和幂等结果仅保存在 Host 内存，默认 TTL 30 分钟、最多 50 个 run；Host 重启后失效。
+
+## 错误分类与安全审计
+
+Host Bridge 把上游错误归一为稳定错误码：
+
+- 401/Token 失效 → `QCC_AUTH_REQUIRED`
+- 403/资源域未授权 → `QCC_PERMISSION_DENIED`
+- 429 → `QCC_RATE_LIMITED`
+- 配额不足 → `QCC_QUOTA_EXHAUSTED`
+- 超时 → `QCC_TIMEOUT`
+- 工具刷新消失 → `QCC_TOOL_UNAVAILABLE`
+- 5xx/连接故障 → `QCC_UPSTREAM_UNAVAILABLE`
+- 参数契约拒绝 → `QCC_UPSTREAM_REJECTED`
+
+错误响应不复述上游原始 message。每次物理工具调用只记录 toolName、callId、attempt、结果、稳定错误码和耗时；不记录参数、企业名或工具响应。
+
+## E2E Runner
+
+`scripts/g5-e2e.mjs` 默认关闭、仅允许回环 DSH Host；真实 enrich 还要求独立的付费确认变量。报告只包含脱敏摘要，详见 `docs/G5-E2E-RUNBOOK.md`。
 
 ## 已通过的 Mock/Contract 门
 
-- Bridge 单元测试 14 项：允许列表、每次解析、唯一 call ID、动态工具恢复、取消、超时、错误归一化、响应解码、消歧、字段映射、去重批量、部分失败、未连接和批量上限。
-- Web 集成测试 3 项：capabilities 被动探测、未确认计费阻断、Mock ToolRuntime 补全并导出 CSV。
+- Bridge 单元测试覆盖允许列表、每次解析、唯一 call ID、动态工具恢复、取消、超时、细分错误归一化、安全审计、响应解码、消歧、字段映射、锁定候选、去重批量、部分失败、未连接和批量上限。
+- Run/Web 测试覆盖并发幂等、同键冲突、候选合法性、续跑、人工重试、状态过期、capabilities、确认门和 CSV。
+- Runner/脱敏测试覆盖默认关闭、回环限制、付费确认、摘要报告及凭据/企业标识清洗。
 - 测试夹具只使用虚构企业与虚构信用代码，不含真实 token 或业务数据。
 
 ## DSH rc.2 隔离 Host 冒烟
@@ -75,6 +106,14 @@
 - 未传 `confirmPaidCalls:true` 的补全请求返回 `409 QCC_CONFIRM_REQUIRED`，证明计费确认门在工具调用前生效。
 - 显式确认后，因隔离 Host 未安装 QCC 动态工具而返回 `503 QCC_NOT_CONNECTED`，没有真实 OAuth、token 刷新或 QCC 请求。
 - 测试 Host 已停止；生产 GUI 端口 `43120` 未触碰。
+
+G5-2 在同日将更新后的 27 文件 tarball 安装到隔离 Profile，并在端口 `43141` 追加验证：
+
+- capabilities 返回 `idempotencyRequired:true / candidateResume:true / manualRetry:true / runPersistence:host-memory`。
+- 已确认计费但缺少幂等键时返回 `400 QCC_IDEMPOTENCY_REQUIRED`，零 QCC 工具调用。
+- 带合法幂等键时，由于隔离 Host 未安装 OAuth/QCC 工具，安全返回 `503 QCC_NOT_CONNECTED`。
+- `G5_E2E_MODE=preflight` Runner 成功生成权限 `0600` 的脱敏报告，只含 capabilities 摘要。
+- 测试 Host 已停止；没有安装 QCC OAuth、没有真实 QCC 调用，生产端口 `43120` 未触碰。
 
 ## 真实 E2E 验收门（尚未执行）
 

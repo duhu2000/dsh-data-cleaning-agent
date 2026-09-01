@@ -66,10 +66,12 @@ Besides local deterministic completion, the plugin supports Qichacha MCP enterpr
   `qcc-dsh-mcp-oauth`, the Skill guides the model to call
   `mcp__qcc-company__get_company_by_query` / `mcp__qcc-company__get_company_registration_info`
   per company name and feed the fresh registration data back into the completion tool.
-- **Plan B (programmatic, Unreleased)**: `lib/qcc.js` now implements a Host Bridge through the
-  public `ctx.tools.execute()` runtime and passes a Mock batch loop. Real OAuth, token refresh,
-  and QCC calls remain release-blocking E2E gates. The Web endpoint requires explicit paid-call
-  confirmation and never auto-selects an ambiguous candidate.
+- **Plan B (programmatic, Unreleased)**: the Host Bridge now supports batch enrichment,
+  idempotency, explicit candidate-resolution resume, manual retry of retryable failures, and
+  metadata-only auditing through the public `ctx.tools.execute()` runtime. Paid endpoints require
+  both `confirmPaidCalls:true` and a unique `idempotencyKey`; ambiguous candidates are never
+  auto-selected. A loopback-only, fail-closed E2E runner is ready, while real OAuth, token refresh,
+  and QCC calls remain release-blocking gates.
 
 See [docs/PLAN-OSS.md](docs/PLAN-OSS.md) for details.
 
@@ -86,6 +88,8 @@ npm run check
 
 `npm run check` runs lint, documentation version consistency, pack whitelist verification and
 unit tests.
+Real G5 validation must be enabled explicitly according to
+[the E2E runbook](docs/G5-E2E-RUNBOOK.md); `npm run e2e:g5` refuses to run by default.
 
 ## Configuration
 

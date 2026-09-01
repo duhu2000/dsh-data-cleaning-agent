@@ -55,14 +55,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - 不重造 OAuth；工具面来自 `qcc-dsh-mcp-oauth`。
 - 逐企业调用，适合中小名单（几十条以内）。
 
-### 3.3 QCC 后台批量 Host Bridge（Unreleased / G5-1）
+### 3.3 QCC 后台批量 Host Bridge（Unreleased / G5-2）
 
 源码 `main` 已提供 `/data-cleaning/api/g5/capabilities`（只读能力探测）和
 `/data-cleaning/api/g5/enrich`（同源批量补全）基础层。它按企业名去重调用、只对唯一精确主体继续补全，
 多候选进入人工确认队列，模型不接触完整明细。
 
 这是尚未发布的新能力：真实 OAuth、token 自动刷新和真实 QCC 调用还未完成 E2E 验收。
-调用批量端点必须由 UI 在用户确认后发送 `confirmPaidCalls:true`；未确认时不会产生任何 QCC 调用。
+调用批量端点必须由 UI 在用户确认后同时发送 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；
+未确认或缺少幂等键时不会产生任何 QCC 调用。
+
+初次请求返回 `runId`：多候选进入 `awaiting-review`，只能通过 `/g5/resolve` 选择返回候选中的
+信用代码后续跑；retryable 失败只能由用户通过 `/g5/retry` 显式重试。run 仅在 Host 内存保留
+30 分钟，Host 重启后失效，不把原始企业行持久化落盘。
 
 ## 4. 数据边界
 
@@ -84,5 +89,5 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - **Q：能接企查查补全企业信息吗？** A：可以。先安装并连接 `qcc-dsh-mcp-oauth`，再说"帮我补全这份企业名单"，会自动走
   `enterprise-enrichment` Skill（方案 A 模型中介式）。字段契约与二期规划见
   [QCC-ENRICHMENT-DESIGN.md](QCC-ENRICHMENT-DESIGN.md)。
-- **Q：可以在后台批量补全吗？** A：`main` 已有 G5-1 Host Bridge，但还未发布且未完成真实 E2E；
+- **Q：可以在后台批量补全吗？** A：`main` 已有 G5-2 Host Bridge 安全闭环，但还未发布且未完成真实 E2E；
   生产使用前需通过 `docs/G5-HOST-BRIDGE.md` 的 OAuth、刷新、计费错误和真实 QCC 验收门。

@@ -10,6 +10,10 @@
 - 同源 Web 端点 `/data-cleaning/api/g5/capabilities` 与 `/data-cleaning/api/g5/enrich`；
   计费调用前强制 `confirmPaidCalls:true`，单批最多 100 行。
 - G5 Mock/Contract 测试 17 项。真实 OAuth、token 刷新和 QCC 调用保留为发布前 E2E 验收门。
+- G5-2 安全闭环：默认关闭且仅允许回环 Host 的 E2E Runner、日志/报告脱敏、请求幂等、
+  Host 内存 run 状态、多候选人工确认续跑、retryable 失败人工重试和安全调用审计。
+- 上游错误细分为授权、权限、限流、配额、超时、工具刷新、服务不可用和契约拒绝；
+  错误响应不再复述可能包含敏感内容的上游原始 message。
 
 ## [0.3.0] - 2026-09-01
 

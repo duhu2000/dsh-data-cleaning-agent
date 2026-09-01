@@ -110,16 +110,58 @@ test('get 后遇到 UNKNOWN_TOOL 重注册竞态时只重试该安全失败', as
   assert.notEqual(tools.calls[0].callId, tools.calls[1].callId);
 });
 
-test('非 UNKNOWN_TOOL 的 isError 被归一化且不自动重试', async () => {
+test('配额错误被归一化且不自动重试', async () => {
   const tools = fakeTools({
     [QCC_TOOL_NAMES.registration]: async () => failure('quota exhausted', 'QUOTA_EXHAUSTED'),
   });
   const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
   await assert.rejects(
     bridge.call(QCC_TOOL_NAMES.registration, { searchKey: '示例企业' }),
-    (error) => error.code === 'QCC_TOOL_FAILED' && error.upstreamCode === 'QUOTA_EXHAUSTED' && !error.retryable,
+    (error) => error.code === 'QCC_QUOTA_EXHAUSTED' && error.upstreamCode === 'QUOTA_EXHAUSTED' && !error.retryable,
   );
   assert.equal(tools.calls.length, 1);
+});
+
+test('401、429、403、5xx 与非法请求映射为稳定安全错误', async () => {
+  const cases = [
+    ['401', 'QCC_AUTH_REQUIRED', true, true],
+    ['RATE_LIMITED', 'QCC_RATE_LIMITED', true, false],
+    ['FORBIDDEN', 'QCC_PERMISSION_DENIED', false, false],
+    ['503', 'QCC_UPSTREAM_UNAVAILABLE', true, false],
+    ['INVALID_ARGUMENT', 'QCC_UPSTREAM_REJECTED', false, false],
+  ];
+  for (const [upstream, expected, retryable, connectRequired] of cases) {
+    const tools = fakeTools({
+      [QCC_TOOL_NAMES.registration]: async () => failure('Bearer secret-token 企业原始名单', upstream),
+    });
+    const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
+    await assert.rejects(
+      bridge.call(QCC_TOOL_NAMES.registration, { searchKey: '示例企业' }),
+      (error) => {
+        assert.equal(error.code, expected);
+        assert.equal(error.retryable, retryable);
+        assert.equal(error.connectRequired, connectRequired);
+        assert.doesNotMatch(error.message, /secret-token|企业原始名单/);
+        return true;
+      },
+    );
+    assert.equal(tools.calls.length, 1);
+  }
+});
+
+test('调用审计只记录安全元数据，不记录参数或工具响应', async () => {
+  const tools = fakeTools({
+    [QCC_TOOL_NAMES.registration]: async () => success(mcpValue({ 统一社会信用代码: '9132SECRET' })),
+  });
+  const audit = [];
+  const bridge = new QccHostBridge({ tools, toolWaitMs: 0, callIdFactory: () => 'audit-call-1' });
+  await bridge.call(QCC_TOOL_NAMES.registration, { searchKey: '敏感企业名称' }, { onAudit: (event) => audit.push(event) });
+  assert.equal(audit.length, 1);
+  assert.deepEqual(Object.keys(audit[0]).sort(), [
+    'at', 'attempt', 'callId', 'code', 'durationMs', 'event', 'outcome', 'toolName', 'upstreamCode',
+  ]);
+  assert.equal(JSON.stringify(audit).includes('敏感企业名称'), false);
+  assert.equal(JSON.stringify(audit).includes('9132SECRET'), false);
 });
 
 test('调用方取消被归一化为 QCC_ABORTED', async () => {
@@ -186,6 +228,27 @@ test('工商字段与风险标签按 QCC 返回原文映射，不自行计算', 
       { 风险因子: '裁判文书', 条目数: '3' },
     ],
   }), '行政处罚:2；裁判文书:3');
+});
+
+test('人工锁定候选后只调用工商与可选风险，不重复实体检索', async () => {
+  const tools = fakeTools({
+    [QCC_TOOL_NAMES.entityLookup]: async () => {
+      throw new Error('should not run lookup');
+    },
+    [QCC_TOOL_NAMES.registration]: async (exec) => success(mcpValue({
+      企业名称: '候选企业一',
+      统一社会信用代码: exec.arguments.searchKey,
+      登记状态: '存续',
+    })),
+    [QCC_TOOL_NAMES.riskScan]: async () => success(mcpValue({ 风险因子扫描: [] })),
+  });
+  const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
+  const result = await bridge.enrichLockedCompany({ companyName: '候选企业一', creditNo: '9132LOCKED' }, {
+    includeRisk: true,
+  });
+  assert.equal(result.status, 'enriched');
+  assert.equal(result.fields.credit_no, '9132LOCKED');
+  assert.deepEqual(tools.calls.map((call) => call.name), [QCC_TOOL_NAMES.registration, QCC_TOOL_NAMES.riskScan]);
 });
 
 test('批量补全去重调用，精确项补全，多候选暂停，未匹配保留', async () => {

@@ -24,7 +24,7 @@
 | npm `latest` | `0.3.0`（带 OIDC provenance） |
 | GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
 | Git tags | `v0.2.1`、`v0.3.0` |
-| 工作树状态 | T0 / G3-2 / S7 已推送；G5-1 Host Bridge 本轮提交并推送后与 `origin/main` 同步 |
+| 工作树状态 | T0 / G3-2 / S7 / G5-1 已推送；G5-2.1～G5-2.5 已实现、验证并推送 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -61,14 +61,17 @@ dsh-data-cleaning-agent/
 │   ├── skill.js              # 内嵌 Skill：data-cleaning
 │   ├── skill-enrich.js       # 内嵌 Skill：enterprise-enrichment（QCC 方案 A，0.3.0 新增）
 │   ├── qcc.js                # G5 Host Bridge：公共 ToolRuntime + 批量消歧/补全
+│   ├── qcc-runs.js           # G5 Host 内存 run、幂等、候选续跑与人工重试
+│   ├── qcc-safety.js         # G5 日志/E2E 脱敏与安全审计白名单
 │   ├── jobs.js               # 异步任务状态机 + storageDomain dc_tasks_v1
 │   ├── web.js                # Host 半区路由 + UI（/data-cleaning/ 前缀）
 │   └── client.js             # Client 半区 seam（window.__ModuleLoader__.load）
-├── test/                     # 引擎 13 + 市场 7 + G5 Bridge/Web 17 例
+├── test/                     # 全部 58 例：引擎、市场、G5 Bridge/Run/Web/Safety/Runner
 ├── scripts/
 │   ├── check-marketing.mjs   # marketing/metadata.json 结构校验
 │   ├── check-readme-version.mjs  # README 版本标记同步校验
 │   ├── check-market-registration.mjs # 上游 PR → YAML → 线上目录三段市场验收
+│   ├── g5-e2e.mjs            # 默认关闭、仅回环 Host 的真实 E2E Runner
 │   └── verify-pack.mjs       # 打包内容白名单校验
 ├── marketing/metadata.json   # 市场/npm/GitHub/README 元数据（G3 市场收录用）
 ├── .github/workflows/
@@ -99,10 +102,11 @@ dsh-data-cleaning-agent/
 | `spike-7-programmatic-mcp-call.md` | 动态 MCP 工具程序化调用、取消和生命周期证词 |
 | `G3-MARKET-REGISTRATION.md` | 市场上架材料、准入门槛和自动验收状态机 |
 | `G5-HOST-BRIDGE.md` | G5-1 实现契约、安全边界与真实 E2E 验收门 |
+| `G5-E2E-RUNBOOK.md` | G5 E2E 安全门、脱敏夹具、执行命令与验收矩阵 |
 
 ---
 
-## 4. 已完成事项（G0–G4 + G5-1 基础层）
+## 4. 已完成事项（G0–G4 + G5-2 本地安全闭环）
 
 ### G0 拍板 ✅
 - 命名/scope/license/团队署名/仓库 URL 全部确定（见 §1 坐标表）。
@@ -130,13 +134,21 @@ dsh-data-cleaning-agent/
 - Web：`GET /data-cleaning/api/g5/capabilities` 与 `POST /data-cleaning/api/g5/enrich`；后者强制 `confirmPaidCalls:true`、100 行/并发 4 上限。
 - Mock/Contract 17 例全绿；真实 OAuth、token 刷新和真实 QCC 调用尚未执行，仍是 G5 E2E Gate。
 
+### G5-2.1～G5-2.5 E2E 安全准备 ✅（Unreleased）
+- `scripts/g5-e2e.mjs` 默认关闭，只允许回环 DSH Host；真实 enrich 需二次显式确认。
+- 日志/E2E 报告脱敏覆盖凭据、Bearer/JWT、OAuth 参数、企业名、信用代码、邮箱和手机号。
+- `idempotencyKey` 成为计费端点硬门；并发重复请求复用首个 Promise/结果，同键不同请求冲突。
+- Host 内存 run 支持多候选合法性校验、确认后续跑、retryable 失败人工重试和 30 分钟过期。
+- 401/403/429/配额/超时/工具刷新/5xx/契约错误细分；审计只记录工具名、callId、结果码和耗时。
+- 58 个测试全绿；真实 OAuth、token 刷新和真实 QCC 调用仍未执行。
+
 ### MVP 核心能力（沿用自 0.1.0-mvp，0.2.0 起公开）
 - 引擎：CSV/XLSX/JSON 解析、清洗（trim/手机号规范化/缺失剔除/负金额剔除/去重）、确定性补全、概览画像、CSV 回写。
 - 三工具：`data_clean_rows` / `data_complete_rows` / `data_profile`（只回摘要，不回原始行）。
 - Skill：`data-cleaning`。
 - 异步任务：`queued → running → completed | failed | killed`，持久化 `dc_tasks_v1`。
 - Web 半区：`/data-cleaning/` UI 与 `/data-cleaning/api/mvp/*`（seam/parse/clean/complete/profile/jobs/job/<id>）。
-- 全部 37 例：引擎 13、G3 市场状态机 7、G5 Bridge 14、G5 Web 3。
+- 全部 58 例：引擎 13、G3 市场状态机 7、G5 Bridge 17、G5 Run 7、G5 Safety 3、G5 Runner 5、G5 Web 6。
 
 ---
 
@@ -150,9 +162,10 @@ dsh-data-cleaning-agent/
 - **PR 后配置**：把编号写入仓库变量 `DSH_MARKET_PR_NUMBER`，自动追踪合并及目录同步。
 - **验收**：市场可搜索 + 一键安装成功。
 
-### P0 —— 方案 B 批量后端（G5-1 已实现；真实 E2E 待做）
+### P0 —— 方案 B 批量后端（G5-2.1～G5-2.5 已实现；真实 E2E 待做）
 - **Spike #7 结论**：rc.2 与 alpha.2 隔离 host 均通过动态 entry 创建、`ctx.tools.execute()` 调用、AbortSignal 取消、禁用/恢复四项验证。方案 B **GO**，但只能使用公共 ToolRuntime，禁止依赖 mcp-client 私有 client。详见 `docs/spike-7-programmatic-mcp-call.md` 与 ADR-0002。
-- **已完成**：Host Bridge / `lib/qcc.js`、字段映射、批量消歧、同源 Web 契约和 17 个 Mock/Contract 测试，详见 `docs/G5-HOST-BRIDGE.md`。
+- **已完成**：Host Bridge、字段映射、批量消歧、幂等、候选续跑、人工重试、脱敏审计、
+  默认关闭 E2E Runner 与 58 个全量测试，详见 `docs/G5-HOST-BRIDGE.md` 和 `docs/G5-E2E-RUNBOOK.md`。
 - **共享**：§5 字段契约、§6 消歧策略、未连接引导路径（与方案 A 一致，不重定义）。
 - **待验收**：真实 QCC 后台批量补全、token 刷新、未授权引导、401/限流/配额错误。S7/G5-1 Mock 不能替代真实验收。
 
@@ -277,12 +290,23 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
 - 冒烟进程已停止，生产端口 43120 未触碰；测试进程单独使用 `CHOKIDAR_USEPOLLING=1` 规避本机文件监听器 `EMFILE`。
 - 真实 OAuth/token/QCC 未调用；下一步必须在隔离 profile 以脱敏夹具执行 E2E Gate。
 
+### G5-2.1～G5-2.5 本地验证（2026-09-01）
+
+- `npm test`：58/58 通过。
+- `npm run e2e:g5` 在无环境门时以退出码 2 和 `G5_E2E_DISABLED` 安全拒绝，没有网络调用。
+- 针对性验证覆盖 Runner 回环限制/付费确认、凭据与企业标识脱敏、并发幂等复用、候选确认续跑、
+  retryable 失败人工重试、Host 内存 run 过期和八类稳定错误映射。
+- rc.2 隔离 Host（端口 43141）通过 27 文件 tarball 加载、capabilities 新契约、幂等键前置阻断、
+  未连接降级和 Runner preflight；报告权限为 `0600`，测试 Host 已停止，生产 43120 未触碰。
+- 本阶段没有执行真实 OAuth、token 刷新或 QCC 调用。
+
 ---
 
 ## 9. 给接手的「第一优先」建议
 
 1. **G3 等待真实准入后提交市场 PR**：材料和自动验收已齐；先积累有意义的远端提交，满足上游实时规则后再提交，并配置 `DSH_MARKET_PR_NUMBER`。
-2. **完成 G5 真实 E2E**：Host Bridge 已落地；下一步用隔离 profile 验证未授权引导、OAuth 首连、token 刷新、真实 QCC 工具和计费错误。
+2. **完成 G5 真实 E2E**：安全 Runner 已落地；下一步按 `G5-E2E-RUNBOOK.md` 在隔离 profile
+   验证未授权引导、OAuth 首连、token 刷新、真实 QCC 工具和计费错误。
 3. **并行推进 0.4.0**：按 `QCC-PHASES-ROADMAP.md` 扩展工商全景与股权穿透，保持方案 A 字段契约和消歧规则。
 4. 之后按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
 

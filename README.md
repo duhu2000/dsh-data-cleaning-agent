@@ -62,9 +62,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - **方案 A（模型中介，优先）**：用户已用 `qcc-dsh-mcp-oauth` 连接企查查后，
   Skill 引导模型对名单中每个企业名调用 `mcp__qcc-company__get_company_by_query` /
   `mcp__qcc-company__get_company_registration_info`，把返回的最新工商信息回填到补全工具。
-- **方案 B（后台程序化，Unreleased）**：`lib/qcc.js` 已通过公共 `ctx.tools.execute()` 实现
-  Host Bridge 与 Mock 批量闭环；真实 OAuth、token 刷新和 QCC 调用仍是发布前 E2E 验收门。
-  批量 Web 端点要求用户显式确认计费调用，且多候选绝不自动选择。
+- **方案 B（后台程序化，Unreleased）**：Host Bridge 已通过公共 `ctx.tools.execute()` 实现
+  批量补全、请求幂等、多候选人工确认续跑、retryable 失败人工重试与安全审计。
+  批量 Web 端点同时要求 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；多候选绝不自动选择。
+  默认关闭的本机 E2E Runner 已就绪，真实 OAuth、token 刷新和 QCC 调用仍是发布前验收门。
 
 详见 [docs/PLAN-OSS.md](docs/PLAN-OSS.md)。
 
@@ -79,6 +80,7 @@ npm run check
 ```
 
 `npm run check` 会依次执行 lint、文档版本一致性、发布包白名单校验与单元测试。
+真实 G5 验收必须按 [E2E 手册](docs/G5-E2E-RUNBOOK.md) 显式开启；默认执行 `npm run e2e:g5` 会安全拒绝。
 
 ## 配置
 
