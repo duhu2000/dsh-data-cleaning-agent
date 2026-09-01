@@ -1,0 +1,87 @@
+{
+  "name": "dsh-data-cleaning-agent",
+  "version": "0.2.0",
+  "description": "Clean, complete, and profile enterprise name lists in DeepSeek Harness — a data cleaning & completion agent plugin with local CSV/XLSX/JSON engine and optional Qichacha (QCC) MCP enrichment. Maintained by Qichacha/QCC.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "README.en.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "install.sh",
+    "marketing",
+    "docs/USER-GUIDE.md",
+    "docs/FIRST-CONTRIBUTION.md",
+    "docs/COMPATIBILITY.md"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "lint": "node --check lib/index.js && node --check lib/engine.js && node --check lib/tools.js && node --check lib/skill.js && node --check lib/jobs.js && node --check lib/web.js && node --check lib/client.js",
+    "docs:check": "node scripts/check-readme-version.mjs",
+    "marketing:check": "node scripts/check-marketing.mjs",
+    "verify-pack": "node scripts/verify-pack.mjs",
+    "check": "npm run lint && npm run docs:check && npm run marketing:check && npm run verify-pack && npm test",
+    "prepublishOnly": "npm run check"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "cordis",
+    "plugin",
+    "extension",
+    "data-cleaning",
+    "data-completion",
+    "data-profiling",
+    "data-quality",
+    "csv",
+    "xlsx",
+    "json",
+    "deduplication",
+    "enterprise-data",
+    "company-list",
+    "lead-cleaning",
+    "qichacha",
+    "qcc",
+    "mcp",
+    "ai-tools",
+    "llm-tools",
+    "ai-agents",
+    "agent-skills"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/duhu2000/dsh-data-cleaning-agent.git"
+  },
+  "homepage": "https://github.com/duhu2000/dsh-data-cleaning-agent#readme",
+  "bugs": {
+    "url": "https://github.com/duhu2000/dsh-data-cleaning-agent/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [],
+      "platform": "web"
+    }
+  }
+}

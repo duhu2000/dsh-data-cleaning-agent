@@ -1,0 +1,6 @@
+# 数据清洗补全智能体 插件（DSH Bundle patch）
+# 作为 bundle 被合入 profile 时，自动插入本插件行。
+# 插件负责 CSV/XLSX/JSON 解析、清洗/补全/画像模型工具、内嵌 Skill、任务状态机与 web UI 路由。
+- insert:
+    - id: data-cleaning-agent
+      name: 'dsh-data-cleaning-agent'

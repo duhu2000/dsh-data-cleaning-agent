@@ -1,0 +1,20 @@
+node_modules/
+.npm-cache/
+*.log
+*.tgz
+.DS_Store
+
+# 验证期产物（不进入开源仓库，保留在本机 workspace 供 verify-mvp.sh 使用）
+mvp/
+spike1/
+spike2/
+spike3/
+spike4/
+spike5/
+spike6/
+.spike3-probes/
+_archive/
+_scratch/
+
+# 参考仓库镜像（仅本机对照，不纳入本仓库）
+_refs_oss/

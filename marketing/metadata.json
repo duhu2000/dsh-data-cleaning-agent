@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "repository": "duhu2000/dsh-data-cleaning-agent",
+  "packageName": "dsh-data-cleaning-agent",
+  "npm": {
+    "description": "Clean, complete, and profile enterprise name lists in DeepSeek Harness — a data cleaning & completion agent plugin with a local CSV/XLSX/JSON engine and optional Qichacha (QCC) MCP enrichment. Maintained by Qichacha/QCC.",
+    "requiredKeywords": [
+      "deepseek-harness",
+      "deepseek",
+      "harness",
+      "dsh",
+      "dsh-plugin",
+      "cordis",
+      "plugin",
+      "extension",
+      "data-cleaning",
+      "data-completion",
+      "data-profiling",
+      "data-quality",
+      "csv",
+      "xlsx",
+      "json",
+      "deduplication",
+      "enterprise-data",
+      "company-list",
+      "lead-cleaning",
+      "qichacha",
+      "qcc",
+      "mcp",
+      "ai-tools",
+      "llm-tools",
+      "ai-agents",
+      "agent-skills"
+    ]
+  },
+  "github": {
+    "description": "DeepSeek Harness 数据清洗补全智能体插件：清洗、补全、画像企业名单数据，本地 CSV/XLSX/JSON 引擎 + 可选企查查 MCP 企业数据补全。由企查查（Qichacha/QCC）团队发起维护。A data cleaning & completion agent plugin for DeepSeek Harness.",
+    "topics": [
+      "deepseek-harness",
+      "deepseek",
+      "harness",
+      "dsh",
+      "dsh-plugin",
+      "cordis",
+      "plugin",
+      "extension",
+      "data-cleaning",
+      "data-completion",
+      "data-profiling",
+      "data-quality",
+      "csv",
+      "xlsx",
+      "json",
+      "deduplication",
+      "enterprise-data",
+      "company-list",
+      "lead-cleaning",
+      "qichacha",
+      "qcc",
+      "mcp",
+      "ai-tools",
+      "llm-tools",
+      "ai-agents",
+      "agent-skills"
+    ]
+  },
+  "readme": {
+    "heroZh": "> 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查 MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护",
+    "heroEn": "> A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment, initiated and maintained by the Qichacha (QCC) team",
+    "ctaZh": "如果它帮你更快地清洗企业名单数据，欢迎 [GitHub 点个 Star](https://github.com/duhu2000/dsh-data-cleaning-agent/stargazers)、[提交 Issue](https://github.com/duhu2000/dsh-data-cleaning-agent/issues)或[参与贡献](CONTRIBUTING.md)。",
+    "ctaEn": "If the plugin helps you clean company lists faster, consider [starring the repository](https://github.com/duhu2000/dsh-data-cleaning-agent/stargazers), [filing an issue](https://github.com/duhu2000/dsh-data-cleaning-agent/issues), or [contributing a fix](CONTRIBUTING.md)."
+  },
+  "externalListing": {
+    "en": "Data cleaning & completion agent plugin for DeepSeek Harness with a local CSV/XLSX/JSON engine (clean / complete / profile / deduplicate), built-in Skill, async job state machine, and optional Qichacha (QCC) MCP enterprise-data enrichment.",
+    "zh": "DeepSeek Harness 数据清洗补全智能体插件：本地 CSV/XLSX/JSON 引擎（清洗/补全/画像/去重）、内嵌 Skill、异步任务状态机，可选企查查 MCP 企业数据补全。"
+  },
+  "links": {
+    "repository": "https://github.com/duhu2000/dsh-data-cleaning-agent",
+    "stars": "https://github.com/duhu2000/dsh-data-cleaning-agent/stargazers",
+    "issues": "https://github.com/duhu2000/dsh-data-cleaning-agent/issues",
+    "firstIssues": "https://github.com/duhu2000/dsh-data-cleaning-agent/labels/good%20first%20issue",
+    "contributing": "https://github.com/duhu2000/dsh-data-cleaning-agent/blob/main/CONTRIBUTING.md"
+  }
+}
