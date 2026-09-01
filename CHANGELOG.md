@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Added
+- G5-1 QCC Host Bridge（`lib/qcc.js`）：通过公共 `ctx.tools.execute()` 程序化调用动态 MCP 工具，
+  支持允许列表、超时/取消、OAuth 重注册窗口、企业去重批处理、多候选暂停与部分失败隔离。
+- 同源 Web 端点 `/data-cleaning/api/g5/capabilities` 与 `/data-cleaning/api/g5/enrich`；
+  计费调用前强制 `confirmPaidCalls:true`，单批最多 100 行。
+- G5 Mock/Contract 测试 17 项。真实 OAuth、token 刷新和 QCC 调用保留为发布前 E2E 验收门。
+
 ## [0.3.0] - 2026-09-01
 
 > 企查查 MCP 接入 · 方案 A（模型中介式企业名单补全）首个版本。

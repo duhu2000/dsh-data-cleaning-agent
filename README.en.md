@@ -55,19 +55,21 @@ Or let an agent install it for you:
 | Async jobs | web `/data-cleaning/api/mvp/jobs` | job state machine + persistent storage |
 | UI | web `/data-cleaning/` | upload → clean/complete → export |
 | Skill | `data-cleaning` | guides the model through the workflow |
-| QCC enrichment | (planned, see below) | backfill list with Qichacha MCP enterprise data |
+| QCC Skill enrichment | `enterprise-enrichment` | 0.3.0: model-mediated entity resolution and registration/risk enrichment |
+| QCC Host Bridge | web `/data-cleaning/api/g5/*` | Unreleased: batch foundation; real OAuth/QCC E2E is still pending |
 
-## Qichacha MCP enrichment (roadmap)
+## Qichacha MCP enrichment (status and roadmap)
 
-Besides local deterministic completion, the plugin will (in later releases) enrich lists with
-Qichacha MCP enterprise data:
+Besides local deterministic completion, the plugin supports Qichacha MCP enterprise-data enrichment:
 
 - **Plan A (model-mediated, first)**: after the user connects Qichacha with
   `qcc-dsh-mcp-oauth`, the Skill guides the model to call
   `mcp__qcc-company__get_company_by_query` / `mcp__qcc-company__get_company_registration_info`
   per company name and feed the fresh registration data back into the completion tool.
-- **Plan B (programmatic, later)**: `lib/qcc.js` calls Qichacha MCP tools directly in the host
-  half and batch-completes; the model sees only the final summary.
+- **Plan B (programmatic, Unreleased)**: `lib/qcc.js` now implements a Host Bridge through the
+  public `ctx.tools.execute()` runtime and passes a Mock batch loop. Real OAuth, token refresh,
+  and QCC calls remain release-blocking E2E gates. The Web endpoint requires explicit paid-call
+  confirmation and never auto-selects an ambiguous candidate.
 
 See [docs/PLAN-OSS.md](docs/PLAN-OSS.md) for details.
 

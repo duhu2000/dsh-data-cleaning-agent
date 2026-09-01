@@ -24,7 +24,7 @@
 | npm `latest` | `0.3.0`（带 OIDC provenance） |
 | GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
 | Git tags | `v0.2.1`、`v0.3.0` |
-| 工作树状态 | T0 / G3-2 / S7 已形成本地提交（相对 `origin/main` ahead 3）；**未 push**，外部状态仍以远端为准 |
+| 工作树状态 | T0 / G3-2 / S7 已推送；G5-1 Host Bridge 本轮提交并推送后与 `origin/main` 同步 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -60,10 +60,11 @@ dsh-data-cleaning-agent/
 │   ├── tools.js              # data_clean_rows / data_complete_rows / data_profile
 │   ├── skill.js              # 内嵌 Skill：data-cleaning
 │   ├── skill-enrich.js       # 内嵌 Skill：enterprise-enrichment（QCC 方案 A，0.3.0 新增）
+│   ├── qcc.js                # G5 Host Bridge：公共 ToolRuntime + 批量消歧/补全
 │   ├── jobs.js               # 异步任务状态机 + storageDomain dc_tasks_v1
 │   ├── web.js                # Host 半区路由 + UI（/data-cleaning/ 前缀）
 │   └── client.js             # Client 半区 seam（window.__ModuleLoader__.load）
-├── test/engine.test.js       # 引擎单测 13 例
+├── test/                     # 引擎 13 + 市场 7 + G5 Bridge/Web 17 例
 ├── scripts/
 │   ├── check-marketing.mjs   # marketing/metadata.json 结构校验
 │   ├── check-readme-version.mjs  # README 版本标记同步校验
@@ -97,10 +98,11 @@ dsh-data-cleaning-agent/
 | `spike-1~6-*.md` | 六个技术 Spike 结论 |
 | `spike-7-programmatic-mcp-call.md` | 动态 MCP 工具程序化调用、取消和生命周期证词 |
 | `G3-MARKET-REGISTRATION.md` | 市场上架材料、准入门槛和自动验收状态机 |
+| `G5-HOST-BRIDGE.md` | G5-1 实现契约、安全边界与真实 E2E 验收门 |
 
 ---
 
-## 4. 已完成事项（G0–G4 全部落地）
+## 4. 已完成事项（G0–G4 + G5-1 基础层）
 
 ### G0 拍板 ✅
 - 命名/scope/license/团队署名/仓库 URL 全部确定（见 §1 坐标表）。
@@ -121,13 +123,20 @@ dsh-data-cleaning-agent/
 - v1 字段契约：`credit_no / legal_rep / reg_capital / establish_date / reg_status / biz_status / risk_tags`。
 - `lib/index.js` 同时注册 `registerSkill`（data-cleaning）与 `registerEnrichSkill`（enterprise-enrichment）。
 
+### G5-1 企查查 Host Bridge（方案 B 基础层）✅（Unreleased）
+- `lib/qcc.js` 只经公共 `ctx.tools.get/execute` 调用动态 QCC MCP 工具，不接触 token 或私有 client。
+- 每调用重新解析工具；OAuth 重注册竞态只对 `UNKNOWN_TOOL` 安全重试一次；其余错误不自动重试，避免重复计费。
+- 企业名去重批处理、唯一主体锁定、多候选 `reviewQueue`、未匹配/部分失败、取消/超时已落地。
+- Web：`GET /data-cleaning/api/g5/capabilities` 与 `POST /data-cleaning/api/g5/enrich`；后者强制 `confirmPaidCalls:true`、100 行/并发 4 上限。
+- Mock/Contract 17 例全绿；真实 OAuth、token 刷新和真实 QCC 调用尚未执行，仍是 G5 E2E Gate。
+
 ### MVP 核心能力（沿用自 0.1.0-mvp，0.2.0 起公开）
 - 引擎：CSV/XLSX/JSON 解析、清洗（trim/手机号规范化/缺失剔除/负金额剔除/去重）、确定性补全、概览画像、CSV 回写。
 - 三工具：`data_clean_rows` / `data_complete_rows` / `data_profile`（只回摘要，不回原始行）。
 - Skill：`data-cleaning`。
 - 异步任务：`queued → running → completed | failed | killed`，持久化 `dc_tasks_v1`。
 - Web 半区：`/data-cleaning/` UI 与 `/data-cleaning/api/mvp/*`（seam/parse/clean/complete/profile/jobs/job/<id>）。
-- 引擎单测 13 例全绿；G3 市场验收状态机单测 7 例全绿。
+- 全部 37 例：引擎 13、G3 市场状态机 7、G5 Bridge 14、G5 Web 3。
 
 ---
 
@@ -136,16 +145,16 @@ dsh-data-cleaning-agent/
 ### P0 —— 让插件出现在「视觉插件市场」（G3，进行中：G3-2 已完成）
 - **现状**：dshmarket（视觉市场）只安装 curated registry 条目，来源
   `https://awesome-dsh-plugin.com/plugins.json`（当前 2777 条）；**本插件尚未被收录**（hitCount=0）。
-- **已完成（本地）**：提交 YAML 材料已固化；新增 `market:check`、上游 PR→YAML→线上目录三段检查、每小时 workflow 和 7 例状态机测试，详见 `docs/G3-MARKET-REGISTRATION.md`。
-- **外部待办**：向 `awesome-dsh-plugin` 提交 PR。当前上游新增了“仓库至少 1 天且至少 10 个 commit”等准入规则；外部验收以远端可见历史为准，本轮未 push，禁止用空提交凑数。
+- **已完成并推送**：提交 YAML 材料已固化；新增 `market:check`、上游 PR→YAML→线上目录三段检查、每小时 workflow 和 7 例状态机测试，详见 `docs/G3-MARKET-REGISTRATION.md`。
+- **外部待办**：向 `awesome-dsh-plugin` 提交 PR。当前上游新增了“仓库至少 1 天且至少 10 个 commit”等准入规则；G5-1 推送后远端为 7 个 commit，仍未达门槛，禁止用空提交凑数。
 - **PR 后配置**：把编号写入仓库变量 `DSH_MARKET_PR_NUMBER`，自动追踪合并及目录同步。
 - **验收**：市场可搜索 + 一键安装成功。
 
-### P0 —— 方案 B 批量后端（G5，Spike #7 已 PASS；实现待做）
+### P0 —— 方案 B 批量后端（G5-1 已实现；真实 E2E 待做）
 - **Spike #7 结论**：rc.2 与 alpha.2 隔离 host 均通过动态 entry 创建、`ctx.tools.execute()` 调用、AbortSignal 取消、禁用/恢复四项验证。方案 B **GO**，但只能使用公共 ToolRuntime，禁止依赖 mcp-client 私有 client。详见 `docs/spike-7-programmatic-mcp-call.md` 与 ADR-0002。
-- **要做**：实现 Host Bridge / `lib/qcc.js` 后台批量补全（批量快、不占模型上下文）；每次调用重新解析工具、传递唯一 callId 与取消信号、处理 `isError` 和工具重注册空窗。
+- **已完成**：Host Bridge / `lib/qcc.js`、字段映射、批量消歧、同源 Web 契约和 17 个 Mock/Contract 测试，详见 `docs/G5-HOST-BRIDGE.md`。
 - **共享**：§5 字段契约、§6 消歧策略、未连接引导路径（与方案 A 一致，不重定义）。
-- **验收**：真实 QCC 后台批量补全端到端通过、token 刷新正确、未授权引导正确。S7 只使用本地 Mock MCP，不能替代这些真实验收。
+- **待验收**：真实 QCC 后台批量补全、token 刷新、未授权引导、401/限流/配额错误。S7/G5-1 Mock 不能替代真实验收。
 
 ### P1 —— 二期 0.4.0（工商全景 + 股权穿透，Skill 扩展）
 - 覆盖 `mcp__qcc-company__*` 16 工具 + 历史工商：实控人、受益所有人、股东、对外投资、分支机构、
@@ -256,16 +265,24 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
 
 ### T0 / G3-2 / S7 本地验证（2026-09-01）
 
-- T0：接手前 `npm run check` 全绿；`HANDOFF.md` 已作为独立基线提交 `48641de`，未 push。
+- T0：接手前 `npm run check` 全绿；`HANDOFF.md` 基线提交 `48641de` 已推送。
 - G3-2：`npm run market:check` 在无 PR 号时返回 `not-submitted`（等待态，不误报失败）；7 个状态机单测通过。
 - S7：rc.2（隔离端口 43138）和 alpha.2（隔离端口 43139）均通过 seam / execute / cancel / lifecycle；两个测试 host 已停止，生产 43120 未触碰。
+
+### G5-1 Host Bridge 验证（2026-09-01）
+
+- `lib/qcc.js` + `/data-cleaning/api/g5/*` 已实现，17 个 Mock/Contract 测试全绿。
+- 测试覆盖未确认计费零调用、多候选不下钻、重复企业去重、部分失败、取消/超时和动态重注册。
+- rc.2 隔离 Host（端口 43140）已通过插件加载、MVP seam 和 G5 未连接态路由冒烟：`qccBridgeMounted:true`；未确认返回 `409 QCC_CONFIRM_REQUIRED`，确认后因无 QCC 工具返回 `503 QCC_NOT_CONNECTED`。
+- 冒烟进程已停止，生产端口 43120 未触碰；测试进程单独使用 `CHOKIDAR_USEPOLLING=1` 规避本机文件监听器 `EMFILE`。
+- 真实 OAuth/token/QCC 未调用；下一步必须在隔离 profile 以脱敏夹具执行 E2E Gate。
 
 ---
 
 ## 9. 给接手的「第一优先」建议
 
 1. **G3 等待真实准入后提交市场 PR**：材料和自动验收已齐；先积累有意义的远端提交，满足上游实时规则后再提交，并配置 `DSH_MARKET_PR_NUMBER`。
-2. **启动 G5 方案 B 实现**：Spike #7 已给出 GO；先落公共 `ctx.tools.execute()` Bridge，再用真实 QCC OAuth/刷新做 E2E 验收。
+2. **完成 G5 真实 E2E**：Host Bridge 已落地；下一步用隔离 profile 验证未授权引导、OAuth 首连、token 刷新、真实 QCC 工具和计费错误。
 3. **并行推进 0.4.0**：按 `QCC-PHASES-ROADMAP.md` 扩展工商全景与股权穿透，保持方案 A 字段契约和消歧规则。
 4. 之后按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
 

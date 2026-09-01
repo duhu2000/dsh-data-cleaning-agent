@@ -52,17 +52,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 异步任务 | web `/data-cleaning/api/mvp/jobs` | 任务状态机 + 持久化存储 |
 | UI | web `/data-cleaning/` | 上传 → 清洗/补全 → 导出 |
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
-| 企查查补全 | （规划中，见下文） | 用企查查 MCP 企业数据回填名单 |
+| 企查查 Skill 补全 | `enterprise-enrichment` | 0.3.0：模型中介式消歧与工商/风险字段补全 |
+| QCC Host Bridge | web `/data-cleaning/api/g5/*` | Unreleased：后台批量基础层；真实 OAuth/QCC E2E 待验收 |
 
-## 企查查 MCP 补全（路线图）
+## 企查查 MCP 补全（状态与路线图）
 
-插件同时提供本地确定性补全，以及（后续版本）接入企查查 MCP 企业数据的能力：
+插件同时提供本地确定性补全和企查查 MCP 企业数据补全：
 
 - **方案 A（模型中介，优先）**：用户已用 `qcc-dsh-mcp-oauth` 连接企查查后，
   Skill 引导模型对名单中每个企业名调用 `mcp__qcc-company__get_company_by_query` /
   `mcp__qcc-company__get_company_registration_info`，把返回的最新工商信息回填到补全工具。
-- **方案 B（后台程序化，后续）**：`lib/qcc.js` 在 host 半区直接调用企查查 MCP 工具，
-  批量补全，模型只见最终摘要。
+- **方案 B（后台程序化，Unreleased）**：`lib/qcc.js` 已通过公共 `ctx.tools.execute()` 实现
+  Host Bridge 与 Mock 批量闭环；真实 OAuth、token 刷新和 QCC 调用仍是发布前 E2E 验收门。
+  批量 Web 端点要求用户显式确认计费调用，且多候选绝不自动选择。
 
 详见 [docs/PLAN-OSS.md](docs/PLAN-OSS.md)。
 

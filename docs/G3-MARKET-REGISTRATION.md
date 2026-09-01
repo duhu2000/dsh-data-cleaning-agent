@@ -1,19 +1,19 @@
 # G3：DSH 视觉插件市场收录与自动验收
 
 - 日期：2026-09-01
-- 状态：**G3-2 本地完成；外部 PR 未提交**
+- 状态：**G3-2 已完成并推送；外部 PR 未提交**
 - 外部仓库：[`awesome-dsh-plugin/awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 - 官方提交说明：[`contributing.md`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)
 
 ## 目标与边界
 
-让 `dsh-data-cleaning-agent` 进入 DSH 视觉插件市场实际读取的 curated registry。本文只固化提交材料和可重复验收链路；本轮没有 push、没有创建外部 PR，也没有修改上游仓库。
+让 `dsh-data-cleaning-agent` 进入 DSH 视觉插件市场实际读取的 curated registry。提交材料和可重复验收链路已推送到插件仓库；尚未创建外部 PR，也没有修改上游仓库。
 
 ## 已验证事实
 
 1. 视觉市场读取 `https://awesome-dsh-plugin.com/plugins.json`；截至本次检查，其中没有精确匹配的 `dsh-data-cleaning-agent` 条目。
 2. 上游当前要求插件仓库至少存在 1 天、至少 10 个 commit、包含 `dsh.bundle`，并带 `dsh-plugin` topic；收录文件必须是单个 YAML。
-3. 本地接手前远端 `main` 有 3 个 commit；T0 + G3-2 + S7 完成本地提交后为 6 个。外部准入以远端可见历史为准，本轮没有推送，因此远端仍为 3 个，尚不满足“远端至少 10 个 commit”。不得为凑门槛制造空提交。
+3. 本地接手前远端 `main` 有 3 个 commit；T0 + G3-2 + S7 推送后为 6 个，本次 G5-1 推送后为 7 个，仍不满足“至少 10 个 commit”。不得为凑门槛制造空提交。
 4. npm `0.3.0` 已在隔离 DSH host 安装冒烟通过，`enrichSkillRegistered:true`；这证明包可用，但不等于市场已经收录。
 
 ## 上游提交材料
