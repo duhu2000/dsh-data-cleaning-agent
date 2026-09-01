@@ -128,6 +128,22 @@ function harness() {
   return { routes, calls, report, dispose };
 }
 
+test('MVP 页面粘贴 CSV 后的清洗操作复用解析接口', async () => {
+  const app = harness();
+  const res = responseRecorder();
+  await app.routes.get('/data-cleaning/')(
+    request({ url: '/data-cleaning/' }),
+    res,
+  );
+  assert.equal(res.status, 200);
+  assert.match(res.body, /content\.startsWith\('\['\)/);
+  assert.match(
+    res.body,
+    /call\('\/data-cleaning\/api\/mvp\/parse', \{ filename: 'data\.csv', content \}\)/,
+  );
+  app.dispose();
+});
+
 test('G5 capabilities 路由被挂载且只做被动工具探测', async () => {
   const app = harness();
   const res = responseRecorder();

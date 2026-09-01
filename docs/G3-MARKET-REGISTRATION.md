@@ -41,6 +41,7 @@ description:
 - `scripts/check-market-registration.mjs`：依次检查上游 PR、上游 YAML、线上 `plugins.json`。
 - `.github/workflows/market-registration.yml`：支持手动触发、主分支相关文件变更和每小时定时检查。
 - `test/market-registration.test.mjs`：覆盖地址规范化、registry 形态和完整状态机。
+- `screenshots.json`：声明市场详情页使用的实际插件 UI 截图；图片位于 `assets/screenshots/`。
 
 PR 创建后，把编号配置为仓库变量 `DSH_MARKET_PR_NUMBER`，或手动运行 workflow 时传入 `pull_request_number`。
 
