@@ -11,6 +11,9 @@
 
 > 生产 GUI（`http://127.0.0.1:43120`）不用于验证，验证一律使用隔离 `DSH_HOME` + 专用端口。
 
+2026-09-01 的 0.4.0 发布候选已分别在 rc.2（43153）和 alpha.2（43154）
+隔离 Host 完成 tarball 加载冒烟，两者均返回 `enrichSkillRegistered:true`；测试进程已停止。
+
 ## 2. Node 运行时
 
 - 本包 `engines.node` 声明 `>=20`。
@@ -35,7 +38,7 @@
 
 | | `qcc-dsh-mcp-oauth` | 本插件 |
 | --- | --- | --- |
-| 工具名前缀 | `qcc_oauth_*` + `mcp__qcc-*` | `data_clean_rows` / `data_complete_rows` / `data_profile` |
+| 工具名前缀 | `qcc_oauth_*` + 规范 `mcp__qcc-*`；0.1.7 实测为 legacy `mcp__company__*` 等 | `data_clean_rows` / `data_complete_rows` / `data_profile` |
 | Skill | — | `data-cleaning`、`enterprise-enrichment` |
 | 存储域 | 自有 grant store | `dc_tasks_v1` |
 | 能否共存 | ✅ | ✅（工具名 / Skill 名 / 存储域 / 条目 id 全独立） |
@@ -47,12 +50,21 @@
   `qcc_oauth_status` 即会中断并引导用户先连接，不会假装补全。
 - G5 Host Bridge 不读取 grant/token，也不访问 mcp-client 私有 client；只经共享 `ctx.tools`
   调用动态注册的 `mcp__qcc-*` 工具。G5-2 增加幂等、候选续跑、人工重试与安全审计；
-  run 明细仅驻留 Host 内存。Mock/Contract 已通过，真实 OAuth 刷新与 QCC E2E 尚未验收。
+  run 明细仅驻留 Host 内存。Bridge 会把 OAuth 0.1.7 的 legacy `mcp__company__*` / `mcp__history__*`
+  映射到规范名称，并在 capabilities 中同时报告两者。
+
+### 4.1 2026-09-01 rc.2 实测结论
+
+- fresh Profile 必须显式安装与 Host 同版本的 `@deepseek-ai/dsh-mcp-client@0.1.1-rc.2`；
+  仅依赖 DSH CLI 全局副本时，OAuth grant 可恢复但动态工具不会进入 Profile 的可调用工具面。
+- `qcc-dsh-mcp-oauth@0.1.7` 的 `serverName` 实际为 `company/history/...`，注册名因此不带 `qcc-`。
+  当前 Bridge 已兼容；上游修复后无需迁移证据或 Skill 规范名。
+- 真实 OAuth、跨重启恢复、16+4 工具预检及 20 企业/400 调用已通过；真实到期刷新未验证。
 
 ## 5. 已知限制
 
 - alpha.2 的 `@Remote` 契约仍可能变动，本包不对其作稳定 API 承诺。
 - web 半区仅 web 组合可用；headless 组合自动跳过（工具与 Skill 仍注册）。
 - XLSX 解析依赖 `xlsx`（懒加载），缺失时返回 `XLSX_UNAVAILABLE` 而非崩溃。
-- `/data-cleaning/api/g5/enrich` 当前为 Unreleased 能力，单批上限 100 行、并发上限 4，
-  且必须显式 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；未完成真实 E2E 前不作生产可用承诺。
+- `/data-cleaning/api/g5/enrich` 当前为 0.4.0 发布候选能力，单批上限 100 行、并发上限 4，
+  且必须显式 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；完成 token 到期刷新和故障注入前不作生产可用承诺。

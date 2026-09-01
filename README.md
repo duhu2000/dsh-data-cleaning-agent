@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前版本 / Current version: **0.3.0**
+> 当前源码版本 / Current source version: **0.4.0**（发布候选；npm `latest` 仍为 0.3.0）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -52,8 +52,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 异步任务 | web `/data-cleaning/api/mvp/jobs` | 任务状态机 + 持久化存储 |
 | UI | web `/data-cleaning/` | 上传 → 清洗/补全 → 导出 |
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
-| 企查查 Skill 补全 | `enterprise-enrichment` | 0.3.0：模型中介式消歧与工商/风险字段补全 |
-| QCC Host Bridge | web `/data-cleaning/api/g5/*` | Unreleased：后台批量基础层；真实 OAuth/QCC E2E 待验收 |
+| 企查查 Skill 补全 | `enterprise-enrichment` | 0.4.0 发布候选：工商全景、股权穿透与历史工商 |
+| 0.4.0 工具预检 | web `/data-cleaning/api/phase2/capabilities` | 只读检查 16+4 动态工具，不发起 QCC/付费调用 |
+| QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0 发布候选：后台批量基础层；真实 OAuth/QCC 主路径已验收，token 到期刷新与故障注入待验 |
 
 ## 企查查 MCP 补全（状态与路线图）
 
@@ -62,12 +63,23 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - **方案 A（模型中介，优先）**：用户已用 `qcc-dsh-mcp-oauth` 连接企查查后，
   Skill 引导模型对名单中每个企业名调用 `mcp__qcc-company__get_company_by_query` /
   `mcp__qcc-company__get_company_registration_info`，把返回的最新工商信息回填到补全工具。
-- **方案 B（后台程序化，Unreleased）**：Host Bridge 已通过公共 `ctx.tools.execute()` 实现
+  `main` 上的 0.4.0 开发切片已将 16 个工商工具和 4 个历史工商工具固化为可测契约，
+  按 `panorama` / `ownership` / `governance` / `history` 维度组按需调用；未显式选择时不会默认打满全部付费工具。
+- **方案 B（后台程序化，0.4.0 发布候选）**：Host Bridge 已通过公共 `ctx.tools.execute()` 实现
   批量补全、请求幂等、多候选人工确认续跑、retryable 失败人工重试与安全审计。
   批量 Web 端点同时要求 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；多候选绝不自动选择。
-  默认关闭的本机 E2E Runner 已就绪，真实 OAuth、token 刷新和 QCC 调用仍是发布前验收门。
+  默认关闭的本机 E2E Runner 已就绪；2026-09-01 已在隔离 rc.2 Host 完成真实 OAuth、跨重启恢复和
+  20 家公开企业的 400 次 QCC 调用。token 到期后的真实刷新及限流/配额故障注入仍是发布前验收门。
+
+`qcc-dsh-mcp-oauth@0.1.7` 在 rc.2 实测注册为 `mcp__company__*` / `mcp__history__*`；
+本插件的兼容 Bridge 会自动映射到文档规范名 `mcp__qcc-company__*` / `mcp__qcc-history__*`。
+隔离 Profile 还需显式安装与 Host 同版本的 `@deepseek-ai/dsh-mcp-client`，详见兼容性文档。
 
 详见 [docs/PLAN-OSS.md](docs/PLAN-OSS.md)。
+
+0.4.0 真实账号验收的证据格式、安全门和命令见
+[docs/PHASE2-ACCEPTANCE.md](docs/PHASE2-ACCEPTANCE.md)。
+发布范围、阻断门和回滚步骤见 [docs/RELEASE-0.4.0.md](docs/RELEASE-0.4.0.md)。
 
 ## 本地开发
 

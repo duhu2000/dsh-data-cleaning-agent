@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
 import { mountWebRoutes } from '../lib/web.js';
 import { QCC_TOOL_NAMES } from '../lib/qcc.js';
+import {
+  QCC_PHASE2_COMPANY_TOOLS,
+  QCC_PHASE2_HISTORY_TOOLS,
+} from '../lib/qcc-phase2.js';
 
 function responseRecorder() {
   return {
@@ -30,7 +34,7 @@ function request({ method = 'GET', url, body } = {}) {
   return req;
 }
 
-function harness() {
+function harness({ omitDefinitions = [] } = {}) {
   const routes = new Map();
   const calls = [];
   let retryRegistrationCalls = 0;
@@ -43,7 +47,10 @@ function harness() {
     QCC_TOOL_NAMES.entityLookup,
     QCC_TOOL_NAMES.registration,
     QCC_TOOL_NAMES.riskScan,
+    ...Object.values(QCC_PHASE2_COMPANY_TOOLS),
+    ...Object.values(QCC_PHASE2_HISTORY_TOOLS),
   ]);
+  for (const name of omitDefinitions) definitions.delete(name);
   const tools = {
     get: (name) => definitions.has(name) ? { name } : undefined,
     async execute(exec) {
@@ -157,8 +164,48 @@ test('G5 capabilities 路由被挂载且只做被动工具探测', async () => {
   assert.equal(res.json().paidCallConfirmationRequired, true);
   assert.equal(res.json().idempotencyRequired, true);
   assert.equal(res.json().candidateResume, true);
+  assert.equal(res.json().capabilities.phase2.companyReady, true);
   assert.equal(app.calls.length, 0);
   assert.equal(app.report.qccBridgeMounted, true);
+  app.dispose();
+});
+
+test('0.4.0 capabilities 预检覆盖 16+4 工具且不执行调用', async () => {
+  const app = harness();
+  const res = responseRecorder();
+  await app.routes.get('/data-cleaning/api/phase2/capabilities')(
+    request({ url: '/data-cleaning/api/phase2/capabilities' }),
+    res,
+  );
+  const payload = res.json();
+  assert.equal(res.status, 200);
+  assert.equal(payload.marker, 'qcc-phase2-capabilities');
+  assert.equal(payload.capabilities.companyRegistered, 16);
+  assert.equal(payload.capabilities.historyRegistered, 4);
+  assert.equal(payload.capabilities.companyReady, true);
+  assert.equal(payload.capabilities.historyToolsReady, true);
+  assert.equal(payload.capabilities.historyAuthorizationVerified, false);
+  assert.equal(payload.executesTools, false);
+  assert.equal(payload.paidCalls, false);
+  assert.equal(app.calls.length, 0);
+  app.dispose();
+});
+
+test('0.4.0 预检区分历史工具缺失与账号授权', async () => {
+  const missingHistoryTool = QCC_PHASE2_HISTORY_TOOLS.executives;
+  const app = harness({ omitDefinitions: [missingHistoryTool] });
+  const res = responseRecorder();
+  await app.routes.get('/data-cleaning/api/phase2/capabilities')(
+    request({ url: '/data-cleaning/api/phase2/capabilities' }),
+    res,
+  );
+  const capabilities = res.json().capabilities;
+  assert.equal(capabilities.companyReady, true);
+  assert.equal(capabilities.historyRegistered, 3);
+  assert.equal(capabilities.historyToolsReady, false);
+  assert.equal(capabilities.historyAuthorizationVerified, false);
+  assert.equal(capabilities.state, 'current-ready-history-tools-missing');
+  assert.equal(app.calls.length, 0);
   app.dispose();
 });
 

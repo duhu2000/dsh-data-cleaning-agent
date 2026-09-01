@@ -1,15 +1,15 @@
 # G5 Host Bridge：方案 B 批量补全基础层
 
 - 日期：2026-09-01
-- 状态：**G5-2.1～G5-2.5 已实现并通过 Mock/Contract 测试；真实 E2E 待验收**
-- 发布状态：`main` 的 Unreleased 变更，尚未发布 npm 新版本
+- 状态：**G5-2.1～G5-2.5 与真实 OAuth/QCC 主路径已验收；token 到期刷新与故障注入待验**
+- 发布状态：0.4.0 发布候选，尚未创建 tag 或发布 npm 新版本
 - 决策依据：`docs/adr/0002-programmatic-mcp-tool-execution.md`
 
 ## 本阶段交付
 
 `lib/qcc.js` 基于 DSH 公共 `ctx.tools.get()` / `ctx.tools.execute()` 实现 Host Bridge：
 
-1. 仅允许 `qcc_oauth_*` 与 `mcp__qcc-*__*`，拒绝任意工具代理。
+1. 仅允许 `qcc_oauth_*`、规范 `mcp__qcc-*__*` 与 OAuth 0.1.7 已验证 legacy serverName，拒绝任意工具代理。
 2. 每次调用重新解析工具，兼容 OAuth 刷新造成的注销/重注册窗口；只对 `UNKNOWN_TOOL` 做一次安全重试，其他失败不自动重试，避免重复计费。
 3. 统一 call ID、AbortSignal、超时和 ToolRuntime `isError`，错误响应不携带工具原始业务数据。
 4. 解析 MCP `structuredContent` 或 QCC 文本 JSON，复用一期字段契约。
@@ -115,14 +115,17 @@ G5-2 在同日将更新后的 27 文件 tarball 安装到隔离 Profile，并在
 - `G5_E2E_MODE=preflight` Runner 成功生成权限 `0600` 的脱敏报告，只含 capabilities 摘要。
 - 测试 Host 已停止；没有安装 QCC OAuth、没有真实 QCC 调用，生产端口 `43120` 未触碰。
 
-## 真实 E2E 验收门（尚未执行）
+## 真实 E2E 验收门
 
-以下全部通过前，G5 不能标为完成，也不能把 Host Bridge 宣称为生产可用：
+2026-09-01 已通过：OAuth PKCE 首连、授权跨重启恢复、真实 company/history 工具调用、
+20 家公开企业/400 次调用、每企业当前最低 15 维与历史 4 维、证据脱敏边界。
+
+以下剩余项通过前，G5 不能标为生产可用：
 
 1. 未授权 host：返回 `QCC_NOT_CONNECTED` 并正确引导 `qcc_oauth_connect`。
-2. 已授权 host：用脱敏名单跑真实 `get_company_by_query` 与 `get_company_registration_info`。
+2. 已授权 host：用脱敏名单跑真实 `get_company_by_query` 与 `get_company_registration_info`。✅
 3. 多候选真实响应：不发生下游工商/风险调用。
 4. token 临期刷新：刷新期间工具短暂消失后恢复，且无重复计费调用。
 5. 401/限流/配额不足/超时：错误分类、部分失败和人工重试符合契约。
 6. includeRisk：风险因子计数逐字引用，不自行加总或推断。
-7. 审计：日志、响应错误、测试证据均不泄露 token 或未脱敏原始名单。
+7. 审计：日志、响应错误、测试证据均不泄露 token 或未脱敏原始名单。✅ 主路径证据已验证

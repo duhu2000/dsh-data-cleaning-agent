@@ -4,16 +4,37 @@
 
 ## [Unreleased]
 
+> 目标版本：`0.4.0`。源码版本与发布材料已进入候选状态；`v0.4.0` tag、GitHub Release 和 npm 发布
+> 将在 token 到期刷新、401/429/配额故障门及远端 CI 全部通过后执行。
+
 ### Added
+- 0.4.0 二期第一切片：新增可测的 QCC 工商全景契约（16 个工商工具 + 4 个历史工商工具）；
+  `enterprise-enrichment` 按 `panorama` / `ownership` / `governance` / `history` 组按需调用，
+  强制来源标记、历史权限降级与付费批次约束。
+- 0.4.0 验收评估器与默认关闭的 `e2e:phase2` Runner：强制 20 企业 / 每企业 ≥15 维、
+  源工具匹配、字段原值一致、历史账号门，并显式拒绝合成证据充当真实 E2E。
+- 只读 `/data-cleaning/api/phase2/capabilities` 预检：报告 16+4 工具注册状态，
+  不调用 QCC，并将历史工具可用性与账号权限验证明确分开。
 - G5-1 QCC Host Bridge（`lib/qcc.js`）：通过公共 `ctx.tools.execute()` 程序化调用动态 MCP 工具，
   支持允许列表、超时/取消、OAuth 重注册窗口、企业去重批处理、多候选暂停与部分失败隔离。
 - 同源 Web 端点 `/data-cleaning/api/g5/capabilities` 与 `/data-cleaning/api/g5/enrich`；
   计费调用前强制 `confirmPaidCalls:true`，单批最多 100 行。
-- G5 Mock/Contract 测试 17 项。真实 OAuth、token 刷新和 QCC 调用保留为发布前 E2E 验收门。
+- G5 Mock/Contract 测试已覆盖主路径；真实 OAuth/QCC 主路径已于本轮验收，token 到期刷新与故障注入保留为发布前门。
 - G5-2 安全闭环：默认关闭且仅允许回环 Host 的 E2E Runner、日志/报告脱敏、请求幂等、
   Host 内存 run 状态、多候选人工确认续跑、retryable 失败人工重试和安全调用审计。
 - 上游错误细分为授权、权限、限流、配额、超时、工具刷新、服务不可用和契约拒绝；
   错误响应不再复述可能包含敏感内容的上游原始 message。
+
+### Changed
+- QCC Host Bridge 兼容 `qcc-dsh-mcp-oauth@0.1.7` 实测注册的
+  `mcp__company__*` / `mcp__history__*` legacy serverName，同时保留
+  `mcp__qcc-company__*` / `mcp__qcc-history__*` 作为规范名称；capabilities 同时报告规范名与实际运行时名。
+
+### Verified
+- 在隔离 DSH `0.1.1-rc.2` Host 完成真实 OAuth、授权跨重启恢复与 20 家公开企业的 400 次 QCC 调用；
+  严格历史域验收通过：20/20 主体已解析、每企业当前工商最低 15 维、历史工商 4 维。
+- 原始证据与脱敏报告仅保存在 Git 忽略的 `.phase2-e2e/`，权限为 `0600`；未触碰生产端口。
+- access token 到期后的真实 refresh 轮换、429/配额故障注入仍保留为发布前独立门。
 
 ## [0.3.0] - 2026-09-01
 

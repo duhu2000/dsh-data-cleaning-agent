@@ -19,6 +19,8 @@ _archive/
 _scratch/
 .g5-e2e/
 .env.g5-e2e
+.phase2-e2e/
+.env.phase2-e2e
 
 # 参考仓库镜像（仅本机对照，不纳入本仓库）
 _refs_oss/

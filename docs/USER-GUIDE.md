@@ -43,25 +43,40 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 
 先用企查查 MCP 连接插件（`qcc-dsh-mcp-oauth`）完成授权，然后对对话说：
 
-> 帮我补全这份企业名单：统一社会信用代码、法人、注册资本、成立日期、登记状态、风险标签。
+> 帮我补全这份企业名单：工商全景 + 股权穿透，不要历史工商。
 
 模型会按 `enterprise-enrichment` Skill 逐个企业调 `mcp__qcc-company__get_company_by_query`
-（消歧，多候选时停下询问）→ `get_company_registration_info`（工商详情）→
-`get_company_risk_scan`（风险标签），最后输出摘要 + Markdown 补全表。
+（消歧，多候选时停下询问）→ `get_company_registration_info`（工商详情），
+然后只调用请求的维度组：
+
+- `panorama`：企业画像、联系方式、开票、上市、财务；
+- `ownership`：实控人、受益所有人、股东和对外投资；
+- `governance`：分支机构、主要人员、变更记录和年报；
+- `history`：历史股东、法人、高管和登记信息（需企业认证账号）。
+
+如果请求没有明确维度，Skill 会先让用户选择，不默认调用全部付费工具。
+历史域无权时只标记 `permission_required`，当前工商组仍继续。对话默认返回统计摘要和小量预览；
+完整明细只在 Host 确实提供同源下载/产物能力时交付。
+开发者可在真实调用前 GET `/data-cleaning/api/phase2/capabilities`，只读检查 16+4 工具面；
+该预检不发起 QCC 或付费调用，也不会把「工具已注册」误报为「历史账号已授权」。
 
 **前置条件**：先连接企查查 MCP（未连接时 Skill 会引导执行 `qcc_oauth_connect`）。
 
 **本阶段边界**（方案 A，模型中介式）：
 - 不重造 OAuth；工具面来自 `qcc-dsh-mcp-oauth`。
 - 逐企业调用，适合中小名单（几十条以内）。
+- 金额、比例、计数保留 QCC 原值，不自算股权链、不将缺失值写成「无」或 0。
+- 0.4.0 尚未发布；20 企业、每企业至少 15 个当前维度并含 4 个历史维度的真实账号验收已通过。
+  access token 到期刷新和限流/配额故障注入仍需在发布前单独验证。
 
-### 3.3 QCC 后台批量 Host Bridge（Unreleased / G5-2）
+### 3.3 QCC 后台批量 Host Bridge（0.4.0 发布候选 / G5-2）
 
 源码 `main` 已提供 `/data-cleaning/api/g5/capabilities`（只读能力探测）和
 `/data-cleaning/api/g5/enrich`（同源批量补全）基础层。它按企业名去重调用、只对唯一精确主体继续补全，
 多候选进入人工确认队列，模型不接触完整明细。
 
-这是尚未发布的新能力：真实 OAuth、token 自动刷新和真实 QCC 调用还未完成 E2E 验收。
+这是 0.4.0 尚未发布的候选能力：真实 OAuth、授权跨重启恢复和 QCC 主调用路径已完成隔离 E2E；
+token 到期后的自动刷新与计费故障注入尚未完成。
 调用批量端点必须由 UI 在用户确认后同时发送 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；
 未确认或缺少幂等键时不会产生任何 QCC 调用。
 
@@ -86,8 +101,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - **Q：安装后工具不出现？** A：确认已完全重启 DSH；确认 `dsh plugin list`（或 profile 的
   `package.json` → `dsh.profile.bundles`）含 `dsh-data-cleaning-agent`。
 - **Q：XLSX 解析报 `XLSX_UNAVAILABLE`？** A：当前 DSH 组合未安装 `xlsx`；web 组合默认可用。
-- **Q：能接企查查补全企业信息吗？** A：可以。先安装并连接 `qcc-dsh-mcp-oauth`，再说"帮我补全这份企业名单"，会自动走
+- **Q：能接企查查补全企业信息吗？** A：可以。先安装并连接 `qcc-dsh-mcp-oauth`；rc.2 隔离 Profile
+  需同时显式安装同版本 `@deepseek-ai/dsh-mcp-client`。再说"帮我补全这份企业名单"，会自动走
   `enterprise-enrichment` Skill（方案 A 模型中介式）。字段契约与二期规划见
   [QCC-ENRICHMENT-DESIGN.md](QCC-ENRICHMENT-DESIGN.md)。
-- **Q：可以在后台批量补全吗？** A：`main` 已有 G5-2 Host Bridge 安全闭环，但还未发布且未完成真实 E2E；
-  生产使用前需通过 `docs/G5-HOST-BRIDGE.md` 的 OAuth、刷新、计费错误和真实 QCC 验收门。
+- **Q：可以在后台批量补全吗？** A：`main` 已有 G5-2 Host Bridge 安全闭环，真实 OAuth/QCC 主路径已验收但尚未发布；
+  生产使用前仍需通过 `docs/G5-HOST-BRIDGE.md` 的 token 到期刷新与计费错误门。

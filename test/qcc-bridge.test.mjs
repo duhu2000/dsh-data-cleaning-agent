@@ -78,6 +78,23 @@ test('Bridge 每次调用重新解析工具且使用唯一 callId', async () => 
   assert.ok(tools.getCalls.filter((name) => name === QCC_TOOL_NAMES.oauthStatus).length >= 2);
 });
 
+test('Bridge 兼容 qcc-dsh-mcp-oauth 0.1.7 的 legacy serverName', async () => {
+  const legacy = 'mcp__company__get_company_registration_info';
+  const tools = fakeTools({
+    [legacy]: async () => success(mcpValue({ 企业名称: '示例企业' })),
+  });
+  const originalGet = tools.get.bind(tools);
+  tools.get = (name) => {
+    if (name === QCC_TOOL_NAMES.registration) throw new Error('canonical name absent during legacy refresh');
+    return originalGet(name);
+  };
+  const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
+  const result = await bridge.call(QCC_TOOL_NAMES.registration, { searchKey: '示例企业' });
+  assert.equal(result.toolName, legacy);
+  assert.equal(tools.calls[0].name, legacy);
+  assert.equal(bridge.capabilities().registration, true);
+});
+
 test('动态工具暂不可用时返回可重试、需连接错误', async () => {
   const tools = fakeTools();
   const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
@@ -108,6 +125,32 @@ test('get 后遇到 UNKNOWN_TOOL 重注册竞态时只重试该安全失败', as
   assert.equal(result.data.企业名称, '示例企业');
   assert.equal(tools.calls.length, 2);
   assert.notEqual(tools.calls[0].callId, tools.calls[1].callId);
+});
+
+test('重注册重试后工具消失时，未派发审计不沿用上一 callId', async () => {
+  const audit = [];
+  const tools = fakeTools({
+    [QCC_TOOL_NAMES.registration]: async () => {
+      tools.definitions.delete(QCC_TOOL_NAMES.registration);
+      return failure('temporarily absent', 'UNKNOWN_TOOL');
+    },
+  });
+  const bridge = new QccHostBridge({
+    tools,
+    toolWaitMs: 0,
+    pollMs: 1,
+    callIdFactory: () => 'first-dispatch',
+  });
+
+  await assert.rejects(
+    bridge.call(QCC_TOOL_NAMES.registration, {}, { onAudit: (event) => audit.push(event) }),
+    (error) => error.code === 'QCC_TOOL_UNAVAILABLE',
+  );
+  assert.equal(audit.length, 2);
+  assert.equal(audit[0].outcome, 'refresh-race');
+  assert.equal(audit[0].callId, 'first-dispatch');
+  assert.equal(audit[1].outcome, 'not-dispatched');
+  assert.equal(audit[1].callId, '');
 });
 
 test('配额错误被归一化且不自动重试', async () => {

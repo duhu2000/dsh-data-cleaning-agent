@@ -1,7 +1,7 @@
 # G5 真实 E2E 验收手册
 
 - 日期：2026-09-01
-- 当前状态：**Runner 与安全门已实现；真实 OAuth、token 刷新和 QCC 调用尚未执行**
+- 当前状态：**真实 OAuth、跨重启恢复和 QCC 主调用路径已执行；token 到期刷新与故障注入待验**
 - 适用脚本：`npm run e2e:g5`
 - 示例夹具：`test/fixtures/g5-e2e.example.json`（仅虚构数据）
 
@@ -17,6 +17,10 @@ Runner 默认关闭，并同时执行以下硬门：
 6. 报告文件以 `0600` 权限创建；默认写入系统临时目录。
 
 不要把真实 Token、企业名单或真实 E2E 报告提交到 Git。仓库已忽略 `.env.g5-e2e` 与 `.g5-e2e/`。
+
+> 2026-09-01 补充：在隔离 rc.2 Profile 中，`qcc-dsh-mcp-oauth@0.1.7` 还需要显式安装
+> `@deepseek-ai/dsh-mcp-client@0.1.1-rc.2`；其实际工具名不带 `qcc-` 前缀，当前 Bridge 已兼容。
+> 20 家公开企业的 400 次当前/历史工商调用已通过 `e2e:phase2` 严格验收。
 
 ## 1. 被动 preflight
 
