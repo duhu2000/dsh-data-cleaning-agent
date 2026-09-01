@@ -30,13 +30,20 @@
 | web 路由 | `webServer.register({kind:'prefix', path, handler})` | 最长前缀匹配；前缀需以 `/` 结尾且匹配 `pathname.startsWith(prefix + '/')` |
 | 同源守卫 | `isTrusted(req)` | `sec-fetch-site !== 'cross-site'` 且 origin 为 127.0.0.1/localhost |
 
-## 4. 与企查查 MCP OAuth 插件的共存（规划）
+## 4. 与企查查 MCP OAuth 插件的共存
 
 | | `qcc-dsh-mcp-oauth` | 本插件 |
 | --- | --- | --- |
 | 工具名前缀 | `qcc_oauth_*` + `mcp__qcc-*` | `data_clean_rows` / `data_complete_rows` / `data_profile` |
+| Skill | — | `data-cleaning`、`enterprise-enrichment` |
 | 存储域 | 自有 grant store | `dc_tasks_v1` |
-| 能否共存 | ✅ | ✅（工具名 / 存储域 / 条目 id 全独立） |
+| 能否共存 | ✅ | ✅（工具名 / Skill 名 / 存储域 / 条目 id 全独立） |
+
+- `enterprise-enrichment` Skill 本身**不重造 OAuth**：它只调用
+  `qcc_oauth_status` / `qcc_oauth_connect`（由 qcc-dsh-mcp-oauth 提供）与
+  `mcp__qcc-company__*` / `mcp__qcc-risk__*`（授权成功后由 mcp-client 动态提供）。
+- 若 qcc-dsh-mcp-oauth 未安装或未授权，`enterprise-enrichment` Skill 的第一步
+  `qcc_oauth_status` 即会中断并引导用户先连接，不会假装补全。
 
 ## 5. 已知限制
 

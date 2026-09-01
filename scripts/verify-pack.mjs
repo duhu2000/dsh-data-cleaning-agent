@@ -15,7 +15,7 @@ const WHITELIST = [
   /^install\.sh$/,
   /^marketing\/metadata\.json$/,
   /^lib\/[^/]+\.js$/,
-  /^docs\/(?:USER-GUIDE|FIRST-CONTRIBUTION|COMPATIBILITY)\.md$/,
+  /^docs\/(?:USER-GUIDE|FIRST-CONTRIBUTION|COMPATIBILITY|QCC-ENRICHMENT-DESIGN|QCC-PHASES-ROADMAP)\.md$/,
 ];
 
 let raw;

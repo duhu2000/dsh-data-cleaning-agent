@@ -4,6 +4,17 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-01
+
+> 企查查 MCP 接入 · 方案 A（模型中介式企业名单补全）首个版本。
+
+### Added
+- 内嵌 Skill `enterprise-enrichment`（`lib/skill-enrich.js`）：引导模型复用
+  `qcc-dsh-mcp-oauth` 已上架的工具面（`qcc_oauth_status` / `mcp__qcc-company__*` /
+  `mcp__qcc-risk__*`），逐个企业完成「消歧 → 工商详情 → 风险标签」补全。
+- `docs/QCC-ENRICHMENT-DESIGN.md`：QCC 能力设计（方案 A 模型中介式 + v1 字段契约）。
+- 文档：`docs/USER-GUIDE.md` 增补企业名单补全一节；`docs/COMPATIBILITY.md` 补共存说明。
+
 ## [0.2.1] - 2026-09-01
 
 > OIDC 可信发布链路验证版本，无功能变更。

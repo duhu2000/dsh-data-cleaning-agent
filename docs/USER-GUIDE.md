@@ -31,11 +31,29 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 
 ## 3. 能力说明
 
+### 3.1 本地清洗 / 补全 / 画像（Skill `data-cleaning`）
+
 | 工具 | 作用 |
 | --- | --- |
 | `data_profile` | 输出列概览与金额分布（min/max/sum/count） |
 | `data_clean_rows` | trim、手机号规范化、剔除缺失必填/负金额/重复行 |
 | `data_complete_rows` | 空金额填 0、空姓名填占位、报告不可确定性补全的项 |
+
+### 3.2 企查查企业名单补全（Skill `enterprise-enrichment`）
+
+先用企查查 MCP 连接插件（`qcc-dsh-mcp-oauth`）完成授权，然后对对话说：
+
+> 帮我补全这份企业名单：统一社会信用代码、法人、注册资本、成立日期、登记状态、风险标签。
+
+模型会按 `enterprise-enrichment` Skill 逐个企业调 `mcp__qcc-company__get_company_by_query`
+（消歧，多候选时停下询问）→ `get_company_registration_info`（工商详情）→
+`get_company_risk_scan`（风险标签），最后输出摘要 + Markdown 补全表。
+
+**前置条件**：先连接企查查 MCP（未连接时 Skill 会引导执行 `qcc_oauth_connect`）。
+
+**本阶段边界**（方案 A，模型中介式）：
+- 不重造 OAuth；工具面来自 `qcc-dsh-mcp-oauth`。
+- 逐企业调用，适合中小名单（几十条以内）；百级以上大名单的批量补全见路线图（方案 B）。
 
 ## 4. 数据边界
 
@@ -54,4 +72,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - **Q：安装后工具不出现？** A：确认已完全重启 DSH；确认 `dsh plugin list`（或 profile 的
   `package.json` → `dsh.profile.bundles`）含 `dsh-data-cleaning-agent`。
 - **Q：XLSX 解析报 `XLSX_UNAVAILABLE`？** A：当前 DSH 组合未安装 `xlsx`；web 组合默认可用。
-- **Q：能接企查查补全企业信息吗？** A：路线图见 [PLAN-OSS.md](PLAN-OSS.md)（方案 A 模型中介，后续版本）。
+- **Q：能接企查查补全企业信息吗？** A：可以。先安装并连接 `qcc-dsh-mcp-oauth`，再说"帮我补全这份企业名单"，会自动走
+  `enterprise-enrichment` Skill（方案 A 模型中介式）。字段契约与二期规划见
+  [QCC-ENRICHMENT-DESIGN.md](QCC-ENRICHMENT-DESIGN.md)。
