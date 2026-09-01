@@ -24,7 +24,7 @@
 | npm `latest` | `0.3.0`（带 OIDC provenance） |
 | GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
 | Git tags | `v0.2.1`、`v0.3.0` |
-| 工作树状态 | 0.4.0 发布候选已收口：二期与 OAuth 0.1.7 兼容修复已实现，真实 OAuth + 20 企业/400 调用严格验收通过；G3 上游 PR #4095 等待年龄门与合并 |
+| 工作树状态 | 0.4.0 发布候选已提交 `main`：二期与 OAuth 0.1.7 兼容修复已实现，真实 OAuth + 20 企业/400 调用严格验收、Linux/Windows 远端 CI 均通过；G3 上游 PR #4095 等待年龄门与合并 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
