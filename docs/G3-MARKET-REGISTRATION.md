@@ -1,24 +1,26 @@
 # G3：DSH 视觉插件市场收录与自动验收
 
 - 日期：2026-09-01
-- 状态：**G3-2 已完成并推送；外部 PR 未提交**
+- 状态：**G3-3 已提交上游 PR #4095；等待仓库年龄门、维护者合并与目录同步**
 - 外部仓库：[`awesome-dsh-plugin/awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
+- 上游 PR：[`awesome-dsh-plugin#4095`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
 - 官方提交说明：[`contributing.md`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)
 
 ## 目标与边界
 
-让 `dsh-data-cleaning-agent` 进入 DSH 视觉插件市场实际读取的 curated registry。提交材料和可重复验收链路已推送到插件仓库；尚未创建外部 PR，也没有修改上游仓库。
+让 `dsh-data-cleaning-agent` 进入 DSH 视觉插件市场实际读取的 curated registry。提交材料和可重复验收链路已推送到插件仓库；上游 PR #4095 只新增目标注册 YAML。
 
 ## 已验证事实
 
 1. 视觉市场读取 `https://awesome-dsh-plugin.com/plugins.json`；截至本次检查，其中没有精确匹配的 `dsh-data-cleaning-agent` 条目。
 2. 上游当前要求插件仓库至少存在 1 天、至少 10 个 commit、包含 `dsh.bundle`，并带 `dsh-plugin` topic；收录文件必须是单个 YAML。
-3. 本地接手前远端 `main` 有 3 个 commit；T0 + G3-2 + S7 推送后为 6 个，本次 G5-1 推送后为 7 个，仍不满足“至少 10 个 commit”。不得为凑门槛制造空提交。
-4. npm `0.3.0` 已在隔离 DSH host 安装冒烟通过，`enrichSkillRegistered:true`；这证明包可用，但不等于市场已经收录。
+3. 远端 `main` 已有 10 个有效 commit，并已配置 `dsh-plugin` topic；第 10 个提交修复了“粘贴 CSV 后清洗误按 JSON 解析”的真实 UI 闭环，并加入市场截图，不是空提交。
+4. 仓库创建时间为 2026-09-01 01:47 UTC；PR #4095 首轮 `check` 通过，`Submission gate` 仅因仓库当时为 0.4 天而失败。年龄门于 2026-09-02 01:47 UTC 达成，之后需重跑门禁。
+5. npm `0.3.0` 已在隔离 DSH host 安装冒烟通过，`enrichSkillRegistered:true`；这证明包可用，但不等于市场已经收录。
 
 ## 上游提交材料
 
-待远端真实历史满足准入条件后，在上游创建：
+PR #4095 已在上游创建：
 
 `data/plugins/duhu2000__dsh-data-cleaning-agent.yml`
 
@@ -43,7 +45,7 @@ description:
 - `test/market-registration.test.mjs`：覆盖地址规范化、registry 形态和完整状态机。
 - `screenshots.json`：声明市场详情页使用的实际插件 UI 截图；图片位于 `assets/screenshots/`。
 
-PR 创建后，把编号配置为仓库变量 `DSH_MARKET_PR_NUMBER`，或手动运行 workflow 时传入 `pull_request_number`。
+仓库变量 `DSH_MARKET_PR_NUMBER=4095` 已配置；自动 workflow 会追踪合并及目录同步，也可手动运行时传入 `pull_request_number`。
 
 | 状态 | 含义 | 自动验收 |
 | --- | --- | --- |

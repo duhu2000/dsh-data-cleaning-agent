@@ -24,7 +24,7 @@
 | npm `latest` | `0.3.0`（带 OIDC provenance） |
 | GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
 | Git tags | `v0.2.1`、`v0.3.0` |
-| 工作树状态 | T0 / G3-2 / S7 / G5-1 已推送；G5-2.1～G5-2.5 已实现、验证并推送 |
+| 工作树状态 | T0 / G3-3 / S7 / G5-1 / G5-2.1～G5-2.5 已实现、验证并推送；G3 上游 PR #4095 等待年龄门与合并 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -148,18 +148,19 @@ dsh-data-cleaning-agent/
 - Skill：`data-cleaning`。
 - 异步任务：`queued → running → completed | failed | killed`，持久化 `dc_tasks_v1`。
 - Web 半区：`/data-cleaning/` UI 与 `/data-cleaning/api/mvp/*`（seam/parse/clean/complete/profile/jobs/job/<id>）。
-- 全部 58 例：引擎 13、G3 市场状态机 7、G5 Bridge 17、G5 Run 7、G5 Safety 3、G5 Runner 5、G5 Web 6。
+- 全部 59 例：引擎 13、G3 市场状态机 7、G5 Bridge 17、G5 Run 7、G5 Safety 3、G5 Runner 5、Web 7（含 CSV UI 闭环回归）。
 
 ---
 
 ## 5. 待办（TODO，按优先级）
 
-### P0 —— 让插件出现在「视觉插件市场」（G3，进行中：G3-2 已完成）
+### P0 —— 让插件出现在「视觉插件市场」（G3，进行中：G3-3 已提交）
 - **现状**：dshmarket（视觉市场）只安装 curated registry 条目，来源
   `https://awesome-dsh-plugin.com/plugins.json`（当前 2777 条）；**本插件尚未被收录**（hitCount=0）。
 - **已完成并推送**：提交 YAML 材料已固化；新增 `market:check`、上游 PR→YAML→线上目录三段检查、每小时 workflow 和 7 例状态机测试，详见 `docs/G3-MARKET-REGISTRATION.md`。
-- **外部待办**：向 `awesome-dsh-plugin` 提交 PR。当前上游新增了“仓库至少 1 天且至少 10 个 commit”等准入规则；G5-2 与 Node 22 CI 修复推送后远端为 9 个 commit，仍未达门槛，禁止用空提交凑数。
-- **PR 后配置**：把编号写入仓库变量 `DSH_MARKET_PR_NUMBER`，自动追踪合并及目录同步。
+- **上游 PR**：[`awesome-dsh-plugin#4095`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095) 已创建，只新增一个注册 YAML；上游 `check` 已通过。
+- **年龄门**：远端已有 10 个有效 commit 且 `dsh-plugin` topic 已配置；`Submission gate` 首轮仅因仓库为 0.4 天失败。2026-09-02 01:47 UTC 满 1 天后重跑。
+- **自动追踪**：仓库变量 `DSH_MARKET_PR_NUMBER=4095` 已配置，持续跟踪合并、YAML 与线上目录同步。
 - **验收**：市场可搜索 + 一键安装成功。
 
 ### P0 —— 方案 B 批量后端（G5-2.1～G5-2.5 已实现；真实 E2E 待做）
@@ -304,7 +305,7 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
 
 ## 9. 给接手的「第一优先」建议
 
-1. **G3 等待真实准入后提交市场 PR**：材料和自动验收已齐；先积累有意义的远端提交，满足上游实时规则后再提交，并配置 `DSH_MARKET_PR_NUMBER`。
+1. **G3 完成年龄门与合并闭环**：PR #4095 已提交，2026-09-02 01:47 UTC 后重跑 `Submission gate`；合并后等待 YAML 与 `plugins.json` 同步，再做视觉市场一键安装冒烟。
 2. **完成 G5 真实 E2E**：安全 Runner 已落地；下一步按 `G5-E2E-RUNBOOK.md` 在隔离 profile
    验证未授权引导、OAuth 首连、token 刷新、真实 QCC 工具和计费错误。
 3. **并行推进 0.4.0**：按 `QCC-PHASES-ROADMAP.md` 扩展工商全景与股权穿透，保持方案 A 字段契约和消歧规则。
