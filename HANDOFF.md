@@ -158,7 +158,7 @@ dsh-data-cleaning-agent/
 - **现状**：dshmarket（视觉市场）只安装 curated registry 条目，来源
   `https://awesome-dsh-plugin.com/plugins.json`（当前 2777 条）；**本插件尚未被收录**（hitCount=0）。
 - **已完成并推送**：提交 YAML 材料已固化；新增 `market:check`、上游 PR→YAML→线上目录三段检查、每小时 workflow 和 7 例状态机测试，详见 `docs/G3-MARKET-REGISTRATION.md`。
-- **外部待办**：向 `awesome-dsh-plugin` 提交 PR。当前上游新增了“仓库至少 1 天且至少 10 个 commit”等准入规则；G5-1 推送后远端为 7 个 commit，仍未达门槛，禁止用空提交凑数。
+- **外部待办**：向 `awesome-dsh-plugin` 提交 PR。当前上游新增了“仓库至少 1 天且至少 10 个 commit”等准入规则；G5-2 与 Node 22 CI 修复推送后远端为 9 个 commit，仍未达门槛，禁止用空提交凑数。
 - **PR 后配置**：把编号写入仓库变量 `DSH_MARKET_PR_NUMBER`，自动追踪合并及目录同步。
 - **验收**：市场可搜索 + 一键安装成功。
 
