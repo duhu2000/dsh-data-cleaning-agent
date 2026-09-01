@@ -24,7 +24,7 @@
 | npm `latest` | `0.3.0`（带 OIDC provenance） |
 | GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
 | Git tags | `v0.2.1`、`v0.3.0` |
-| 工作树状态 | 0.4.0 发布候选：二期与 OAuth 0.1.7 兼容修复、真实 OAuth + 20 企业/400 调用、自然到期 refresh、401/429/配额故障注入均已验收；本轮提交/远端 CI 后可进入 tag 发布检查；G3 上游 PR #4095 等待年龄门与合并 |
+| 工作树状态 | 0.4.0 发布候选：二期与 OAuth 0.1.7 兼容修复、真实 OAuth + 20 企业/400 调用、自然到期 refresh、401/429/配额故障注入均已验收；提交 `0c8cb75` 的远端 CI `33569931224` 全绿，可进入 tag 发布检查；G3 上游 PR #4095 等待年龄门与合并 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -358,8 +358,8 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
 ## 9. 给接手的「第一优先」建议
 
 1. **G3 完成年龄门与合并闭环**：PR #4095 已提交，2026-09-02 01:47 UTC 后重跑 `Submission gate`；合并后等待 YAML 与 `plugins.json` 同步，再做视觉市场一键安装冒烟。
-2. **完成本轮 0.4.0 收口**：token 自然到期刷新与 401/429/配额故障门已通过；提交并等待
-   Linux Node 22/24 + Windows Node 24 远端 CI 全绿。
+2. **0.4.0 收口已完成**：token 自然到期刷新与 401/429/配额故障门已通过；提交 `0c8cb75` 的
+   Linux Node 22/24 + Windows Node 24 远端 CI `33569931224` 全绿。
 3. **执行 0.4.0 发布操作**：按 `docs/RELEASE-0.4.0.md` 做最终干净工作树/版本/tag 检查；
    获得明确发布授权后再创建并推送 `v0.4.0`，由 OIDC workflow 发布 npm/GitHub Release。
 4. 之后按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
