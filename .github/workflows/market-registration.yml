@@ -2,20 +2,38 @@ name: DSH marketplace acceptance
 
 on:
   workflow_dispatch:
+    inputs:
+      pull_request_number:
+        description: 'awesome-dsh-plugin pull request number (optional before submission)'
+        required: false
   schedule:
     - cron: '23 * * * *'
   push:
     branches: [main]
+    paths:
+      - '.github/workflows/market-registration.yml'
+      - 'scripts/check-market-registration.mjs'
+      - 'test/market-registration.test.mjs'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dsh-marketplace-acceptance
+  cancel-in-progress: true
 
 jobs:
-  acceptance:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
-      # 校验 marketing/metadata.json 结构合法（schemaVersion / repository / packageName / 外部 listing 等）
       - name: Validate marketing metadata
         run: node scripts/check-marketing.mjs
+      - name: Check PR merge and live DSH registry
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MARKET_PR_NUMBER: ${{ inputs.pull_request_number || vars.DSH_MARKET_PR_NUMBER }}
+        run: node scripts/check-market-registration.mjs --strict-after-merge
