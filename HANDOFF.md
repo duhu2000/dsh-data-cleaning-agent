@@ -24,7 +24,7 @@
 | npm `latest` | `0.3.0`（带 OIDC provenance） |
 | GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
 | Git tags | `v0.2.1`、`v0.3.0` |
-| 工作树状态 | clean（全部提交已 push） |
+| 工作树状态 | T0 / G3-2 / S7 已形成本地提交（相对 `origin/main` ahead 3）；**未 push**，外部状态仍以远端为准 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -67,17 +67,18 @@ dsh-data-cleaning-agent/
 ├── scripts/
 │   ├── check-marketing.mjs   # marketing/metadata.json 结构校验
 │   ├── check-readme-version.mjs  # README 版本标记同步校验
+│   ├── check-market-registration.mjs # 上游 PR → YAML → 线上目录三段市场验收
 │   └── verify-pack.mjs       # 打包内容白名单校验
 ├── marketing/metadata.json   # 市场/npm/GitHub/README 元数据（G3 市场收录用）
 ├── .github/workflows/
 │   ├── ci.yml                # Node 22/24 + Windows + PR 预发布包
 │   ├── release.yml           # v* tag → npm OIDC 发布 + GitHub Release
-│   └── market-registration.yml # 每小时市场验收（校验 metadata）
+│   └── market-registration.yml # 每小时市场验收（metadata + 上游 PR/YAML + 线上目录）
 ├── install.sh                # 一键安装脚本（dsh CLI → pnpm 回退）
 ├── docs/                     # 见下
 ├── HANDOFF.md                # 本文档
 ├── verify-mvp.sh             # 双基线 web 冒烟脚本（仅本机隔离 home 使用）
-└── mvp/ spike1~6/            # 本机验证产物（.gitignore 排除，不进仓库）
+└── mvp/ spike1~7/            # 本机验证产物（.gitignore 排除，不进仓库）
 ```
 
 ### docs/ 关键文档
@@ -91,8 +92,11 @@ dsh-data-cleaning-agent/
 | `COMPATIBILITY.md` | 与 `qcc-dsh-mcp-oauth` 共存兼容表 |
 | `FIRST-CONTRIBUTION.md` | 首次贡献路径 |
 | `adr/0001-dsh-baseline.md` | DSH 基线 ADR |
+| `adr/0002-programmatic-mcp-tool-execution.md` | S7 后方案 B 的公共 ToolRuntime 决策 |
 | `mvp.md` | MVP 交付说明 + 6 条工程踩坑 |
 | `spike-1~6-*.md` | 六个技术 Spike 结论 |
+| `spike-7-programmatic-mcp-call.md` | 动态 MCP 工具程序化调用、取消和生命周期证词 |
+| `G3-MARKET-REGISTRATION.md` | 市场上架材料、准入门槛和自动验收状态机 |
 
 ---
 
@@ -123,24 +127,25 @@ dsh-data-cleaning-agent/
 - Skill：`data-cleaning`。
 - 异步任务：`queued → running → completed | failed | killed`，持久化 `dc_tasks_v1`。
 - Web 半区：`/data-cleaning/` UI 与 `/data-cleaning/api/mvp/*`（seam/parse/clean/complete/profile/jobs/job/<id>）。
-- 引擎单测 13 例全绿。
+- 引擎单测 13 例全绿；G3 市场验收状态机单测 7 例全绿。
 
 ---
 
 ## 5. 待办（TODO，按优先级）
 
-### P0 —— 让插件出现在「视觉插件市场」（G3，未开始）
+### P0 —— 让插件出现在「视觉插件市场」（G3，进行中：G3-2 已完成）
 - **现状**：dshmarket（视觉市场）只安装 curated registry 条目，来源
   `https://awesome-dsh-plugin.com/plugins.json`（当前 2777 条）；**本插件尚未被收录**（hitCount=0）。
-- **要做**：向 `awesome-dsh-plugin` 提交 PR（含 YAML 上架描述；对标 connector 的"每小时市场验收"流程）。
-- **就绪条件**：仓库 public + `main` 分支 + `dsh-plugin` topic + `marketing/metadata.json` 字段齐备（均已满足）。
+- **已完成（本地）**：提交 YAML 材料已固化；新增 `market:check`、上游 PR→YAML→线上目录三段检查、每小时 workflow 和 7 例状态机测试，详见 `docs/G3-MARKET-REGISTRATION.md`。
+- **外部待办**：向 `awesome-dsh-plugin` 提交 PR。当前上游新增了“仓库至少 1 天且至少 10 个 commit”等准入规则；外部验收以远端可见历史为准，本轮未 push，禁止用空提交凑数。
+- **PR 后配置**：把编号写入仓库变量 `DSH_MARKET_PR_NUMBER`，自动追踪合并及目录同步。
 - **验收**：市场可搜索 + 一键安装成功。
 
-### P0 —— 方案 B 批量后端（G5，未开始，被 Spike #7 阻塞）
-- **要做**：先做 Spike #7，验证 `ctx.loader` 创建的 `@deepseek-ai/dsh-mcp-client` 条目能否被插件代码直接
-  `tools/call` 程序化调用；可行后再实现 `lib/qcc.js` 后台批量补全（批量快、不占模型上下文）。
+### P0 —— 方案 B 批量后端（G5，Spike #7 已 PASS；实现待做）
+- **Spike #7 结论**：rc.2 与 alpha.2 隔离 host 均通过动态 entry 创建、`ctx.tools.execute()` 调用、AbortSignal 取消、禁用/恢复四项验证。方案 B **GO**，但只能使用公共 ToolRuntime，禁止依赖 mcp-client 私有 client。详见 `docs/spike-7-programmatic-mcp-call.md` 与 ADR-0002。
+- **要做**：实现 Host Bridge / `lib/qcc.js` 后台批量补全（批量快、不占模型上下文）；每次调用重新解析工具、传递唯一 callId 与取消信号、处理 `isError` 和工具重注册空窗。
 - **共享**：§5 字段契约、§6 消歧策略、未连接引导路径（与方案 A 一致，不重定义）。
-- **验收**：后台批量补全端到端通过、token 刷新正确、未授权引导正确。
+- **验收**：真实 QCC 后台批量补全端到端通过、token 刷新正确、未授权引导正确。S7 只使用本地 Mock MCP，不能替代这些真实验收。
 
 ### P1 —— 二期 0.4.0（工商全景 + 股权穿透，Skill 扩展）
 - 覆盖 `mcp__qcc-company__*` 16 工具 + 历史工商：实控人、受益所有人、股东、对外投资、分支机构、
@@ -249,14 +254,20 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
 > 2026-09-01 实测：npm 包 0.3.0 在隔离 home 安装、启动、seam、parse/clean/complete/profile/jobs 全 PASS，
 > `enrichSkillRegistered:true` 确认企业补全 Skill 已在真实 host 注册。
 
+### T0 / G3-2 / S7 本地验证（2026-09-01）
+
+- T0：接手前 `npm run check` 全绿；`HANDOFF.md` 已作为独立基线提交 `48641de`，未 push。
+- G3-2：`npm run market:check` 在无 PR 号时返回 `not-submitted`（等待态，不误报失败）；7 个状态机单测通过。
+- S7：rc.2（隔离端口 43138）和 alpha.2（隔离端口 43139）均通过 seam / execute / cancel / lifecycle；两个测试 host 已停止，生产 43120 未触碰。
+
 ---
 
 ## 9. 给接手的「第一优先」建议
 
-1. **先补 G3（市场收录 PR）**：这是"走插件市场下载安装"能被用户搜到的唯一缺口，材料已齐，只差 PR。
-2. **再开 Spike #7（方案 B 可程序化调用的可行性验证）**：直接决定 0.5.0 的工程量与排期。
-3. 然后按 0.4.0 → 0.5.0 → 0.6.0 顺序扩展 Skill 字段面（材料都在 `QCC-PHASES-ROADMAP.md`）。
-4. 每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
+1. **G3 等待真实准入后提交市场 PR**：材料和自动验收已齐；先积累有意义的远端提交，满足上游实时规则后再提交，并配置 `DSH_MARKET_PR_NUMBER`。
+2. **启动 G5 方案 B 实现**：Spike #7 已给出 GO；先落公共 `ctx.tools.execute()` Bridge，再用真实 QCC OAuth/刷新做 E2E 验收。
+3. **并行推进 0.4.0**：按 `QCC-PHASES-ROADMAP.md` 扩展工商全景与股权穿透，保持方案 A 字段契约和消歧规则。
+4. 之后按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
 
 ---
 

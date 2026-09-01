@@ -1,5 +1,6 @@
 node_modules/
 .npm-cache/
+.pnpm-store/
 *.log
 *.tgz
 .DS_Store
@@ -12,6 +13,7 @@ spike3/
 spike4/
 spike5/
 spike6/
+spike7/
 .spike3-probes/
 _archive/
 _scratch/
