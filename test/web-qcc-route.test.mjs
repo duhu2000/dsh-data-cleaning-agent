@@ -34,10 +34,11 @@ function request({ method = 'GET', url, body } = {}) {
   return req;
 }
 
-function harness({ omitDefinitions = [] } = {}) {
+function harness({ omitDefinitions = [], registrationFault = null } = {}) {
   const routes = new Map();
   const calls = [];
   let retryRegistrationCalls = 0;
+  let registrationFaultsRemaining = Math.max(0, Number(registrationFault?.times ?? 0));
   const definitions = new Set([
     'data_clean_rows',
     'data_complete_rows',
@@ -86,6 +87,19 @@ function harness({ omitDefinitions = [] } = {}) {
         };
       }
       if (exec.name === QCC_TOOL_NAMES.registration) {
+        if (registrationFaultsRemaining > 0) {
+          registrationFaultsRemaining -= 1;
+          return {
+            isError: true,
+            error: {
+              message: 'Bearer fault-injection-secret 敏感企业原名',
+              info: {
+                code: registrationFault.upstreamCode,
+                retryAfterMs: registrationFault.retryAfterMs,
+              },
+            },
+          };
+        }
         if (exec.arguments.searchKey === '9132RETRY') {
           retryRegistrationCalls += 1;
           if (retryRegistrationCalls === 1) {
@@ -422,3 +436,95 @@ test('retryable 部分失败只能通过显式人工重试恢复，原始错误�
   assert.equal(app.calls.length, 4);
   app.dispose();
 });
+
+for (const fault of [
+  {
+    label: '401 过期授权',
+    upstreamCode: '401',
+    expectedCode: 'QCC_AUTH_REQUIRED',
+    retryable: true,
+    connectRequired: true,
+  },
+  {
+    label: '429 限流',
+    upstreamCode: '429',
+    expectedCode: 'QCC_RATE_LIMITED',
+    retryable: true,
+    connectRequired: false,
+    retryAfterMs: 1_500,
+  },
+  {
+    label: '配额耗尽',
+    upstreamCode: 'QUOTA_EXHAUSTED',
+    expectedCode: 'QCC_QUOTA_EXHAUSTED',
+    retryable: false,
+    connectRequired: false,
+  },
+]) {
+  test(`G5 故障注入：${fault.label} 不自动重试并保留安全审计`, async () => {
+    const app = harness({ registrationFault: { ...fault, times: 1 } });
+    const started = responseRecorder();
+    await app.routes.get('/data-cleaning/api/g5/enrich')(
+      request({
+        method: 'POST',
+        url: '/data-cleaning/api/g5/enrich',
+        body: {
+          idempotencyKey: `fault-${fault.upstreamCode.toLowerCase().replaceAll('_', '-')}-start`,
+          confirmPaidCalls: true,
+          rows: [{ name: '故障注入企业' }],
+          headers: ['name'],
+        },
+      }),
+      started,
+    );
+
+    const payload = started.json();
+    assert.equal(started.status, 200);
+    assert.equal(payload.state, fault.retryable ? 'needs-retry' : 'completed-with-errors');
+    assert.equal(payload.errors.length, 1);
+    assert.equal(payload.errors[0].error.code, fault.expectedCode);
+    assert.equal(payload.errors[0].error.retryable, fault.retryable);
+    assert.equal(payload.errors[0].error.connectRequired, fault.connectRequired);
+    assert.equal(payload.errors[0].error.upstreamCode, fault.upstreamCode);
+    if (fault.retryAfterMs) assert.equal(payload.errors[0].error.details.retryAfterMs, fault.retryAfterMs);
+    assert.equal(app.calls.length, 2, 'lookup + one failed registration; no automatic retry');
+    assert.equal(app.calls.filter((call) => call.name === QCC_TOOL_NAMES.registration).length, 1);
+
+    const failedAudit = payload.audit.find((event) => event.code === fault.expectedCode);
+    assert.ok(failedAudit);
+    assert.equal(failedAudit.outcome, 'failed');
+    assert.equal(failedAudit.attempt, 1);
+    assert.equal(failedAudit.upstreamCode, fault.upstreamCode);
+    assert.deepEqual(Object.keys(failedAudit).sort(), [
+      'at', 'attempt', 'callId', 'code', 'durationMs', 'event', 'outcome', 'toolName', 'upstreamCode',
+    ]);
+    assert.doesNotMatch(JSON.stringify(payload.audit), /fault-injection-secret|敏感企业原名|9132WEBMOCK/);
+
+    const retried = responseRecorder();
+    await app.routes.get('/data-cleaning/api/g5/retry')(
+      request({
+        method: 'POST',
+        url: '/data-cleaning/api/g5/retry',
+        body: {
+          idempotencyKey: `fault-${fault.upstreamCode.toLowerCase().replaceAll('_', '-')}-retry`,
+          confirmPaidCalls: true,
+          runId: payload.runId,
+          companyNames: ['故障注入企业'],
+        },
+      }),
+      retried,
+    );
+
+    if (fault.retryable) {
+      assert.equal(retried.status, 200);
+      assert.equal(retried.json().state, 'completed');
+      assert.equal(retried.json().errors.length, 0);
+      assert.equal(app.calls.length, 4, 'explicit retry reruns lookup + registration exactly once');
+    } else {
+      assert.equal(retried.status, 409);
+      assert.equal(retried.json().code, 'QCC_RETRY_NOT_ALLOWED');
+      assert.equal(app.calls.length, 2, 'non-retryable quota failure remains blocked before dispatch');
+    }
+    app.dispose();
+  });
+}

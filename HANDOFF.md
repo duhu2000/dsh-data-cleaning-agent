@@ -1,7 +1,7 @@
 # 数据清洗补全智能体 · 项目移交文档（Handoff）
 
 > 目的：让接手的 GPT / 协作者无需回溯全部对话，即可掌握项目全貌、当前基线、已完成事项、待办与后续规划，并直接续做剩余开发任务。
-> 生成日期：2026-09-01
+> 生成日期：2026-09-02
 > 当前源码版本：**0.4.0**（发布候选；npm `latest` 与 GitHub Latest 仍为 `0.3.0`）
 
 ---
@@ -24,7 +24,7 @@
 | npm `latest` | `0.3.0`（带 OIDC provenance） |
 | GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
 | Git tags | `v0.2.1`、`v0.3.0` |
-| 工作树状态 | 0.4.0 发布候选已提交 `main`：二期与 OAuth 0.1.7 兼容修复已实现，真实 OAuth + 20 企业/400 调用严格验收、Linux/Windows 远端 CI 均通过；G3 上游 PR #4095 等待年龄门与合并 |
+| 工作树状态 | 0.4.0 发布候选：二期与 OAuth 0.1.7 兼容修复、真实 OAuth + 20 企业/400 调用、自然到期 refresh、401/429/配额故障注入均已验收；本轮提交/远端 CI 后可进入 tag 发布检查；G3 上游 PR #4095 等待年龄门与合并 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -45,7 +45,7 @@
 | 0.2.0 | 2026-09-01 | 开源化 G1：改名 `dsh-data-cleaning-agent`，补齐 README/LICENSE/CONTRIBUTING/install.sh/marketing/CI 骨架 | ✅ 已发布 |
 | 0.2.1 | 2026-09-01 | G2 补充：npm OIDC Trusted Publishing 发布链路验证（无功能变更） | ✅ 已发布 |
 | 0.3.0 | 2026-09-01 | G4 方案 A：内嵌 `enterprise-enrichment` Skill，模型中介式调企查查 MCP 补全企业名单 | ✅ 已发布（npm latest） |
-| 0.4.0 | 2026-09-01 | 二期工商全景 16+4 工具契约、G5 Host Bridge、安全验收与 OAuth 0.1.7 双命名兼容 | 🟡 发布候选；tag/npm 暂缓 |
+| 0.4.0 | 2026-09-02 | 二期工商全景 16+4 工具契约、G5 Host Bridge、安全验收与 OAuth 0.1.7 双命名兼容 | 🟡 功能发布门已通过；待最终 CI/tag |
 
 ---
 
@@ -133,8 +133,8 @@ dsh-data-cleaning-agent/
 - 每调用重新解析工具；OAuth 重注册竞态只对 `UNKNOWN_TOOL` 安全重试一次；其余错误不自动重试，避免重复计费。
 - 企业名去重批处理、唯一主体锁定、多候选 `reviewQueue`、未匹配/部分失败、取消/超时已落地。
 - Web：`GET /data-cleaning/api/g5/capabilities` 与 `POST /data-cleaning/api/g5/enrich`；后者强制 `confirmPaidCalls:true`、100 行/并发 4 上限。
-- Mock/Contract 全绿；真实 OAuth、授权跨重启恢复与真实 QCC 主调用路径已通过，
-  access token 到期刷新和计费故障注入仍是 G5 E2E Gate。
+- Mock/Contract 全绿；真实 OAuth、授权跨重启恢复、真实 QCC 主调用路径、access token 自然到期刷新、
+  动态工具恢复及续期后最小真实调用均已通过。
 
 ### G5-2.1～G5-2.5 E2E 安全准备 ✅（0.4.0 发布候选）
 - `scripts/g5-e2e.mjs` 默认关闭，只允许回环 DSH Host；真实 enrich 需二次显式确认。
@@ -142,7 +142,8 @@ dsh-data-cleaning-agent/
 - `idempotencyKey` 成为计费端点硬门；并发重复请求复用首个 Promise/结果，同键不同请求冲突。
 - Host 内存 run 支持多候选合法性校验、确认后续跑、retryable 失败人工重试和 30 分钟过期。
 - 401/403/429/配额/超时/工具刷新/5xx/契约错误细分；审计只记录工具名、callId、结果码和耗时。
-- 自动测试全绿；真实 OAuth、授权跨重启恢复和真实 QCC 主调用路径已执行。
+- 自动测试全绿；真实 OAuth、授权跨重启恢复、真实 QCC 主调用路径、自然到期 refresh 已执行；
+  401/429/配额耗尽故障注入已验证无自动重试、显式重试门和安全审计。
 
 ### MVP 核心能力（沿用自 0.1.0-mvp，0.2.0 起公开）
 - 引擎：CSV/XLSX/JSON 解析、清洗（trim/手机号规范化/缺失剔除/负金额剔除/去重）、确定性补全、概览画像、CSV 回写。
@@ -150,7 +151,7 @@ dsh-data-cleaning-agent/
 - Skill：`data-cleaning`。
 - 异步任务：`queued → running → completed | failed | killed`，持久化 `dc_tasks_v1`。
 - Web 半区：`/data-cleaning/` UI 与 `/data-cleaning/api/mvp/*`（seam/parse/clean/complete/profile/jobs/job/<id>）。
-- 当前 `npm test` 共 81 例，覆盖引擎、市场、G5 Bridge/Run/Safety/Runner/Web 与 0.4.0 契约/验收。
+- 当前 `npm test` 共 84 例，覆盖引擎、市场、G5 Bridge/Run/Safety/Runner/Web、故障注入与 0.4.0 契约/验收。
 
 ---
 
@@ -165,14 +166,16 @@ dsh-data-cleaning-agent/
 - **自动追踪**：仓库变量 `DSH_MARKET_PR_NUMBER=4095` 已配置，持续跟踪合并、YAML 与线上目录同步。
 - **验收**：市场可搜索 + 一键安装成功。
 
-### P0 —— 方案 B 批量后端（真实主路径已验收；刷新/故障门待做）
+### P0 —— 方案 B 批量后端（0.4.0 功能发布门已完成）
 - **Spike #7 结论**：rc.2 与 alpha.2 隔离 host 均通过动态 entry 创建、`ctx.tools.execute()` 调用、AbortSignal 取消、禁用/恢复四项验证。方案 B **GO**，但只能使用公共 ToolRuntime，禁止依赖 mcp-client 私有 client。详见 `docs/spike-7-programmatic-mcp-call.md` 与 ADR-0002。
 - **已完成**：Host Bridge、字段映射、批量消歧、幂等、候选续跑、人工重试、脱敏审计、
-  默认关闭 E2E Runner；加上 0.4.0 契约/验收、legacy 命名兼容和审计回归测试后全量为 81 项，详见 `docs/G5-HOST-BRIDGE.md` 和 `docs/G5-E2E-RUNBOOK.md`。
+  默认关闭 E2E Runner；加上 0.4.0 契约/验收、legacy 命名兼容、故障注入和审计回归测试后全量为 84 项，详见 `docs/G5-HOST-BRIDGE.md` 和 `docs/G5-E2E-RUNBOOK.md`。
 - **共享**：§5 字段契约、§6 消歧策略、未连接引导路径（与方案 A 一致，不重定义）。
 - **真实主路径已验收**：隔离 rc.2 Host 完成 OAuth、授权跨重启恢复、16+4 工具预检与
   20 企业/400 次真实 QCC 调用；Bridge 已兼容 OAuth 0.1.7 的 legacy serverName。
-- **待验收**：access token 到期刷新、401/429/配额故障注入。S7/G5-1 Mock 不能替代这些故障门。
+- **剩余门已验收**：自然过期 access token 在隔离端口 43159 自动 refresh，16+4 工具恢复；
+  续期后 1 行真实 enrich 1/1 成功。401/429/配额耗尽用 Web→Bridge→Mock ToolRuntime 注入，
+  未重放 400 次真实批次，并验证人工重试与审计脱敏。
 
 ### P1 —— 二期 0.4.0（工商全景 + 股权穿透，Skill 扩展）
 - 覆盖 `mcp__qcc-company__*` 16 工具 + 历史工商：实控人、受益所有人、股东、对外投资、分支机构、
@@ -222,7 +225,7 @@ dsh-data-cleaning-agent/
 | 阶段 | 版本 | 交付形态 | 覆盖 | 状态 |
 | --- | --- | --- | --- | --- |
 | 一期 | 0.3.0 | 方案 A Skill `enterprise-enrichment` | 核心工商 7 字段 + 风险标签 | ✅ 已发布 |
-| 二期 | 0.4.0 | 方案 A 扩展 Skill | 工商全景 16 + 历史工商 | 🟢 本地开发与真实主路径 E2E 完成，刷新/故障门待验 |
+| 二期 | 0.4.0 | 方案 A 扩展 Skill | 工商全景 16 + 历史工商 | 🟢 功能发布门全部完成；待最终 CI/tag |
 | 三期 | 0.5.0 | 方案 A 扩展 + 方案 B 批量后端 | 风险 38 + 知产 18 + 经营 35 | ⬜ 待做 |
 | 四期 | 0.6.0 | （可选） | 历史 34 + 人员 44 + 招投标 6 | ⬜ 待做 |
 
@@ -300,9 +303,9 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
 - 冒烟进程已停止，生产端口 43120 未触碰；测试进程单独使用 `CHOKIDAR_USEPOLLING=1` 规避本机文件监听器 `EMFILE`。
 - 此处为早期未连接态冒烟；后续真实 OAuth/QCC 结果见下方「0.4.0 真实 E2E」。
 
-### G5-2.1～G5-2.5 本地验证（2026-09-01）
+### G5-2.1～G5-2.5 本地验证（2026-09-01～2026-09-02）
 
-- `npm test`：当前 81/81 通过（含 0.4.0 工具契约 / Skill / capabilities / 验收 Runner、legacy 命名兼容与审计回归）。
+- `npm test`：当前 84/84 通过（含 0.4.0 工具契约 / Skill / capabilities / 验收 Runner、legacy 命名兼容、故障注入与审计回归）。
 - `npm run e2e:g5` 在无环境门时以退出码 2 和 `G5_E2E_DISABLED` 安全拒绝，没有网络调用。
 - 针对性验证覆盖 Runner 回环限制/付费确认、凭据与企业标识脱敏、并发幂等复用、候选确认续跑、
   retryable 失败人工重试、Host 内存 run 过期和八类稳定错误映射。
@@ -313,7 +316,7 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
 ### 0.4.0 本地实现验证（2026-09-01）
 
 - QCC MCP 本地一手源码注册表已确认 16 个工商工具 + 4 个历史工商工具的精确名称。
-- `npm run check` 通过：81/81 测试、lint、文档版本、marketing 和 31 文件打包白名单均通过。
+- `npm run check` 通过：84/84 测试、lint、文档版本、marketing 和 31 文件打包白名单均通过。
 - `npm run e2e:phase2` 默认以退出码 2 / `PHASE2_ACCEPTANCE_DISABLED` 安全拒绝；
   验收器覆盖 20×15 维、工具来源、原值对照、主体消歧、历史权限和合成证据拒绝。
 - 当前工作树 tarball 已分别在 DSH `0.1.1-rc.2`（43153）和 `0.1.2-alpha.2`（43154）
@@ -338,17 +341,27 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
   历史工商 4 维，`e2e:phase2` 严格历史门 PASS。
 - `verifyIdentity` 因输入仅含企业名而统一不交付，符合 Skill「有信用代码或用户明确要求时才调用」的规则。
 - `.phase2-e2e/evidence.json` 与报告均为 `0600`、Git 忽略且不打 npm 包；未提交企业名单、Token 或原始响应。
-- 仍未完成：等待 access token 自然到期后的真实刷新轮换，以及 401/429/配额故障注入。
+
+### 0.4.0 token 自然到期刷新 / 故障注入（2026-09-02）
+
+- 环境：同一隔离 DSH `0.1.1-rc.2` Profile（端口 43159），生产 `43120` 未触碰。
+- 启动前持久 grant 的 access token 已自然过期；Host 启动后 grant 更新时间与到期时间前移，
+  company 16 + history 4 动态工具全部恢复 ready。
+- 使用批准名单中的 1 行执行真实 `e2e:g5`：1/1 补全、0 失败、2 条安全审计；输入与报告为
+  Git 忽略的 `0600` 文件，隔离 Host 随后已停止。
+- Web→Bridge→Mock ToolRuntime 注入 401、429 与 `QUOTA_EXHAUSTED`：每类首次失败只派发一次工商调用；
+  401/429 仅在显式 `/retry` 后恢复，配额错误以 `QCC_RETRY_NOT_ALLOWED` 在派发前阻断；审计无参数、
+  原始响应、token、企业名或信用代码。
 
 ---
 
 ## 9. 给接手的「第一优先」建议
 
 1. **G3 完成年龄门与合并闭环**：PR #4095 已提交，2026-09-02 01:47 UTC 后重跑 `Submission gate`；合并后等待 YAML 与 `plugins.json` 同步，再做视觉市场一键安装冒烟。
-2. **补齐 G5 剩余故障门**：真实 OAuth/QCC 主路径已通过；下一步只做 token 到期刷新、
-   401/429/配额故障注入，避免重放已完成的 400 次调用。
-3. **完成 0.4.0 发布门**：发布候选的代码审查、版本和说明已收口；按
-   `docs/RELEASE-0.4.0.md` 补齐 token 到期刷新与故障注入，远端 CI 全绿后再创建 tag。
+2. **完成本轮 0.4.0 收口**：token 自然到期刷新与 401/429/配额故障门已通过；提交并等待
+   Linux Node 22/24 + Windows Node 24 远端 CI 全绿。
+3. **执行 0.4.0 发布操作**：按 `docs/RELEASE-0.4.0.md` 做最终干净工作树/版本/tag 检查；
+   获得明确发布授权后再创建并推送 `v0.4.0`，由 OIDC workflow 发布 npm/GitHub Release。
 4. 之后按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
 
 ---

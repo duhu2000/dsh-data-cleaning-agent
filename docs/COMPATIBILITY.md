@@ -59,7 +59,8 @@
   仅依赖 DSH CLI 全局副本时，OAuth grant 可恢复但动态工具不会进入 Profile 的可调用工具面。
 - `qcc-dsh-mcp-oauth@0.1.7` 的 `serverName` 实际为 `company/history/...`，注册名因此不带 `qcc-`。
   当前 Bridge 已兼容；上游修复后无需迁移证据或 Skill 规范名。
-- 真实 OAuth、跨重启恢复、16+4 工具预检及 20 企业/400 调用已通过；真实到期刷新未验证。
+- 真实 OAuth、跨重启恢复、16+4 工具预检、20 企业/400 调用及自然到期 refresh 已通过；
+  refresh 后 16+4 工具恢复，并以 1 行真实 enrich 验证新 token 可用。
 
 ## 5. 已知限制
 
@@ -67,4 +68,5 @@
 - web 半区仅 web 组合可用；headless 组合自动跳过（工具与 Skill 仍注册）。
 - XLSX 解析依赖 `xlsx`（懒加载），缺失时返回 `XLSX_UNAVAILABLE` 而非崩溃。
 - `/data-cleaning/api/g5/enrich` 当前为 0.4.0 发布候选能力，单批上限 100 行、并发上限 4，
-  且必须显式 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；完成 token 到期刷新和故障注入前不作生产可用承诺。
+  且必须显式 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；token 到期刷新与 401/429/配额故障门已通过，
+  正式可用版本仍以 npm/GitHub Release 为准。

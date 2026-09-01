@@ -54,7 +54,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
 | 企查查 Skill 补全 | `enterprise-enrichment` | 0.4.0 发布候选：工商全景、股权穿透与历史工商 |
 | 0.4.0 工具预检 | web `/data-cleaning/api/phase2/capabilities` | 只读检查 16+4 动态工具，不发起 QCC/付费调用 |
-| QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0 发布候选：后台批量基础层；真实 OAuth/QCC 主路径已验收，token 到期刷新与故障注入待验 |
+| QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0 发布候选：后台批量基础层；真实 OAuth/QCC 主路径、自然到期刷新与故障注入均已验收 |
 
 ## 企查查 MCP 补全（状态与路线图）
 
@@ -69,7 +69,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   批量补全、请求幂等、多候选人工确认续跑、retryable 失败人工重试与安全审计。
   批量 Web 端点同时要求 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；多候选绝不自动选择。
   默认关闭的本机 E2E Runner 已就绪；2026-09-01 已在隔离 rc.2 Host 完成真实 OAuth、跨重启恢复和
-  20 家公开企业的 400 次 QCC 调用。token 到期后的真实刷新及限流/配额故障注入仍是发布前验收门。
+  20 家公开企业的 400 次 QCC 调用；自然过期 token 的真实刷新、动态工具恢复及 1 行续期后调用也已通过。
+  401 / 429 / 配额耗尽使用 Web→Bridge→ToolRuntime 故障注入验证，不额外消耗真实付费批次。
 
 `qcc-dsh-mcp-oauth@0.1.7` 在 rc.2 实测注册为 `mcp__company__*` / `mcp__history__*`；
 本插件的兼容 Bridge 会自动映射到文档规范名 `mcp__qcc-company__*` / `mcp__qcc-history__*`。

@@ -57,7 +57,7 @@ Or let an agent install it for you:
 | Skill | `data-cleaning` | guides the model through the workflow |
 | QCC Skill enrichment | `enterprise-enrichment` | 0.4.0 release candidate: company panorama, ownership, governance, and historical registration |
 | 0.4.0 preflight | web `/data-cleaning/api/phase2/capabilities` | Read-only 16+4 dynamic-tool check; makes no QCC or paid calls |
-| QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0 release candidate: real OAuth/QCC main path verified; expiry refresh and fault injection pending |
+| QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0 release candidate: real OAuth/QCC path, natural-expiry refresh, and fault injection verified |
 
 ## Qichacha MCP enrichment (status and roadmap)
 
