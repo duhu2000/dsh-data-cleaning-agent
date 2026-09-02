@@ -1,7 +1,7 @@
 # G3：DSH 视觉插件市场收录与自动验收
 
 - 日期：2026-09-02
-- 状态：**PR #4095 的常规检查与 Submission gate 均已通过；等待维护者合并与目录同步**
+- 状态：**已完成（G3 全部门通过）**
 - 外部仓库：[`awesome-dsh-plugin/awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 - 上游 PR：[`awesome-dsh-plugin#4095`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
 - 官方提交说明：[`contributing.md`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)
@@ -23,6 +23,26 @@
 6. 2026-09-02 npm `0.4.0` 发布后又从公共 Registry 安装到全新隔离 DSH profile（端口 43160）：
    三工具、两个 Skill、Web 与 QCC Bridge seam 全部注册，未装 OAuth 时正确返回 `oauth-plugin-missing`；
    测试 Host 已停止，生产 43120 未触碰。
+7. 2026-09-02 PR #4095 已合并：`state=MERGED`，`mergedAt=2026-09-02T03:49:24Z`，`mergedBy.login=fkysly`。
+   `MARKET_PR_NUMBER=4095 npm run market:check` → `{"status":"accepted","ok":true}`（`pullRequestMerged` / `registrationPresent` / `directoryPresent` 全 true）。
+8. 上游主分支已出现目标 YAML（`data/plugins/duhu2000__dsh-data-cleaning-agent.yml`，原始 URL 内容与本文件 §「上游提交材料」逐字一致）。
+9. `plugins.json`（2585310 字节，2936 条）精确命中 1 条：`name=dsh-data-cleaning-agent`、`owner=duhu2000`、
+   `category=tools`、`install=dsh plugin --profile web add github:duhu2000/dsh-data-cleaning-agent`、
+   `page=https://awesome-dsh-plugin.com/p/duhu2000/dsh-data-cleaning-agent/`、`added=2026-09-01`、`npm=null`、双语描述、2 张截图。
+10. 视觉市场一键安装（G3 完成门第 5 门）在全新隔离 `DSH_HOME` + 端口 `43161` 冒烟通过：
+    市场 install 命令 `dsh plugin --profile web add github:duhu2000/dsh-data-cleaning-agent` 安装到 `0.4.0`；
+    `--dump-config` 见 `data-cleaning-agent` 插件层；host `apply()` 打印；根 HTML 含 `__DSH_BOOT__` 与 `dsh-data-cleaning-agent`；
+    `/data-cleaning/api/mvp/seam` 全绿（`toolRegistered` / `skillRegistered` / `webMounted` / `qccBridgeMounted` 均 true，
+    未装 OAuth 正确返回 `oauth-plugin-missing`）；核心闭环 parse→clean→complete→profile→CSV 导出全通（clean 缺 phone/负金额/重复正确丢弃）。
+    测试 Host 已停止，生产 43120 未触碰。
+11. 市场 UI「搜不到本插件」≠ 收录失败：视觉市场 `dsh-market` 按区域双通道加载目录（`src/regions.ts`）。
+    - `global`：直读 `https://awesome-dsh-plugin.com/plugins.json`。
+    - `china`：① 先读腾讯 npm 镜像的 **`dsh-plugin-catalog`** 包 → ② 仅当 npm 包拉取失败/为空才回退到 `plugins.json` URL。
+    实测：在线 `plugins.json` = 2936 条、**含**本插件（`added=2026-09-01`）；npm 包 `dsh-plugin-catalog@2026.901.3077` = 2821 条、**不含**本插件，
+    `updated=2026-09-01`、发布于 `2026-09-01T09:02:21Z`（早于 PR 合并 `2026-09-02T03:49:24Z`）。npm 包按约 1–3 天周期发布
+    （`2026.824→825→826→829→831→901`），上次发布恰好落在合并前，故 china 区域市场仍显示旧目录且因「npm 包返回成功」而永不回退到已更新的 URL。
+    这是上游目录管线的一次正常发布滞后，非本仓库/PR 问题；待下次 `dsh-plugin-catalog` 发布即自动进入市场搜索。
+    立即可验证：市场 Settings 切到 `global` 区域，或设 `DSHM_REGISTRY_URL=https://awesome-dsh-plugin.com/plugins.json`。
 
 ## 上游提交材料
 
