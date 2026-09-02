@@ -4,10 +4,34 @@
 
 ## [Unreleased]
 
+## [0.5.0] - Release candidate (2026-09-02)
+
+> 风险 / 知产 / 经营三域批量补全、Mockup 对齐工作台与发布候选；尚未打 tag、发布 npm 或生成 GitHub Release。
+
+### Added
+- 冻结三域 91 工具契约：风险 38、知识产权 18、经营 35；兼容 canonical、OAuth 0.1.7 legacy 与短名，
+  明确 90 个 `searchKey` 工具和裁判文书详情的 `documentId` 依赖。
+- `Phase3BatchService` 与 `Phase3RunStore`：主体去重、精确/多候选/未匹配分流、调用上限、并发上限、
+  部分成功、30 分钟 Host 内存恢复、多候选续跑与只重试失败工具。
+- 同源 `/data-cleaning/api/phase3/{capabilities,estimate,enrich,resolve,retry,run}`；estimate 零调用，
+  计费端点强制 `confirmPaidCalls:true` + 唯一幂等键，结果和复核队列分别导出 CSV。
+- 默认关闭的 `e2e:phase3` Runner：仅允许回环 Host；preflight 要求 91/91 工具 ready 且验证零调用估算；
+  enrich 模式还要求显式付费确认、经批准夹具和正数 `maxCalls`，报告为 `0600` 且脱敏。
+
+### Changed
+- 应用内工作台升级为四步：上传与映射 → 数据体检 → 匹配核验 → 补全与导出；支持三域选择、
+  调用估算/二次确认、候选复核、失败重试、任务恢复与双 CSV。
+- 本地清洗接受显式字段映射；中文“企业名称/联系电话”等表头会按映射清洗，不再套用默认 `name/phone` 误删。
+- `enterprise-enrichment` Skill 增加风险/知产/经营域组，并保持多候选暂停、来源原值保真与权限/无数据/限流降级。
+- 同步修正 0.4.0 tarball README 的历史状态文案；已发布 0.4.0 仍为不可变快照。
+
 ### Fixed
-- 发布后状态已同步到 README、兼容性文档和 HANDOFF。已发布的 0.4.0 tarball 是 tag 时的不可变快照，
-  内含 README 仍显示“发布候选 / npm latest 0.3.0”；运行代码、版本、provenance 与安装不受影响，
-  npm 包内文案需随下一补丁版本发布。
+- 修复真实 DSH React 渲染中，工作台关闭态在部分 store hooks 前返回导致首次打开报 React #310 的问题。
+
+### Verified
+- `npm run check`：125/125 测试通过；lint、双语版本、marketing 与 pack 白名单全绿。
+- DSH `0.1.1-rc.2` / `0.1.2-alpha.2` 隔离 Host 零调用冒烟共 24/24 通过；生产端口 43120 未触碰。
+- rc.2 实际渲染完成上传映射、体检和中文字段清洗闭环；真实三域付费 E2E 留作发布前显式批准门。
 
 ## [0.4.0] - 2026-09-02
 

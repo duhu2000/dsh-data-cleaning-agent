@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.4.0**（已发布；npm `latest` 为 0.4.0）
+> 当前源码版本 / Current source version: **0.5.0**（发布候选；npm `latest` 仍为 0.4.0）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -31,7 +31,7 @@ dsh plugin --profile web add dsh-data-cleaning-agent
 安装后**完全重启** DeepSeek Harness（停止后重新运行 `dsh web`）。
 之后在对话中说「帮我清洗这批企业名单数据」，插件会自动加载内嵌 Skill 并调度清洗/补全/画像工具。
 
-重启后侧边栏底部会出现「数据清洗」入口：点击打开工作台（上传 → 画像 → 清洗 → 导出四步），
+重启后侧边栏底部会出现「数据清洗」入口：点击打开工作台（上传与映射 → 数据体检 → 匹配核验 → 补全与导出四步），
 模型调用清洗/补全/画像工具时对话内会渲染对应工具卡片，工作台头部用任务 pill 展示排队/进行中的任务。
 
 没有 `dsh` CLI 时，也可以用安装脚本：
@@ -54,13 +54,14 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 解析 | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | 异步任务 | web `/data-cleaning/api/mvp/jobs` | 任务状态机 + 持久化存储 |
 | UI | web `/data-cleaning/` | 上传 → 清洗/补全 → 导出 |
-| 应用内入口 | 侧边栏「数据清洗」按钮 | 打开全屏工作台：上传 → 画像 → 清洗 → 导出四步 |
+| 应用内入口 | 侧边栏「数据清洗」按钮 | 打开 Mockup 对齐工作台：上传与映射 → 数据体检 → 匹配核验 → 补全与导出 |
 | 工具卡片 | `tool.call.toolview`（`data_clean_rows`/`data_complete_rows`/`data_profile`） | 对话内渲染清洗/补全/画像结果卡，含运行/已完成/失败状态 |
 | 任务进度 | 工作台头部任务 pill | 轮询 `/data-cleaning/api/mvp/jobs`，展示排队/运行中任务 |
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
 | 企查查 Skill 补全 | `enterprise-enrichment` | 0.4.0：工商全景、股权穿透与历史工商 |
 | 0.4.0 工具预检 | web `/data-cleaning/api/phase2/capabilities` | 只读检查 16+4 动态工具，不发起 QCC/付费调用 |
 | QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0：后台批量基础层；真实 OAuth/QCC 主路径、自然到期刷新与故障注入均已验收 |
+| 三域补全 | web `/data-cleaning/api/phase3/*` | 0.5.0：风险 38 + 知产 18 + 经营 35；零调用估算、显式付费确认、候选复核、恢复/重试与双 CSV 导出 |
 
 ## 企查查 MCP 补全（状态与路线图）
 
@@ -77,6 +78,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   默认关闭的本机 E2E Runner 已就绪；2026-09-01 已在隔离 rc.2 Host 完成真实 OAuth、跨重启恢复和
   20 家公开企业的 400 次 QCC 调用；自然过期 token 的真实刷新、动态工具恢复及 1 行续期后调用也已通过。
   401 / 429 / 配额耗尽使用 Web→Bridge→ToolRuntime 故障注入验证，不额外消耗真实付费批次。
+- **0.5.0 三域批量扩展（发布候选）**：风险 38、知识产权 18、经营 35 个工具已冻结为 91 工具契约；
+  工作台支持域组勾选、零调用上界估算、独立付费确认、多候选人工锁定、部分失败人工重试、
+  30 分钟 Host 内存恢复、结果 CSV 与复核 CSV。rc.2 / alpha.2 零调用 Host 冒烟 24/24 通过，
+  rc.2 实际渲染与中文企业字段映射闭环通过。真实三域付费 E2E 仍须另行批准企业夹具、域、调用上限与预算。
 
 `qcc-dsh-mcp-oauth@0.1.7` 在 rc.2 实测注册为 `mcp__company__*` / `mcp__history__*`；
 本插件的兼容 Bridge 会自动映射到文档规范名 `mcp__qcc-company__*` / `mcp__qcc-history__*`。
@@ -87,6 +92,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 0.4.0 真实账号验收的证据格式、安全门和命令见
 [docs/PHASE2-ACCEPTANCE.md](docs/PHASE2-ACCEPTANCE.md)。
 发布记录、验收门和回滚步骤见 [docs/RELEASE-0.4.0.md](docs/RELEASE-0.4.0.md)。
+0.5.0 三域验收状态见 [docs/PHASE3-ACCEPTANCE.md](docs/PHASE3-ACCEPTANCE.md)，
+发布候选、升级与回滚见 [docs/RELEASE-0.5.0.md](docs/RELEASE-0.5.0.md)。
 
 ## 本地开发
 
@@ -100,6 +107,7 @@ npm run check
 
 `npm run check` 会依次执行 lint、文档版本一致性、发布包白名单校验与单元测试。
 真实 G5 验收必须按 [E2E 手册](docs/G5-E2E-RUNBOOK.md) 显式开启；默认执行 `npm run e2e:g5` 会安全拒绝。
+0.5.0 三域 Runner 同样默认关闭；`npm run e2e:phase3` 仅允许回环 Host，付费模式还需单独设置确认门。
 
 ## 配置
 

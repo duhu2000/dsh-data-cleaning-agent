@@ -14,6 +14,10 @@
 2026-09-01 的 0.4.0 发布内容已分别在 rc.2（43153）和 alpha.2（43154）
 隔离 Host 完成 tarball 加载冒烟，两者均返回 `enrichSkillRegistered:true`；测试进程已停止。
 
+2026-09-02 的 0.5.0 发布候选在 rc.2（43136）与 alpha.2（43137）完成 24/24 零调用 Host 冒烟：
+MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过。rc.2 另完成实际工作台渲染、
+中文企业名称映射和本地清洗闭环；alpha.2 仍只定位为兼容探针。
+
 ## 2. Node 运行时
 
 - 本包 `engines.node` 声明 `>=20`。
@@ -52,6 +56,8 @@
   调用动态注册的 `mcp__qcc-*` 工具。G5-2 增加幂等、候选续跑、人工重试与安全审计；
   run 明细仅驻留 Host 内存。Bridge 会把 OAuth 0.1.7 的 legacy `mcp__company__*` / `mcp__history__*`
   映射到规范名称，并在 capabilities 中同时报告两者。
+- 0.5.0 三域 Bridge 同时兼容 `mcp__qcc-{risk,ipr,operation}__*`、OAuth 0.1.7 实测 legacy
+  `mcp__{risk,ipr,operation}__*` 与内部短名；输出始终记录规范 `sourceTool` 和实际 `runtimeTool`。
 
 ### 4.1 2026-09-01 rc.2 实测结论
 
@@ -75,6 +81,16 @@
 
 两条基线均返回 `[dc-agent] host apply() ran`，且未发起任何真实 QCC 调用。
 
+### 4.3 0.5.0 三域兼容面
+
+| 能力 | rc.2 | alpha.2 | 备注 |
+| --- | --- | --- | --- |
+| 91 工具契约加载 | ✅ | ✅ | canonical / legacy / short-name 单测全覆盖 |
+| Phase-3 capabilities / estimate | ✅ | ✅ | 零 QCC 调用 |
+| 未确认 enrich 阻断 | ✅ | ✅ | HTTP 409，ToolRuntime 前阻断 |
+| 工作台实际交互 | ✅ | 探针 | rc.2 完成上传映射、体检、中文字段清洗 |
+| 真实三域付费 E2E | 待批准 | 不作为发布门 | 需批准夹具、域、上限、预算 |
+
 ## 5. 已知限制
 
 - alpha.2 的 `@Remote` 契约仍可能变动，本包不对其作稳定 API 承诺。
@@ -83,3 +99,6 @@
 - `/data-cleaning/api/g5/enrich` 为 0.4.0 已发布能力，单批上限 100 行、并发上限 4，
   且必须显式 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；token 到期刷新与 401/429/配额故障门已通过，
   npm/GitHub Release 均已发布 `v0.4.0`。
+- `/data-cleaning/api/phase3/*` 为 0.5.0 发布候选；单批最多 100 行、并发最多 4、默认/硬调用上限
+  500/2000。run 只保留在 Host 内存 30 分钟，Host 重启不恢复。
+- alpha.2 的实际 UI 只作兼容探针；0.5.0 的稳定发布与回滚判断以 rc.2 为准。

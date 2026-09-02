@@ -1,6 +1,6 @@
 {
   "name": "dsh-data-cleaning-agent",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Clean, complete, and profile enterprise name lists in DeepSeek Harness — a data cleaning & completion agent plugin with local CSV/XLSX/JSON engine and optional Qichacha (QCC) MCP enrichment. Maintained by Qichacha/QCC.",
   "type": "module",
   "main": "lib/index.js",
@@ -25,7 +25,9 @@
     "docs/QCC-ENRICHMENT-DESIGN.md",
     "docs/QCC-PHASES-ROADMAP.md",
     "docs/PHASE2-ACCEPTANCE.md",
+    "docs/PHASE3-ACCEPTANCE.md",
     "docs/RELEASE-0.4.0.md",
+    "docs/RELEASE-0.5.0.md",
     "docs/G5-HOST-BRIDGE.md",
     "docs/G5-E2E-RUNBOOK.md"
   ],

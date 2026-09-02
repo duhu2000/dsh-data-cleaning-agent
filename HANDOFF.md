@@ -3,7 +3,7 @@
 > 目的：作为从 GPT 开发任务转入 DeepSeek Harness（DSH）继续开发的唯一入口。
 > 接手者无需回溯对话，应先执行下方「接手启动清单」，再按 P0 → P1 顺序续做。
 > 生成日期：2026-09-02
-> 当前源码版本：**0.4.0**（npm `latest` 与 GitHub Latest 均已发布）
+> 当前源码版本：**0.5.0 发布候选**（npm `latest` 与 GitHub Latest 仍为 0.4.0）
 
 ---
 
@@ -16,13 +16,14 @@
   QCC Host Bridge、批量幂等、多候选人工续跑、脱敏审计、工商 16 + 历史工商 4 工具契约。
 - **真实 E2E 已过**：隔离 DSH `0.1.1-rc.2` 完成 OAuth、授权跨重启恢复、20 企业/400 次 QCC 调用、
   token 自然到期 refresh、续期后最小真实调用、401/429/配额故障注入。
-- **当前代码基线**：本地 `main` = `c6b08c3`，相对 `origin/main@5081036` 领先 4 个提交；
-  T0 正在收敛 `HANDOFF.md`、`docs/PROGRESS.md`、`lib/qcc-phase3.js` 与对应契约测试。
+- **当前代码基线**：P1.3 / P1.4 / P1.5 已形成独立本地提交，P1.5 收口提交为 `3bd26cd`；
+  P1.6 本地发布准备、最终 pack 与全新 rc.2 隔离安装门已通过，本轮已完成版本收口。
 - **最新 CI**：提交 `5081036` 的 Linux Node 22/24 + Windows Node 24 全绿；市场验收 workflow 也已成功。
 - **P0/G3 已完成**：上游市场 [PR #4095](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
   已合并，目录 YAML、在线 `plugins.json` 与视觉市场隔离安装冒烟均通过。
-- **下一开发主线**：`0.5.0` 风险/知产/经营域 + 批量后端扩展。`0.4.1` 只是 npm 包内 README 文案更新，
-  是否发布需用户拍板，不阻断 `0.5.0`。
+- **0.5.0 已完成的主线**：91 工具契约、三域 Skill、批量 Host Bridge、四步工作台、候选续跑、
+  失败重试、双 CSV 与默认关闭 Runner；本地 125/125、双基线 Host 24/24、rc.2 实际 UI 闭环通过。
+- **仍需批准**：真实三域付费 E2E 的企业夹具/域/调用上限/预算，以及最终 `v0.5.0` tag、push 与 OIDC 发布。
 
 ### 接手启动清单
 
@@ -37,13 +38,13 @@ MARKET_PR_NUMBER=4095 npm run market:check
 
 预期：
 
-- `npm run check` 全绿，T0 前基线为 104/104 测试通过。
+- `npm run check` 全绿，0.5.0 发布候选基线为 125/125 测试通过。
 - `market:check` 应返回 `accepted`，不应修改已合并的市场提交 YAML。
 - 若基线不符，先停止功能开发，核对 `git log` / 远端 CI / npm `latest`，不得盲目覆盖用户更改。
 
 ### 不要重复或越界的事
 
-1. 不要重发或覆盖 npm `0.4.0`；npm 已发布版本不可变。
+1. 不要重发或覆盖 npm `0.4.0`；不要在未获批准时发布 `0.5.0`。
 2. 不要重跑 20 企业/400 次真实 QCC 调用，除非用户再次明确批准名单、调用量和费用。
 3. 不要触碰生产 DSH GUI/Profile（端口 `43120`）；所有安装和 E2E 必须用隔离 `DSH_HOME` 与新端口。
 4. 不要提交 `.phase2-e2e/`、`.g5-e2e/`、OAuth 参数、token、真实企业名单或工具原始响应。
@@ -68,7 +69,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | npm `latest` | `0.4.0`（OIDC Trusted Publishing + provenance） |
 | GitHub Release | `v0.4.0`（Latest，2026-09-02T00:33:38Z） |
 | Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0` |
-| 工作树状态 | 0.4.0 已发布：二期与 OAuth 0.1.7 兼容、真实 OAuth + 20 企业/400 调用、自然到期 refresh、401/429/配额故障注入均已验收；Release workflow `33575803070` 全绿，公共 Registry 隔离安装通过；G3 上游 PR #4095 的 check 与 Submission gate 全绿，等待维护者合并 |
+| 工作树状态 | 0.5.0 发布候选：P1.1～P1.6 本地完成，待真实付费门决策与发布授权；npm/GitHub `latest` 仍为 0.4.0 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -80,7 +81,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 > 解决办法是 `npm ... --cache .npm-cache`（项目本地缓存目录）。
 >
 > 0.4.0 tarball 的 README 是 tag 时快照，仍写“发布候选 / latest 0.3.0”；运行包与 provenance 正常，
-> GitHub `main` 已修正。npm 同版本不可覆盖，如需同步包内文案只能发布 `0.4.1`。
+> GitHub `main` 已修正，文案更新已并入 0.5.0 发布候选；npm 同版本不可覆盖。
 
 ---
 
@@ -93,6 +94,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | 0.2.1 | 2026-09-01 | G2 补充：npm OIDC Trusted Publishing 发布链路验证（无功能变更） | ✅ 已发布 |
 | 0.3.0 | 2026-09-01 | G4 方案 A：内嵌 `enterprise-enrichment` Skill，模型中介式调企查查 MCP 补全企业名单 | ✅ 已发布 |
 | 0.4.0 | 2026-09-02 | 二期工商全景 16+4 工具契约、G5 Host Bridge、安全验收与 OAuth 0.1.7 双命名兼容 | ✅ 已发布（npm latest） |
+| 0.5.0 | 2026-09-02 | 三域 91 工具、批量后端、Mockup 对齐工作台、任务恢复/重试与双 CSV | 🔵 发布候选（未 tag/未发布） |
 
 ---
 
@@ -111,15 +113,18 @@ dsh-data-cleaning-agent/
 │   ├── qcc.js                # G5 Host Bridge：公共 ToolRuntime + 批量消歧/补全
 │   ├── qcc-runs.js           # G5 Host 内存 run、幂等、候选续跑与人工重试
 │   ├── qcc-safety.js         # G5 日志/E2E 脱敏与安全审计白名单
+│   ├── qcc-phase3.js         # 0.5.0 风险/知产/经营 91 工具冻结契约
+│   ├── qcc-phase3-batch.js   # 0.5.0 三域批量、调用预算与 Host 内存 run
 │   ├── jobs.js               # 异步任务状态机 + storageDomain dc_tasks_v1
 │   ├── web.js                # Host 半区路由 + UI（/data-cleaning/ 前缀）
 │   └── client.js             # Client 半区 seam（window.__ModuleLoader__.load）
-├── test/                     # 引擎、市场、G5 Bridge/Run/Web/Safety/Runner、0.4.0 契约与验收
+├── test/                     # 引擎、市场、G5/Phase3 Bridge/Run/Web/UI/Safety/Runner 契约与验收
 ├── scripts/
 │   ├── check-marketing.mjs   # marketing/metadata.json 结构校验
 │   ├── check-readme-version.mjs  # README 版本标记同步校验
 │   ├── check-market-registration.mjs # 上游 PR → YAML → 线上目录三段市场验收
 │   ├── g5-e2e.mjs            # 默认关闭、仅回环 Host 的真实 E2E Runner
+│   ├── phase3-e2e.mjs        # 0.5.0 默认关闭、失败关闭的三域 E2E Runner
 │   └── verify-pack.mjs       # 打包内容白名单校验
 ├── marketing/metadata.json   # 市场/npm/GitHub/README 元数据（G3 市场收录用）
 ├── .github/workflows/
@@ -151,6 +156,8 @@ dsh-data-cleaning-agent/
 | `G3-MARKET-REGISTRATION.md` | 市场上架材料、准入门槛和自动验收状态机 |
 | `G5-HOST-BRIDGE.md` | G5-1 实现契约、安全边界与真实 E2E 验收门 |
 | `G5-E2E-RUNBOOK.md` | G5 E2E 安全门、脱敏夹具、执行命令与验收矩阵 |
+| `PHASE3-ACCEPTANCE.md` | 0.5.0 三域自动化、双基线、UI 与真实付费验收门 |
+| `RELEASE-0.5.0.md` | 0.5.0 发布候选、升级、回滚和发布清单 |
 
 ---
 
@@ -198,19 +205,18 @@ dsh-data-cleaning-agent/
 - Skill：`data-cleaning`。
 - 异步任务：`queued → running → completed | failed | killed`，持久化 `dc_tasks_v1`。
 - Web 半区：`/data-cleaning/` UI 与 `/data-cleaning/api/mvp/*`（seam/parse/clean/complete/profile/jobs/job/<id>）。
-- 当前 `npm test` 共 84 例，覆盖引擎、市场、G5 Bridge/Run/Safety/Runner/Web、故障注入与 0.4.0 契约/验收。
+- 当前 `npm test` 共 125 例，覆盖引擎、市场、G5/Phase3 Bridge/Run/Safety/Runner/Web/UI、故障注入与字段映射。
 
 ---
 
 ## 5. 剩余任务（按接手顺序）
 
-### P0 —— 完成 DSH 视觉市场收录（G3，唯一外部阻塞）
+### P0 —— DSH 视觉市场收录（G3）✅
 
 **当前状态**：上游 [PR #4095](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
-仍为 OPEN / CLEAN；年龄门已到，`check` 和 `Submission gate` 均为 SUCCESS。仓库变量
-`DSH_MARKET_PR_NUMBER=4095` 和每小时验收 workflow 已就位。
+已合并；目录 YAML、在线 `plugins.json` 与视觉市场隔离安装冒烟均通过。不要重复提交 PR。
 
-接手动作：
+历史验收动作（均已完成）：
 
 1. 查 PR 状态：`gh pr view 4095 --repo awesome-dsh-plugin/awesome-dsh-plugin`。
 2. PR 未合并：只跟踪，不要做空提交、不要重复建 PR、不要改已通过 Gate 的 YAML。
@@ -219,26 +225,20 @@ dsh-data-cleaning-agent/
 5. 从视觉市场安装到全新隔离 Profile，验证 seam、粘贴 CSV → 清洗 → 预览 → CSV 导出。
 6. 上述五门全过后，才将 G3 标记为完成并更新 `docs/G3-MARKET-REGISTRATION.md`。
 
-### P1 —— 启动 0.5.0（风险 / 知产 / 经营 + 批量后端）
+### P1 —— 0.5.0（风险 / 知产 / 经营 + 批量后端）
 
 **范围建议**：覆盖风险 38、知产 18、经营 35 个计划工具；详细维度见
 `docs/QCC-PHASES-ROADMAP.md` §4。这些数量是当前路线图口径，**编码前必须用本地 QCC MCP 一手注册表
 与真实 ToolRuntime capabilities 重新核对**，不得根据文档猜插件 API。
 
-建议拆分：
+完成状态：
 
-1. **P1.1 契约盘点**：固化风险/知产/经营域精确工具名、输入 schema、权限、付费语义、
-   规范名/legacy 运行时名映射，先交契约测试。
-2. **P1.2 Skill 扩展**：扩展 `enterprise-enrichment`，仅按用户选择调用域组；多候选仍必须暂停，
-   无权/无数据/限流必须显式降级，每字段保留 `sourceTool`。
-3. **P1.3 Host Bridge 扩展**：复用 `lib/qcc.js` 公共 ToolRuntime、幂等、取消/超时、人工重试、
-   脱敏审计和计费确认门；不新建第二套 QCC client。
-4. **P1.4 Web/UI 与输出契约**：支持维度组勾选、付费调用估算/二次确认、部分成功、
-   候选复核、失败重试和 CSV 导出；原始行仍不进模型上下文。
-5. **P1.5 验收**：先做 Mock/Contract/Web/Safety 全量回归，再用隔离 Host 做默认关闭的 E2E。
-   真实 QCC 前必须让用户确认企业名单、工具域、最大调用数和预算；不复用历史真实名单。
-6. **P1.6 发布**：完成 README 中英文、CHANGELOG、兼容矩阵、迁移/回滚和隔离安装冒烟后，
-   才由用户批准打 `v0.5.0` tag 并走 OIDC 发布。
+1. **P1.1 契约盘点**：✅ 91 工具 canonical/legacy/短名、输入依赖、权限与付费语义已冻结。
+2. **P1.2 Skill 扩展**：✅ 三域按需调用、来源保真、多候选和降级规则已落地。
+3. **P1.3 Host Bridge 扩展**：✅ 批量、调用预算、幂等、Host run、候选续跑和失败工具重试已落地。
+4. **P1.4 Web/UI 与输出契约**：✅ 四步工作台、估算/确认、复核、恢复/重试和双 CSV 已落地。
+5. **P1.5 验收**：✅ 125/125、双基线 24/24、rc.2 实际 UI；真实付费 E2E 仍需用户批准。
+6. **P1.6 发布准备**：✅ 文档/版本、最终 pack 与全新 rc.2 隔离安装均已通过；剩余真实付费门决策和用户批准 tag/OIDC。
 
 0.5.0 最低验收门：
 
@@ -250,7 +250,7 @@ dsh-data-cleaning-agent/
 
 ### P2 —— 待用户决策的小版本与 MVP 技术债
 
-1. **可选 `0.4.1`**：只用于更新 npm tarball/包页的 README 状态文案；运行时无故障，不阻断 0.5.0。
+1. **`0.4.1` 不再单独发布**：0.4.0 tarball 文案修正并入 0.5.0；不得覆盖 0.4.0。
 2. **异步任务结果持久化**：`result.rows` 仍为内存闭包；任务完成后跨重启下载需新增 storage/临时文件契约。
 3. **XLSX 大文件异步化**：CSV 主路径已验证，XLSX 大文件仍待压测和任务化。
 4. **LLM dispatch seam**：Web 组合内联 seam 尚未接入稳定模型端到端；不影响纯本地和 Host Bridge 主路径。
@@ -293,7 +293,7 @@ dsh-data-cleaning-agent/
 | --- | --- | --- | --- | --- |
 | 一期 | 0.3.0 | 方案 A Skill `enterprise-enrichment` | 核心工商 7 字段 + 风险标签 | ✅ 已发布 |
 | 二期 | 0.4.0 | 方案 A 扩展 Skill | 工商全景 16 + 历史工商 | ✅ 已发布 |
-| 三期 | 0.5.0 | 方案 A 扩展 + 方案 B 批量后端 | 风险 38 + 知产 18 + 经营 35 | ⬜ 待做 |
+| 三期 | 0.5.0 | 方案 A 扩展 + 方案 B 批量后端 | 风险 38 + 知产 18 + 经营 35 | 🔵 发布候选 |
 | 四期 | 0.6.0 | （可选） | 历史 34 + 人员 44 + 招投标 6 | ⬜ 待做 |
 
 ### 6.3 可清洗补全的 10 大通用维度族（跨期复用的"列"模型）
@@ -371,7 +371,7 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/ap
 
 ### G5-2.1～G5-2.5 本地验证（2026-09-01～2026-09-02）
 
-- `npm test`：当前 84/84 通过（含 0.4.0 工具契约 / Skill / capabilities / 验收 Runner、legacy 命名兼容、故障注入与审计回归）。
+- `npm test`：0.4.0 当时为 84/84 通过（当前 0.5.0 发布候选为 125/125）。
 - `npm run e2e:g5` 在无环境门时以退出码 2 和 `G5_E2E_DISABLED` 安全拒绝，没有网络调用。
 - 针对性验证覆盖 Runner 回环限制/付费确认、凭据与企业标识脱敏、并发幂等复用、候选确认续跑、
   retryable 失败人工重试、Host 内存 run 过期和八类稳定错误映射。
@@ -423,13 +423,10 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/ap
 
 ## 9. 给接手的「第一优先」建议
 
-1. **G3 完成合并闭环**：PR #4095 年龄门、`check` 与 `Submission gate` 已全部通过；当前等待上游维护者合并，之后等待 YAML 与 `plugins.json` 同步，再做视觉市场一键安装冒烟。
-2. **0.4.0 收口已完成**：token 自然到期刷新与 401/429/配额故障门已通过；提交 `0c8cb75` 的
-   Linux Node 22/24 + Windows Node 24 远端 CI `33569931224` 全绿。
-3. **0.4.0 已正式发布**：`v0.4.0`、npm `latest` 与 GitHub Latest 已同步；OIDC Release workflow
-   `33575803070` 全绿，公共 Registry 隔离安装/导入通过。
-4. **待决策**：是否发布只含文档状态修正的 `0.4.1`，以更新 npm tarball/包页面 README；不得覆盖 0.4.0。
-5. 之后按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
+1. 请用户决定是否批准最小真实三域付费 E2E；未明确企业夹具、域、`maxCalls` 和预算时不得执行。
+2. 真实门通过或用户明确接受后置后，再请求 `v0.5.0` tag、push 与 OIDC 发布的单独批准。
+3. 发布完成后核验 npm provenance、GitHub Release 与公共 Registry 安装，并更新“发布候选”为“已发布”。
+4. 0.6.0 历史/人员/招投标扩展必须另行确认范围，不随 0.5.0 顺带扩张。
 
 ---
 

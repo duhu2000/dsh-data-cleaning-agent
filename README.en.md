@@ -2,7 +2,7 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.4.0** (released; npm `latest` is 0.4.0)
+> Current source version / 当前源码版本: **0.5.0** (release candidate; npm `latest` remains 0.4.0)
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -35,7 +35,7 @@ Fully restart DeepSeek Harness afterwards (stop and re-run `dsh web`). Then say
 drives the clean / complete / profile tools.
 
 After restart, a "Data Cleaning" entry appears at the bottom of the sidebar: click it to open the
-workbench (upload → profile → clean → export, four steps). When the model calls the clean /
+workbench (upload & map → profile → match & review → enrich & export, four steps). When the model calls the clean /
 complete / profile tools, matching tool cards render in the conversation, and a jobs pill in the
 workbench header shows queued / running tasks.
 
@@ -59,13 +59,14 @@ Or let an agent install it for you:
 | Parse | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | Async jobs | web `/data-cleaning/api/mvp/jobs` | job state machine + persistent storage |
 | UI | web `/data-cleaning/` | upload → clean/complete → export |
-| In-app entry | sidebar "Data Cleaning" button | opens the full-screen workbench: upload → profile → clean → export |
+| In-app entry | sidebar "Data Cleaning" button | opens the Mockup-aligned workbench: upload & map → profile → match & review → enrich & export |
 | Tool cards | `tool.call.toolview` (`data_clean_rows`/`data_complete_rows`/`data_profile`) | render clean/complete/profile result cards in-conversation with running/done/failed state |
 | Task progress | workbench header jobs pill | polls `/data-cleaning/api/mvp/jobs`; shows queued / running tasks |
 | Skill | `data-cleaning` | guides the model through the workflow |
 | QCC Skill enrichment | `enterprise-enrichment` | 0.4.0: company panorama, ownership, governance, and historical registration |
 | 0.4.0 preflight | web `/data-cleaning/api/phase2/capabilities` | Read-only 16+4 dynamic-tool check; makes no QCC or paid calls |
 | QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0: real OAuth/QCC path, natural-expiry refresh, and fault injection verified |
+| Three-domain enrichment | web `/data-cleaning/api/phase3/*` | 0.5.0: risk 38 + IPR 18 + operation 35, zero-call estimate, explicit paid confirmation, candidate review, recovery/retry, and two CSV exports |
 
 ## Qichacha MCP enrichment (status and roadmap)
 
@@ -82,12 +83,20 @@ Besides local deterministic completion, the plugin supports Qichacha MCP enterpr
   auto-selected. A loopback-only, fail-closed E2E runner is ready. On 2026-09-01 an isolated rc.2
   Host passed real OAuth, restart recovery, and 400 QCC calls across 20 public companies. Natural-expiry
   token refresh, dynamic-tool recovery, a post-refresh real call, and 401/429/quota fault injection also passed.
+- **0.5.0 three-domain batch extension (release candidate)**: a frozen 91-tool contract covers risk (38),
+  intellectual property (18), and operation (35). The workbench supports domain selection, a zero-call upper-bound
+  estimate, separate paid-call confirmation, manual ambiguous-candidate locking, partial-failure retry, 30-minute
+  Host-memory recovery, and result/review CSV exports. rc.2 and alpha.2 passed 24/24 zero-call Host smoke checks;
+  rc.2 passed actual rendering and Chinese company-field mapping. Real paid Phase-3 E2E still requires separate
+  approval of the fixture, domains, call ceiling, and budget.
 
 The Bridge accepts both the documented `mcp__qcc-company__*` names and the legacy
 `mcp__company__*` names observed from `qcc-dsh-mcp-oauth@0.1.7`. A fresh rc.2 profile must also
 install the matching `@deepseek-ai/dsh-mcp-client` explicitly; see the compatibility guide.
 
 See [the 0.4.0 release record](docs/RELEASE-0.4.0.md) for scope, validation gates, and rollback steps.
+See [the Phase-3 acceptance record](docs/PHASE3-ACCEPTANCE.md) and
+[the 0.5.0 release-candidate record](docs/RELEASE-0.5.0.md) for current gates, upgrade, and rollback.
 
 See [docs/PLAN-OSS.md](docs/PLAN-OSS.md) for details.
 
@@ -106,6 +115,8 @@ npm run check
 unit tests.
 Real G5 validation must be enabled explicitly according to
 [the E2E runbook](docs/G5-E2E-RUNBOOK.md); `npm run e2e:g5` refuses to run by default.
+The Phase-3 runner is also disabled by default: `npm run e2e:phase3` only permits a loopback Host,
+and paid mode requires an additional explicit confirmation gate.
 
 ## Configuration
 

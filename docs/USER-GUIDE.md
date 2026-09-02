@@ -28,10 +28,10 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 
 重启后，DeepSeek Harness 侧边栏底部会出现「数据清洗」按钮。点击打开全屏工作台，按四步操作：
 
-1. **上传**：粘贴或上传 CSV / XLSX / JSON；
-2. **画像**：查看列概览与金额分布；
-3. **清洗**：trim、手机号规范化、剔除缺失必填/负金额/重复行；
-4. **导出**：下载清洗后的 CSV。
+1. **上传与映射**：粘贴或上传 CSV / XLSX / JSON，确认企业名称字段；
+2. **数据体检**：查看列概览、缺失和金额分布；
+3. **匹配核验**：先做本地清洗，再选择风险/知产/经营域；多候选由人工确认；
+4. **补全与导出**：恢复任务、重试可重试失败，下载结果 CSV 和复核 CSV。
 
 模型在对话中调用 `data_clean_rows` / `data_complete_rows` / `data_profile` 时，
 对话内会渲染对应的工具结果卡片（含运行中 / 已完成 / 失败状态）；工作台头部用任务 pill
@@ -79,7 +79,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - 不重造 OAuth；工具面来自 `qcc-dsh-mcp-oauth`。
 - 逐企业调用，适合中小名单（几十条以内）。
 - 金额、比例、计数保留 QCC 原值，不自算股权链、不将缺失值写成「无」或 0。
-- 0.4.0 尚未发布；20 企业、每企业至少 15 个当前维度并含 4 个历史维度的真实账号验收已通过。
+- 0.4.0 已发布；20 企业、每企业至少 15 个当前维度并含 4 个历史维度的真实账号验收已通过。
   access token 自然到期后的真实刷新、动态工具恢复以及限流/配额故障注入已在隔离环境验收。
 
 ### 3.3 QCC 后台批量 Host Bridge（0.4.0 / G5-2）
@@ -96,6 +96,28 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 初次请求返回 `runId`：多候选进入 `awaiting-review`，只能通过 `/g5/resolve` 选择返回候选中的
 信用代码后续跑；retryable 失败只能由用户通过 `/g5/retry` 显式重试。run 仅在 Host 内存保留
 30 分钟，Host 重启后失效，不把原始企业行持久化落盘。
+
+### 3.4 三域批量补全（0.5.0 发布候选）
+
+0.5.0 在工作台中增加三个可选域：
+
+- **风险信息 · 38**：司法、执行、处罚、经营异常、税务、违约等；
+- **知识产权 · 18**：专利、商标、软著、数字资产、备案等；
+- **经营信息 · 35**：资质、招投标、融资、舆情、监管、进出口等。
+
+推荐流程：
+
+1. 上传数据并确认“企业名称字段”；
+2. 生成数据体检，执行本地清洗；
+3. 点击“检测企查查连接”，按需要勾选域；
+4. 点击“估算调用量”。估算为上界且不执行 QCC 工具；
+5. 只有在核对企业数、工具数、估算调用量和 `maxCalls` 后，才勾选“确认企查查付费调用”；
+6. 多候选逐项人工选择；失败项只在明确点击重试时重放；
+7. 下载补全结果 CSV，必要时下载候选复核 CSV。
+
+同源 API 为 `/data-cleaning/api/phase3/*`。单批最多 100 行，并发上限 4，硬调用上限 2000；
+默认调用上限 500。`enrich` / `resolve` / `retry` 均要求 `confirmPaidCalls:true` 和唯一幂等键。
+当前真实三域付费 E2E 仍是发布门，详见 [PHASE3-ACCEPTANCE.md](PHASE3-ACCEPTANCE.md)。
 
 ## 4. 数据边界
 
@@ -118,5 +140,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   需同时显式安装同版本 `@deepseek-ai/dsh-mcp-client`。再说"帮我补全这份企业名单"，会自动走
   `enterprise-enrichment` Skill（方案 A 模型中介式）。字段契约与二期规划见
   [QCC-ENRICHMENT-DESIGN.md](QCC-ENRICHMENT-DESIGN.md)。
-- **Q：可以在后台批量补全吗？** A：`main` 已有 G5-2 Host Bridge 安全闭环，真实 OAuth/QCC 主路径已验收但尚未发布；
-  生产使用前仍需通过 `docs/G5-HOST-BRIDGE.md` 的 token 到期刷新与计费错误门。
+- **Q：可以在后台批量补全吗？** A：可以。0.4.0 G5 工商批量已发布并完成真实 OAuth/token 验收；
+  0.5.0 风险/知产/经营三域为发布候选，先用 estimate 核对调用上限，再显式确认付费调用。
+- **Q：刷新页面或重启后还能恢复吗？** A：同一 Host 进程内可用 `runId` 恢复，默认保留 30 分钟；
+  Host 重启后内存 run 失效，但已下载 CSV 和本地源文件不受影响。
