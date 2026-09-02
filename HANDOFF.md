@@ -24,7 +24,7 @@
 | npm `latest` | `0.4.0`（OIDC Trusted Publishing + provenance） |
 | GitHub Release | `v0.4.0`（Latest，2026-09-02T00:33:38Z） |
 | Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0` |
-| 工作树状态 | 0.4.0 已发布：二期与 OAuth 0.1.7 兼容、真实 OAuth + 20 企业/400 调用、自然到期 refresh、401/429/配额故障注入均已验收；Release workflow `33575803070` 全绿，公共 Registry 隔离安装通过；G3 上游 PR #4095 等待年龄门与合并 |
+| 工作树状态 | 0.4.0 已发布：二期与 OAuth 0.1.7 兼容、真实 OAuth + 20 企业/400 调用、自然到期 refresh、401/429/配额故障注入均已验收；Release workflow `33575803070` 全绿，公共 Registry 隔离安装通过；G3 上游 PR #4095 的 check 与 Submission gate 全绿，等待维护者合并 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -164,8 +164,8 @@ dsh-data-cleaning-agent/
 - **现状**：dshmarket（视觉市场）只安装 curated registry 条目，来源
   `https://awesome-dsh-plugin.com/plugins.json`（当前 2777 条）；**本插件尚未被收录**（hitCount=0）。
 - **已完成并推送**：提交 YAML 材料已固化；新增 `market:check`、上游 PR→YAML→线上目录三段检查、每小时 workflow 和 7 例状态机测试，详见 `docs/G3-MARKET-REGISTRATION.md`。
-- **上游 PR**：[`awesome-dsh-plugin#4095`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095) 已创建，只新增一个注册 YAML；上游 `check` 已通过。
-- **年龄门**：远端已有 10 个有效 commit 且 `dsh-plugin` topic 已配置；`Submission gate` 首轮仅因仓库为 0.4 天失败。2026-09-02 01:47 UTC 满 1 天后重跑。
+- **上游 PR**：[`awesome-dsh-plugin#4095`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095) 已创建，只新增一个注册 YAML；新 head `57ee04b` 的上游 `check` 与 `Submission gate` 均已通过，merge state 为 `CLEAN`。
+- **年龄门**：2026-09-02 01:47:13 UTC 已满足；通过标准 Update branch 同步落后上游的 245 个提交并触发 `synchronize`，2026-09-02 01:58 UTC 重验全绿。
 - **自动追踪**：仓库变量 `DSH_MARKET_PR_NUMBER=4095` 已配置，持续跟踪合并、YAML 与线上目录同步。
 - **验收**：市场可搜索 + 一键安装成功。
 
@@ -359,7 +359,7 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/ap
 
 ## 9. 给接手的「第一优先」建议
 
-1. **G3 完成年龄门与合并闭环**：PR #4095 已提交，2026-09-02 01:47 UTC 后重跑 `Submission gate`；合并后等待 YAML 与 `plugins.json` 同步，再做视觉市场一键安装冒烟。
+1. **G3 完成合并闭环**：PR #4095 年龄门、`check` 与 `Submission gate` 已全部通过；当前等待上游维护者合并，之后等待 YAML 与 `plugins.json` 同步，再做视觉市场一键安装冒烟。
 2. **0.4.0 收口已完成**：token 自然到期刷新与 401/429/配额故障门已通过；提交 `0c8cb75` 的
    Linux Node 22/24 + Windows Node 24 远端 CI `33569931224` 全绿。
 3. **0.4.0 已正式发布**：`v0.4.0`、npm `latest` 与 GitHub Latest 已同步；OIDC Release workflow

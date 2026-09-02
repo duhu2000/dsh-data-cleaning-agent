@@ -1,7 +1,7 @@
 # G3：DSH 视觉插件市场收录与自动验收
 
-- 日期：2026-09-01
-- 状态：**G3-3 已提交上游 PR #4095；等待仓库年龄门、维护者合并与目录同步**
+- 日期：2026-09-02
+- 状态：**PR #4095 的常规检查与 Submission gate 均已通过；等待维护者合并与目录同步**
 - 外部仓库：[`awesome-dsh-plugin/awesome-dsh-plugin`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
 - 上游 PR：[`awesome-dsh-plugin#4095`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
 - 官方提交说明：[`contributing.md`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md)
@@ -15,7 +15,10 @@
 1. 视觉市场读取 `https://awesome-dsh-plugin.com/plugins.json`；截至本次检查，其中没有精确匹配的 `dsh-data-cleaning-agent` 条目。
 2. 上游当前要求插件仓库至少存在 1 天、至少 10 个 commit、包含 `dsh.bundle`，并带 `dsh-plugin` topic；收录文件必须是单个 YAML。
 3. 远端 `main` 已有 10 个有效 commit，并已配置 `dsh-plugin` topic；第 10 个提交修复了“粘贴 CSV 后清洗误按 JSON 解析”的真实 UI 闭环，并加入市场截图，不是空提交。
-4. 仓库创建时间为 2026-09-01 01:47 UTC；PR #4095 首轮 `check` 通过，`Submission gate` 仅因仓库当时为 0.4 天而失败。年龄门于 2026-09-02 01:47 UTC 达成，之后需重跑门禁。
+4. 仓库创建时间为 2026-09-01 01:47:13 UTC；年龄门于 2026-09-02 01:47:13 UTC 达成。
+   由于贡献者无权直接 rerun 上游 workflow，使用 GitHub 标准 Update branch 将落后上游 245 个提交的
+   PR 分支同步到最新 `main`，触发 `synchronize`；新 head `57ee04b` 的常规 `check` 与
+   `Submission gate` 均于 2026-09-02 01:58 UTC 通过，PR 状态为 `CLEAN`。
 5. npm `0.3.0` 已在隔离 DSH host 安装冒烟通过，`enrichSkillRegistered:true`；这证明包可用，但不等于市场已经收录。
 6. 2026-09-02 npm `0.4.0` 发布后又从公共 Registry 安装到全新隔离 DSH profile（端口 43160）：
    三工具、两个 Skill、Web 与 QCC Bridge seam 全部注册，未装 OAuth 时正确返回 `oauth-plugin-missing`；
