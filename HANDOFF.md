@@ -1,10 +1,54 @@
-# 数据清洗补全智能体 · 项目移交文档（Handoff）
+# 数据清洗补全智能体 · DeepSeek Harness 开发移交文档
 
-> 目的：让接手的 GPT / 协作者无需回溯全部对话，即可掌握项目全貌、当前基线、已完成事项、待办与后续规划，并直接续做剩余开发任务。
+> 目的：作为从 GPT 开发任务转入 DeepSeek Harness（DSH）继续开发的唯一入口。
+> 接手者无需回溯对话，应先执行下方「接手启动清单」，再按 P0 → P1 顺序续做。
 > 生成日期：2026-09-02
 > 当前源码版本：**0.4.0**（npm `latest` 与 GitHub Latest 均已发布）
 
 ---
+
+## 接手摘要（DeepSeek Harness 先读）
+
+### 当前结论
+
+- **已稳定发布**：`dsh-data-cleaning-agent@0.4.0`，npm `latest` 与 GitHub Release `v0.4.0` 一致。
+- **已完成的主能力**：本地 CSV/XLSX/JSON 清洗补全、三工具、两个 Skill、异步任务、Web UI、
+  QCC Host Bridge、批量幂等、多候选人工续跑、脱敏审计、工商 16 + 历史工商 4 工具契约。
+- **真实 E2E 已过**：隔离 DSH `0.1.1-rc.2` 完成 OAuth、授权跨重启恢复、20 企业/400 次 QCC 调用、
+  token 自然到期 refresh、续期后最小真实调用、401/429/配额故障注入。
+- **当前代码基线**：本地 `main` = `c6b08c3`，相对 `origin/main@5081036` 领先 4 个提交；
+  T0 正在收敛 `HANDOFF.md`、`docs/PROGRESS.md`、`lib/qcc-phase3.js` 与对应契约测试。
+- **最新 CI**：提交 `5081036` 的 Linux Node 22/24 + Windows Node 24 全绿；市场验收 workflow 也已成功。
+- **P0/G3 已完成**：上游市场 [PR #4095](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
+  已合并，目录 YAML、在线 `plugins.json` 与视觉市场隔离安装冒烟均通过。
+- **下一开发主线**：`0.5.0` 风险/知产/经营域 + 批量后端扩展。`0.4.1` 只是 npm 包内 README 文案更新，
+  是否发布需用户拍板，不阻断 `0.5.0`。
+
+### 接手启动清单
+
+```bash
+cd '/Users/qcc/Documents/DuHu/QCC/beichacha_doc/云聚接口/MCP/MCP/workspace/dsh-data-cleaning-agent'
+git status --short --branch
+git pull --ff-only
+npm install --ignore-scripts --no-package-lock   # 仅在 node_modules 缺失时执行
+npm run check
+MARKET_PR_NUMBER=4095 npm run market:check
+```
+
+预期：
+
+- `npm run check` 全绿，T0 前基线为 104/104 测试通过。
+- `market:check` 应返回 `accepted`，不应修改已合并的市场提交 YAML。
+- 若基线不符，先停止功能开发，核对 `git log` / 远端 CI / npm `latest`，不得盲目覆盖用户更改。
+
+### 不要重复或越界的事
+
+1. 不要重发或覆盖 npm `0.4.0`；npm 已发布版本不可变。
+2. 不要重跑 20 企业/400 次真实 QCC 调用，除非用户再次明确批准名单、调用量和费用。
+3. 不要触碰生产 DSH GUI/Profile（端口 `43120`）；所有安装和 E2E 必须用隔离 `DSH_HOME` 与新端口。
+4. 不要提交 `.phase2-e2e/`、`.g5-e2e/`、OAuth 参数、token、真实企业名单或工具原始响应。
+5. 不要访问 mcp-client 私有 client/loader 内部；只能走已验证的公共 `ctx.tools.get/execute`。
+6. 不要把 `0.1.2-alpha.2` 的实验 API 当稳定公开契约。
 
 ## 0. 一句话定位
 
@@ -158,54 +202,74 @@ dsh-data-cleaning-agent/
 
 ---
 
-## 5. 待办（TODO，按优先级）
+## 5. 剩余任务（按接手顺序）
 
-### P0 —— 让插件出现在「视觉插件市场」（G3，进行中：G3-3 已提交）
-- **现状**：dshmarket（视觉市场）只安装 curated registry 条目，来源
-  `https://awesome-dsh-plugin.com/plugins.json`（当前 2777 条）；**本插件尚未被收录**（hitCount=0）。
-- **已完成并推送**：提交 YAML 材料已固化；新增 `market:check`、上游 PR→YAML→线上目录三段检查、每小时 workflow 和 7 例状态机测试，详见 `docs/G3-MARKET-REGISTRATION.md`。
-- **上游 PR**：[`awesome-dsh-plugin#4095`](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095) 已创建，只新增一个注册 YAML；新 head `57ee04b` 的上游 `check` 与 `Submission gate` 均已通过，merge state 为 `CLEAN`。
-- **年龄门**：2026-09-02 01:47:13 UTC 已满足；通过标准 Update branch 同步落后上游的 245 个提交并触发 `synchronize`，2026-09-02 01:58 UTC 重验全绿。
-- **自动追踪**：仓库变量 `DSH_MARKET_PR_NUMBER=4095` 已配置，持续跟踪合并、YAML 与线上目录同步。
-- **验收**：市场可搜索 + 一键安装成功。
+### P0 —— 完成 DSH 视觉市场收录（G3，唯一外部阻塞）
 
-### P0 —— 方案 B 批量后端（0.4.0 功能发布门已完成）
-- **Spike #7 结论**：rc.2 与 alpha.2 隔离 host 均通过动态 entry 创建、`ctx.tools.execute()` 调用、AbortSignal 取消、禁用/恢复四项验证。方案 B **GO**，但只能使用公共 ToolRuntime，禁止依赖 mcp-client 私有 client。详见 `docs/spike-7-programmatic-mcp-call.md` 与 ADR-0002。
-- **已完成**：Host Bridge、字段映射、批量消歧、幂等、候选续跑、人工重试、脱敏审计、
-  默认关闭 E2E Runner；加上 0.4.0 契约/验收、legacy 命名兼容、故障注入和审计回归测试后全量为 84 项，详见 `docs/G5-HOST-BRIDGE.md` 和 `docs/G5-E2E-RUNBOOK.md`。
-- **共享**：§5 字段契约、§6 消歧策略、未连接引导路径（与方案 A 一致，不重定义）。
-- **真实主路径已验收**：隔离 rc.2 Host 完成 OAuth、授权跨重启恢复、16+4 工具预检与
-  20 企业/400 次真实 QCC 调用；Bridge 已兼容 OAuth 0.1.7 的 legacy serverName。
-- **剩余门已验收**：自然过期 access token 在隔离端口 43159 自动 refresh，16+4 工具恢复；
-  续期后 1 行真实 enrich 1/1 成功。401/429/配额耗尽用 Web→Bridge→Mock ToolRuntime 注入，
-  未重放 400 次真实批次，并验证人工重试与审计脱敏。
+**当前状态**：上游 [PR #4095](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
+仍为 OPEN / CLEAN；年龄门已到，`check` 和 `Submission gate` 均为 SUCCESS。仓库变量
+`DSH_MARKET_PR_NUMBER=4095` 和每小时验收 workflow 已就位。
 
-### P1 —— 二期 0.4.0（工商全景 + 股权穿透，Skill 扩展）
-- 覆盖 `mcp__qcc-company__*` 16 工具 + 历史工商：实控人、受益所有人、股东、对外投资、分支机构、
-  主要人员、变更记录、年报、联系方式、开票、上市、财务等（详见 `QCC-PHASES-ROADMAP.md` §3）。
-- **已发布**：工具名已与本地 QCC MCP 注册表逐项核对；新增 `lib/qcc-phase2.js`
-  契约和 `test/skill-enrich.test.mjs`，Skill 已支持按工商全景/股权穿透/组织沿革/历史工商组选择。
-- **本地开发已完成**：新增验收评估器、默认关闭 Runner 和脱敏报告；
-  只读 capabilities 端点可在付费调用前检查 16+4 工具面；
-  rc.2 / alpha.2 隔离 Host 均已通过新 Skill 注册冒烟；rc.2 真实账号 20 企业发布门已通过。
-- 验收门：20 条名单每企业 ≥15 个维度；消歧规则不变；金额/比例/计数逐字引用。
+接手动作：
 
-### P1 —— 三期 0.5.0（风险/知产/经营 + 方案 B 批量后端）
-- 覆盖风险 38 + 知产 18 + 经营 35 工具（详见 `QCC-PHASES-ROADMAP.md` §4）。
+1. 查 PR 状态：`gh pr view 4095 --repo awesome-dsh-plugin/awesome-dsh-plugin`。
+2. PR 未合并：只跟踪，不要做空提交、不要重复建 PR、不要改已通过 Gate 的 YAML。
+3. PR 合并后：运行 `MARKET_PR_NUMBER=4095 npm run market:check`，直到返回 `accepted`。
+4. 确认上游 `main` 有目标 YAML，且 `https://awesome-dsh-plugin.com/plugins.json` 可精确搜到包名。
+5. 从视觉市场安装到全新隔离 Profile，验证 seam、粘贴 CSV → 清洗 → 预览 → CSV 导出。
+6. 上述五门全过后，才将 G3 标记为完成并更新 `docs/G3-MARKET-REGISTRATION.md`。
 
-### P2 —— 四期 0.6.0（可选，历史轨迹 + 董监高 + 招投标）
-- 覆盖历史 34 + 人员 44 + 招投标 6；历史域需**企业认证账号**（未授权须显式降级）。
+### P1 —— 启动 0.5.0（风险 / 知产 / 经营 + 批量后端）
 
-### P2 —— MVP 遗留未决项（`docs/mvp.md` §5）
-1. **异步任务明细结果不落盘**：`result.rows` 当前只经内存闭包消费；"任务完成后下载明细"需把结果写入
-   storage 表或临时文件。
-2. **XLSX 大文件异步化**：CSV 路径已完整实测；XLSX 大文件留产品阶段。
-3. **web 组合内联模型 dispatch seam 未接活 LLM**：真实模型端到端仅在 headless 组合验证过。
+**范围建议**：覆盖风险 38、知产 18、经营 35 个计划工具；详细维度见
+`docs/QCC-PHASES-ROADMAP.md` §4。这些数量是当前路线图口径，**编码前必须用本地 QCC MCP 一手注册表
+与真实 ToolRuntime capabilities 重新核对**，不得根据文档猜插件 API。
 
-### P3 —— 工程口径收敛
-1. **Node engine 不一致**：`package.json` 写 `>=20`，但 DSH Desktop `engines` 为 `^22.19.0 || >=24.0.0`；
-   建议收敛为 22/24（CI 已是 22/24，见 `PLAN-REVIEW.md` §4）。
-2. **双基线兼容口径**：公开 README 不得把 alpha.2 的 `@Remote` 当稳定 API。
+建议拆分：
+
+1. **P1.1 契约盘点**：固化风险/知产/经营域精确工具名、输入 schema、权限、付费语义、
+   规范名/legacy 运行时名映射，先交契约测试。
+2. **P1.2 Skill 扩展**：扩展 `enterprise-enrichment`，仅按用户选择调用域组；多候选仍必须暂停，
+   无权/无数据/限流必须显式降级，每字段保留 `sourceTool`。
+3. **P1.3 Host Bridge 扩展**：复用 `lib/qcc.js` 公共 ToolRuntime、幂等、取消/超时、人工重试、
+   脱敏审计和计费确认门；不新建第二套 QCC client。
+4. **P1.4 Web/UI 与输出契约**：支持维度组勾选、付费调用估算/二次确认、部分成功、
+   候选复核、失败重试和 CSV 导出；原始行仍不进模型上下文。
+5. **P1.5 验收**：先做 Mock/Contract/Web/Safety 全量回归，再用隔离 Host 做默认关闭的 E2E。
+   真实 QCC 前必须让用户确认企业名单、工具域、最大调用数和预算；不复用历史真实名单。
+6. **P1.6 发布**：完成 README 中英文、CHANGELOG、兼容矩阵、迁移/回滚和隔离安装冒烟后，
+   才由用户批准打 `v0.5.0` tag 并走 OIDC 发布。
+
+0.5.0 最低验收门：
+
+- 工具契约来自一手注册表/运行时预检，不是记忆或文档推断。
+- 金额、比例、计数、评级与风险结论均保留来源原值，不自行聚合或补造。
+- 多候选零自动误选；未确认计费时零 QCC 调用；幂等重放不重复计费。
+- `npm run check` 与 Linux Node 22/24 + Windows Node 24 CI 全绿。
+- 隔离 DSH `0.1.1-rc.2` 为稳定发布基线；`0.1.2-alpha.2` 只做兼容探针。
+
+### P2 —— 待用户决策的小版本与 MVP 技术债
+
+1. **可选 `0.4.1`**：只用于更新 npm tarball/包页的 README 状态文案；运行时无故障，不阻断 0.5.0。
+2. **异步任务结果持久化**：`result.rows` 仍为内存闭包；任务完成后跨重启下载需新增 storage/临时文件契约。
+3. **XLSX 大文件异步化**：CSV 主路径已验证，XLSX 大文件仍待压测和任务化。
+4. **LLM dispatch seam**：Web 组合内联 seam 尚未接入稳定模型端到端；不影响纯本地和 Host Bridge 主路径。
+5. **Node engine 收敛**：`package.json` 是 `>=20`，DSH Desktop 是 `^22.19.0 || >=24.0.0`；变更前需做兼容影响评估。
+
+### P3 —— 0.6.0（可选）
+
+覆盖历史 34 + 人员 44 + 招投标 6。历史域需企业认证账号，未授权必须显式降级。
+启动前必须由用户确认是否纳入范围，不要在 0.5.0 内顺带扩张。
+
+### 已完成，不再列为 TODO
+
+| 项目 | 结论 |
+| --- | --- |
+| G5 / Spike #7 / 方案 B 基础层 | 已 GO、已实现、已真实 E2E，随 0.4.0 发布 |
+| G5-2.1～G5-2.5 | 幂等、候选续跑、人工重试、脱敏审计、默认关闭 Runner 均完成 |
+| 二期 0.4.0 | 工商全景 16 + 历史工商 4、20 企业/400 调用真实验收、发布全完成 |
+| OAuth/token 发布门 | 首连、跨重启恢复、自然到期 refresh、续期后调用已过 |
+| 401/429/配额故障门 | 已用 Web→Bridge→Mock ToolRuntime 注入验收，无需重做真实计费故障 |
 
 ---
 

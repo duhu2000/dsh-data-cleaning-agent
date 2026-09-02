@@ -10,8 +10,8 @@
 ## 0. 一句话状态
 
 `0.4.0` 已正式发布（npm `latest` + GitHub Latest 一致）。`0.5.0` 开发主线进行中：
-P1.1 契约盘点与 M1–M4 应用内入口（侧边栏「数据清洗」→ 工作台 → 工具卡 → 任务 pill）已全部完成并双基线冒烟通过；
-P1.2 / P1.3（风险/知产/经营三域 Skill 与 Host Bridge 批量）按计划延后，待恢复。
+P1.1 契约盘点、P1.2 三域 Skill 扩展与 M1–M4 应用内入口（侧边栏「数据清洗」→ 工作台 → 工具卡 → 任务 pill）已完成；
+P1.3（风险/知产/经营三域 Host Bridge 批量）进入开发。
 P0/G3 市场收录已全部门完成（PR 合并 + 目录 YAML 落库 + `plugins.json` 命中 + 视觉市场一键安装冒烟通过）。
 
 ---
@@ -37,9 +37,9 @@ P0/G3 市场收录已全部门完成（PR 合并 + 目录 YAML 落库 + `plugins
 | **M1** | 应用内入口克隆验证 | ✅ 完成 | 侧边栏 footer「数据清洗」入口 + `shell.overlay` 占位；隔离 profile，未触碰 43120 |
 | **M2** | 工作台视图（四步） | ✅ 完成 | 上传 → 画像 → 清洗 → 导出；复用 `/data-cleaning/api/mvp/*` |
 | **M3** | 交互闭环（工具卡 + 任务 pill） | ✅ 完成 | 三张 `tool.call.toolview` 卡（clean/complete/profile）+ 工作台头部 jobs 轮询 pill |
-| **M4** | 验收 + 文档 | ✅ 完成 | `npm run check` 100/100 全绿；rc.2 + alpha.2 双基线入口可发现；README/README.en/USER-GUIDE/COMPATIBILITY 更新；无新真实 QCC 调用 |
-| **P1.2** | Skill 扩展（`enterprise-enrichment` 三域组） | ⏸️ 挂起 | 契约成果（P1.1）保留，解冻后直接复用 |
-| **P1.3** | Host Bridge 扩展（三域批量） | ⏸️ 挂起 | 复用 `lib/qcc.js` 公共 ToolRuntime，不新建第二套 client |
+| **M4** | 验收 + 文档 | ✅ 完成 | `npm run check` 104/104 全绿；rc.2 + alpha.2 双基线入口可发现；README/README.en/USER-GUIDE/COMPATIBILITY 更新；无新真实 QCC 调用 |
+| **P1.2** | Skill 扩展（`enterprise-enrichment` 三域组） | ✅ 完成 | 风险/知产/经营域组、付费确认、来源保真与无权/无数据/限流降级规则已固化并测试 |
+| **P1.3** | Host Bridge 扩展（三域批量） | 🔵 进行中 | 复用 `lib/qcc.js` 公共 ToolRuntime，不新建第二套 client；T0 正在收敛工具名归一化与文档基线 |
 | **P1.4** | Web/UI 与输出契约（0.5.0 完整版） | 🔵 部分 | M1–M4 已提前交付工作台/工具卡/任务 pill；剩余：维度组勾选、计费确认、候选复核、部分成功/失败重试 |
 | **P1.5** | 0.5.0 验收 | ⬜ 待办 | Mock/Contract/Web/Safety 全量回归 + 隔离 Host E2E（真实 QCC 前须用户确认名单/域/上限/预算） |
 | **P1.6** | 0.5.0 发布 | ⬜ 待办 | README/CHANGELOG/兼容矩阵/迁移回滚 + 隔离安装冒烟 → 用户批准后打 tag 走 OIDC |
@@ -47,16 +47,10 @@ P0/G3 市场收录已全部门完成（PR 合并 + 目录 YAML 落库 + `plugins
 
 ---
 
-## 3. 当前工作树（未提交变更）
+## 3. 当前工作树（T0 收敛中）
 
-> 本次会话（M4）完成后 `npm run check` EXIT=0。以下为 `git status --short` 实测结果。
-
-**已修改（M）**：`HANDOFF.md`、`README.md`、`README.en.md`、`docs/COMPATIBILITY.md`、
-`docs/G3-MARKET-REGISTRATION.md`、`docs/USER-GUIDE.md`、`lib/client.js`、`lib/qcc.js`、
-`lib/web.js`、`package.json`、`test/qcc-bridge.test.mjs`
-
-**未跟踪（??）**：`docs/DSH-ENTRY-UI-PLAN.md`、`docs/P1.1-CONTRACT-INVENTORY.md`、
-`lib/qcc-phase3.js`、`test/client-entry.test.mjs`、`test/qcc-phase3-contract.test.mjs`
+`main` 当前相对 `origin/main` 领先 4 个已审查本地提交：P1.1、M1–M4、G3 收口和 P1.2。
+T0 只处理 `HANDOFF.md`、`docs/PROGRESS.md`、`lib/qcc-phase3.js` 与对应契约测试；不重置或覆盖上述提交。
 
 ---
 
@@ -64,7 +58,7 @@ P0/G3 市场收录已全部门完成（PR 合并 + 目录 YAML 落库 + `plugins
 
 | 项 | 值 |
 | --- | --- |
-| 代码基线 | `508103661ec8398b41d4f9b99aba9cc96b9fac9d`（`main` / `origin/main`） |
+| 代码基线 | `c6b08c3`（本地 `main`；相对 `origin/main@5081036` 领先 4） |
 | 当前版本 | `0.4.0`（npm `latest` + GitHub `v0.4.0` 已发布） |
 | 下一版本 | `0.5.0`（风险/知产/经营 + 批量后端） |
 | 稳定发布基线 | DSH `0.1.1-rc.2`（冒烟端口 43136 / 43141） |
@@ -88,7 +82,7 @@ P0/G3 市场收录已全部门完成（PR 合并 + 目录 YAML 落库 + `plugins
 ## 6. 下一步（按优先级）
 
 1. **G3 已完成**：PR #4095 合并、目录 YAML 落库、`plugins.json` 命中、视觉市场一键安装冒烟（43161）均通过；唯一残留为 china 区 npm 目录 `dsh-plugin-catalog` 的常规发布滞后（上游管线，非本仓库问题）。
-2. **恢复 P1.2 → P1.3**：解冻风险/知产/经营三域 Skill 与 Host Bridge 批量（复用 P1.1 契约成果）。
+2. **推进 P1.3**：风险/知产/经营三域 Host Bridge 批量（复用已完成的 P1.1 契约与 P1.2 Skill）。
 3. **P1.4 收尾**：维度组勾选、付费调用估算/二次确认、部分成功、候选复核、失败重试、CSV 导出。
 4. **P1.5 → P1.6**：全量回归 + 隔离 Host E2E + 发布物料，最终由用户批准打 `v0.5.0` tag。
 
