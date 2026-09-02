@@ -34,6 +34,9 @@
 
 > npm 缓存坑：本机 `/Users/qcc/.npm/_cacache` 曾被 root 占用导致 `npm view` EPERM，
 > 解决办法是 `npm ... --cache .npm-cache`（项目本地缓存目录）。
+>
+> 0.4.0 tarball 的 README 是 tag 时快照，仍写“发布候选 / latest 0.3.0”；运行包与 provenance 正常，
+> GitHub `main` 已修正。npm 同版本不可覆盖，如需同步包内文案只能发布 `0.4.1`。
 
 ---
 
@@ -361,7 +364,8 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/ap
    Linux Node 22/24 + Windows Node 24 远端 CI `33569931224` 全绿。
 3. **0.4.0 已正式发布**：`v0.4.0`、npm `latest` 与 GitHub Latest 已同步；OIDC Release workflow
    `33575803070` 全绿，公共 Registry 隔离安装/导入通过。
-4. 下一步按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
+4. **待决策**：是否发布只含文档状态修正的 `0.4.1`，以更新 npm tarball/包页面 README；不得覆盖 0.4.0。
+5. 之后按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
 
 ---
 

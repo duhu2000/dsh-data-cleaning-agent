@@ -54,6 +54,10 @@ git push origin v0.4.0
 `apply / inject / name`；公共 Registry 包安装到全新 DSH profile 后在隔离端口 43160 成功启动，
 三工具、两个 Skill、Web 与 QCC Bridge seam 均注册；GitHub Release 为非 draft、非 prerelease。
 
+已知文档差异：npm 的 0.4.0 tarball/包页面 README 是 tag 时的不可变快照，仍含“发布候选 / latest 0.3.0”
+字样；GitHub `main` 已修正。该差异不影响代码、版本或安装，且不得覆盖已发布版本；如需同步 npm 包内文案，
+应发布新的补丁版本 `0.4.1`。
+
 ## 回滚
 
 - tag 尚未推送：删除本地 tag，修复后重新检查。

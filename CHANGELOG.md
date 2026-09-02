@@ -4,7 +4,10 @@
 
 ## [Unreleased]
 
-暂无。
+### Fixed
+- 发布后状态已同步到 README、兼容性文档和 HANDOFF。已发布的 0.4.0 tarball 是 tag 时的不可变快照，
+  内含 README 仍显示“发布候选 / npm latest 0.3.0”；运行代码、版本、provenance 与安装不受影响，
+  npm 包内文案需随下一补丁版本发布。
 
 ## [0.4.0] - 2026-09-02
 
