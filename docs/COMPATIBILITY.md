@@ -62,6 +62,19 @@
 - 真实 OAuth、跨重启恢复、16+4 工具预检、20 企业/400 调用及自然到期 refresh 已通过；
   refresh 后 16+4 工具恢复，并以 1 行真实 enrich 验证新 token 可用。
 
+### 4.2 应用内入口（M1–M3）双基线实测
+
+侧边栏「数据清洗」入口、全屏工作台、三张工具卡片（`data_clean_rows` /
+`data_complete_rows` / `data_profile`）与任务 pill 在双基线均已通过隔离 `DSH_HOME` 冒烟验证：
+
+- **rc.2**：根 HTML 直接引用 `/plugins/dsh-data-cleaning-agent/client.js?rev=…`，client bundle
+  HTTP 200 且含全部入口标记；后端 seam/parse/clean/complete/profile/jobs/ui 均 200/202。
+- **alpha.2**：web 半区默认要求鉴权，需先带 `?token=…` 访问拿 `dsh-auth-*` Cookie（303 → 200），
+  client bundle 改经合并端点 `/plugins/??dsh-data-cleaning-agent/client.js&rev=…` 交付，同样
+  200 且含全部入口标记；后端端点一致通过。
+
+两条基线均返回 `[dc-agent] host apply() ran`，且未发起任何真实 QCC 调用。
+
 ## 5. 已知限制
 
 - alpha.2 的 `@Remote` 契约仍可能变动，本包不对其作稳定 API 承诺。

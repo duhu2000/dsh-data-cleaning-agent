@@ -34,6 +34,11 @@ Fully restart DeepSeek Harness afterwards (stop and re-run `dsh web`). Then say
 "help me clean this batch of company list data" and the plugin loads its built-in Skill and
 drives the clean / complete / profile tools.
 
+After restart, a "Data Cleaning" entry appears at the bottom of the sidebar: click it to open the
+workbench (upload → profile → clean → export, four steps). When the model calls the clean /
+complete / profile tools, matching tool cards render in the conversation, and a jobs pill in the
+workbench header shows queued / running tasks.
+
 Without the `dsh` CLI, use the install script:
 
 ```bash
@@ -54,6 +59,9 @@ Or let an agent install it for you:
 | Parse | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | Async jobs | web `/data-cleaning/api/mvp/jobs` | job state machine + persistent storage |
 | UI | web `/data-cleaning/` | upload → clean/complete → export |
+| In-app entry | sidebar "Data Cleaning" button | opens the full-screen workbench: upload → profile → clean → export |
+| Tool cards | `tool.call.toolview` (`data_clean_rows`/`data_complete_rows`/`data_profile`) | render clean/complete/profile result cards in-conversation with running/done/failed state |
+| Task progress | workbench header jobs pill | polls `/data-cleaning/api/mvp/jobs`; shows queued / running tasks |
 | Skill | `data-cleaning` | guides the model through the workflow |
 | QCC Skill enrichment | `enterprise-enrichment` | 0.4.0: company panorama, ownership, governance, and historical registration |
 | 0.4.0 preflight | web `/data-cleaning/api/phase2/capabilities` | Read-only 16+4 dynamic-tool check; makes no QCC or paid calls |

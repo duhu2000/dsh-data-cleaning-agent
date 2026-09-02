@@ -31,6 +31,9 @@ dsh plugin --profile web add dsh-data-cleaning-agent
 安装后**完全重启** DeepSeek Harness（停止后重新运行 `dsh web`）。
 之后在对话中说「帮我清洗这批企业名单数据」，插件会自动加载内嵌 Skill 并调度清洗/补全/画像工具。
 
+重启后侧边栏底部会出现「数据清洗」入口：点击打开工作台（上传 → 画像 → 清洗 → 导出四步），
+模型调用清洗/补全/画像工具时对话内会渲染对应工具卡片，工作台头部用任务 pill 展示排队/进行中的任务。
+
 没有 `dsh` CLI 时，也可以用安装脚本：
 
 ```bash
@@ -51,6 +54,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 解析 | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | 异步任务 | web `/data-cleaning/api/mvp/jobs` | 任务状态机 + 持久化存储 |
 | UI | web `/data-cleaning/` | 上传 → 清洗/补全 → 导出 |
+| 应用内入口 | 侧边栏「数据清洗」按钮 | 打开全屏工作台：上传 → 画像 → 清洗 → 导出四步 |
+| 工具卡片 | `tool.call.toolview`（`data_clean_rows`/`data_complete_rows`/`data_profile`） | 对话内渲染清洗/补全/画像结果卡，含运行/已完成/失败状态 |
+| 任务进度 | 工作台头部任务 pill | 轮询 `/data-cleaning/api/mvp/jobs`，展示排队/运行中任务 |
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
 | 企查查 Skill 补全 | `enterprise-enrichment` | 0.4.0：工商全景、股权穿透与历史工商 |
 | 0.4.0 工具预检 | web `/data-cleaning/api/phase2/capabilities` | 只读检查 16+4 动态工具，不发起 QCC/付费调用 |

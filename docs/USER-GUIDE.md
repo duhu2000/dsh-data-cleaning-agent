@@ -24,7 +24,20 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 
 插件会加载内嵌 Skill `data-cleaning`，自动按 `data_profile → data_clean_rows → data_complete_rows` 工作流调度。
 
-### 2.2 web 界面
+### 2.2 应用内入口（侧边栏「数据清洗」）
+
+重启后，DeepSeek Harness 侧边栏底部会出现「数据清洗」按钮。点击打开全屏工作台，按四步操作：
+
+1. **上传**：粘贴或上传 CSV / XLSX / JSON；
+2. **画像**：查看列概览与金额分布；
+3. **清洗**：trim、手机号规范化、剔除缺失必填/负金额/重复行；
+4. **导出**：下载清洗后的 CSV。
+
+模型在对话中调用 `data_clean_rows` / `data_complete_rows` / `data_profile` 时，
+对话内会渲染对应的工具结果卡片（含运行中 / 已完成 / 失败状态）；工作台头部用任务 pill
+实时展示排队 / 运行中的后台任务（轮询 `/data-cleaning/api/mvp/jobs`）。
+
+### 2.3 web 界面
 
 打开 DeepSeek Harness 后访问插件的同源界面（`/data-cleaning/`），可上传 CSV/XLSX/JSON，
 执行解析、清洗、补全、导出 CSV。web 界面的后端路由前缀为 `/data-cleaning/api/mvp/*`。
