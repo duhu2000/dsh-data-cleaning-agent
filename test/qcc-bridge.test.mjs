@@ -10,6 +10,10 @@ import {
   mapRiskTags,
 } from '../lib/qcc.js';
 
+import {
+  QCC_PHASE3_ALL_CANONICAL_TOOLS,
+} from '../lib/qcc-phase3.js';
+
 function success(value) {
   return { isError: false, value, content: [] };
 }
@@ -396,5 +400,30 @@ test('批量上限在调用前强制执行', async () => {
     bridge.enrichRows([{ name: 'A' }, { name: 'B' }], { maxRows: 1 }),
     (error) => error.code === 'QCC_BATCH_TOO_LARGE',
   );
+  assert.equal(tools.calls.length, 0);
+});
+
+test('phase3Capabilities 只读注册表，不执行工具、不产生付费调用', () => {
+  const handlers = Object.fromEntries(
+    QCC_PHASE3_ALL_CANONICAL_TOOLS.map((name) => [name, async () => success({})]),
+  );
+  const tools = fakeTools(handlers);
+  const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
+  const caps = bridge.phase3Capabilities();
+  assert.equal(caps.total, 91);
+  assert.equal(caps.totalRegistered, 91);
+  assert.equal(caps.ready, true);
+  assert.equal(caps.byDomain.risk.total, 38);
+  assert.equal(caps.byDomain.ipr.total, 18);
+  assert.equal(caps.byDomain.operation.total, 35);
+  assert.equal(caps.byDomain.risk.registered, 38);
+  assert.equal(caps.byDomain.ipr.registered, 18);
+  assert.equal(caps.byDomain.operation.registered, 35);
+  // 每个工具都标记为 basic + paid + 需确认，且 runtimeName 用规范名回填
+  for (const tool of caps.byDomain.risk.tools) {
+    assert.equal(tool.registered, true);
+    assert.match(tool.canonical, /^mcp__qcc-risk__/);
+  }
+  // 预检不得触发任何 execute
   assert.equal(tools.calls.length, 0);
 });
