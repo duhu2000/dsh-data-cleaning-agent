@@ -7,6 +7,7 @@ import {
   QCC_PHASE3_DOMAIN_META,
   QCC_PHASE3_REQUIRED_INPUTS,
   QCC_PHASE3_TOOL_NAMES,
+  canonicalizePhase3Tool,
   canonicalPhase3ToolName,
   isPhase3Tool,
   qccToolRuntimeCandidates,
@@ -80,6 +81,29 @@ test('legacy 名同样能被识别为三期工具', () => {
   }
   assert.equal(isPhase3Tool('get_not_a_real_tool'), false);
   assert.equal(isPhase3Tool('mcp__qcc-history__get_historical_shareholders'), false);
+});
+
+test('三期工具名归一化覆盖 canonical、legacy 与短名的 91 工具全集', () => {
+  for (const domain of DOMAINS) {
+    for (const shortName of QCC_PHASE3_TOOL_NAMES[domain]) {
+      const canonical = canonicalPhase3ToolName(domain, shortName);
+      const legacy = canonical.replace(/^mcp__qcc-/, 'mcp__');
+      assert.equal(canonicalizePhase3Tool(canonical), canonical, canonical);
+      assert.equal(canonicalizePhase3Tool(legacy), canonical, legacy);
+      assert.equal(canonicalizePhase3Tool(shortName), canonical, shortName);
+    }
+  }
+});
+
+test('三期工具名归一化拒绝未知工具、跨域错配和非字符串输入', () => {
+  assert.equal(canonicalizePhase3Tool('mcp__qcc-risk__get_not_a_real_tool'), null);
+  assert.equal(canonicalizePhase3Tool('mcp__risk__get_not_a_real_tool'), null);
+  assert.equal(canonicalizePhase3Tool('mcp__qcc-ipr__get_company_risk_scan'), null);
+  assert.equal(canonicalizePhase3Tool('mcp__qcc-history__get_historical_shareholders'), null);
+  assert.equal(canonicalizePhase3Tool('get_not_a_real_tool'), null);
+  assert.equal(canonicalizePhase3Tool(''), null);
+  assert.equal(canonicalizePhase3Tool(null), null);
+  assert.equal(canonicalizePhase3Tool({}), null);
 });
 
 test('必需输入 schema：90 工具仅 searchKey，唯 get_judicial_document_detail 加 documentId', () => {
