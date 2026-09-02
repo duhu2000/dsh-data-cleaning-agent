@@ -386,7 +386,7 @@ test('M3 jobs pill：工作台 header 渲染后台任务状态位，jobs 列表�
   }
 });
 
-test('工作台：关闭返回 null，打开渲染 role=dialog + 四步 stepper + 只读 QCC 状态，关闭按钮调用 actions.close', () => {
+test('工作台：关闭返回 null，打开渲染 Mockup 四步 stepper + QCC 安全状态，关闭按钮调用 actions.close', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -417,19 +417,61 @@ test('工作台：关闭返回 null，打开渲染 role=dialog + 四步 stepper 
     assert.equal(panel.props['aria-modal'], 'true');
     assert.equal(panel.props['aria-label'], '数据清洗');
 
-    // 四步 stepper：上传与映射 / 数据体检 / 清洗补全 / 导出（对齐 mockup 四步）。
+    // 四步 stepper：上传与映射 / 数据体检 / 匹配核验 / 补全与导出（对齐原始 Mockup）。
     const stepButtons = [];
-    collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['上传与映射', '数据体检', '清洗补全', '导出'].includes(n.props['aria-label']), stepButtons);
+    collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['上传与映射', '数据体检', '匹配核验', '补全与导出'].includes(n.props['aria-label']), stepButtons);
     assert.equal(stepButtons.length, 4, '必须渲染四步 stepper');
 
-    // 只读 QCC 状态位（本轮不接调用链）。
-    const qccBadge = findNode(panel, (n) => n.props && n.props.title === '本轮不接入企查查调用链');
-    assert.ok(qccBadge, '必须显示只读「企查查补全 · 只读」状态位');
+    // 未确认计费前只显示待检测，不触发调用。
+    const qccBadge = findNode(panel, (n) => n.props && n.props.title === '仅在明确确认后发起计费调用');
+    assert.ok(qccBadge, '必须显示 QCC 安全状态位');
+    assert.equal(qccBadge.children[0], 'QCC · 待检测');
+
+    const expandButton = findNode(panel, (n) => n.props && n.props['aria-label'] === '展开工作台');
+    assert.ok(expandButton, '必须支持按 Mockup 展开工作台');
+    expandButton.props.onClick();
+    assert.equal(instance.getSnapshot().expanded, true);
 
     const closeButton = findNode(panel, (n) => n.props && n.props['aria-label'] === '关闭');
     assert.ok(closeButton, '必须有关闭按钮');
     closeButton.props.onClick();
     assert.equal(instance.getSnapshot().open, false);
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('P1.4 匹配核验页提供三域选择、调用估算和显式付费确认门', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { exports } = loaded;
+    let overlayReg = null;
+    const ctx = {
+      effect: () => () => {},
+      slots: {
+        inject: (name, cb) => { if (name === 'shell.overlay') overlayReg = cb(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    exports.apply(ctx);
+    const instance = overlayReg.options.store.create();
+    instance.actions.open();
+    instance.actions.setStep('review');
+    let panel = flattenElement(render(overlayReg.component, {}, instance));
+
+    for (const label of ['风险信息 · 38', '知识产权 · 18', '经营信息 · 35']) {
+      assert.ok(findNode(panel, (n) => n.props && n.props['aria-label'] === label), `缺少域选择：${label}`);
+    }
+    assert.ok(findNode(panel, (n) => n.children && n.children.includes('估算调用量')), '必须先估算调用量');
+
+    instance.actions.toggleDomain('risk');
+    assert.deepEqual(instance.getSnapshot().selectedDomains, ['risk']);
+    instance.actions.setQccEstimate({ uniqueCompanies: 1, tools: ['a'], estimatedCalls: 2, maxCalls: 500, withinLimit: true });
+    panel = flattenElement(render(overlayReg.component, {}, instance));
+    const confirm = findNode(panel, (n) => n.props && n.props['aria-label'] === '确认企查查付费调用');
+    assert.ok(confirm, '估算后必须显示独立付费确认复选框');
+    assert.equal(confirm.props.checked, false);
   } finally {
     cleanupGlobals();
   }
