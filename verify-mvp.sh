@@ -129,6 +129,18 @@ run_baseline() { # run_baseline <name> <cli> <home> <port>
   # 7) UI 页面
   check "ui" 200 -s "$h1" "$sso" "$base/data-cleaning/"
 
+  # 8) 0.5.0 三域能力与零调用估算（不需要 OAuth，不产生计费调用）
+  check "phase3-capabilities" 200 -s "$h1" "$sso" \
+    "$base/data-cleaning/api/phase3/capabilities"
+  check "phase3-estimate" 200 -s "$h1" "$sso" "$h2" "$ct" \
+    -d '{"rows":[{"name":"contract-probe"}],"tools":["get_company_risk_scan"],"maxCalls":2}' \
+    "$base/data-cleaning/api/phase3/estimate"
+
+  # 9) 未确认计费必须在任何 ToolRuntime execute 前阻断
+  check "phase3-unconfirmed" 409 -s "$h1" "$sso" "$h2" "$ct" \
+    -d '{"rows":[{"name":"contract-probe"}],"tools":["get_company_risk_scan"],"maxCalls":2}' \
+    "$base/data-cleaning/api/phase3/enrich"
+
   kill -9 "$WEB_PID" 2>/dev/null || true
   wait "$WEB_PID" 2>/dev/null || true
   free_port "$port"

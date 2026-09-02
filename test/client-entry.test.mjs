@@ -441,6 +441,28 @@ test('工作台：关闭返回 null，打开渲染 Mockup 四步 stepper + QCC �
   }
 });
 
+test('工作台关闭态 guard 位于所有 store hooks 之后，避免 React #310', () => {
+  const componentStart = source.indexOf('function WorkbenchOverlay(props)');
+  const componentEnd = source.indexOf('function apply(ctx)', componentStart);
+  const componentSource = source.slice(componentStart, componentEnd);
+  const guardIndex = componentSource.indexOf('if (!open) return null;');
+  const lastStoreHookIndex = componentSource.indexOf('const jobs = useStore((state) => state.jobs);');
+
+  assert.ok(componentStart >= 0 && componentEnd > componentStart, '必须定位到 WorkbenchOverlay');
+  assert.ok(lastStoreHookIndex >= 0, '必须定位到最后一个 store hook');
+  assert.ok(guardIndex > lastStoreHookIndex, '关闭态 guard 必须在全部 store hooks 之后');
+});
+
+test('上传映射留在第一步确认，且本地清洗使用企业名称字段映射', () => {
+  const applyParsedStart = source.indexOf('function applyParsed(result, actions)');
+  const applyParsedEnd = source.indexOf('/** 工作台主视图', applyParsedStart);
+  const applyParsedSource = source.slice(applyParsedStart, applyParsedEnd);
+  assert.doesNotMatch(applyParsedSource, /setStep\('profile'\)/, '解析后必须留在上传映射页供用户确认字段');
+  assert.match(source, /required: nameField \? \[nameField\] : \[\]/);
+  assert.match(source, /dedupeOn: nameField \|\| null/);
+  assert.match(source, /options: localCleanOptions/);
+});
+
 test('P1.4 匹配核验页提供三域选择、调用估算和显式付费确认门', () => {
   let loaded;
   try {

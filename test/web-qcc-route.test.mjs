@@ -167,6 +167,36 @@ test('MVP 页面粘贴 CSV 后的清洗操作复用解析接口', async () => {
   app.dispose();
 });
 
+test('MVP 同步清洗接受显式字段映射，中文企业表头不会按默认 name/phone 误删', async () => {
+  const app = harness();
+  const res = responseRecorder();
+  await app.routes.get('/data-cleaning/api/mvp/clean')(
+    request({
+      method: 'POST',
+      url: '/data-cleaning/api/mvp/clean',
+      body: {
+        headers: ['企业名称', '联系电话'],
+        rows: [
+          { 企业名称: '企查查科技股份有限公司', 联系电话: '025-9999-9999' },
+          { 企业名称: '示例科技有限公司', 联系电话: '' },
+        ],
+        options: {
+          required: ['企业名称'],
+          dedupeOn: '企业名称',
+          phoneField: '联系电话',
+          amountField: null,
+        },
+      },
+    }),
+    res,
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.json().summary.kept, 2);
+  assert.equal(res.json().summary.badMissing, 0);
+  assert.match(res.json().csv, /02599999999/);
+  app.dispose();
+});
+
 test('G5 capabilities 路由被挂载且只做被动工具探测', async () => {
   const app = harness();
   const res = responseRecorder();
