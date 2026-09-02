@@ -7,6 +7,7 @@ import {
   QCC_PHASE2_COMPANY_TOOLS,
   QCC_PHASE2_HISTORY_TOOLS,
 } from '../lib/qcc-phase2.js';
+import { QCC_PHASE3_ALL_CANONICAL_TOOLS } from '../lib/qcc-phase3.js';
 
 function responseRecorder() {
   return {
@@ -50,6 +51,7 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
     QCC_TOOL_NAMES.riskScan,
     ...Object.values(QCC_PHASE2_COMPANY_TOOLS),
     ...Object.values(QCC_PHASE2_HISTORY_TOOLS),
+    ...QCC_PHASE3_ALL_CANONICAL_TOOLS,
   ]);
   for (const name of omitDefinitions) definitions.delete(name);
   const tools = {
@@ -220,6 +222,101 @@ test('0.4.0 预检区分历史工具缺失与账号授权', async () => {
   assert.equal(capabilities.historyAuthorizationVerified, false);
   assert.equal(capabilities.state, 'current-ready-history-tools-missing');
   assert.equal(app.calls.length, 0);
+  app.dispose();
+});
+
+test('Phase3 estimate 零调用返回三域批量上界', async () => {
+  const app = harness();
+  const res = responseRecorder();
+  await app.routes.get('/data-cleaning/api/phase3/estimate')(
+    request({
+      method: 'POST',
+      url: '/data-cleaning/api/phase3/estimate',
+      body: { rows: [{ name: 'A' }, { name: 'A' }, { name: 'B' }], tools: ['get_patent_info'], maxCalls: 10 },
+    }),
+    res,
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.json().estimate.uniqueCompanies, 2);
+  assert.equal(res.json().estimate.estimatedCalls, 4);
+  assert.equal(res.json().estimate.executesTools, false);
+  assert.equal(app.calls.length, 0);
+  app.dispose();
+});
+
+test('Phase3 enrich 要求确认与幂等，三域结果可恢复并导出 CSV', async () => {
+  const app = harness();
+  const blocked = responseRecorder();
+  const body = {
+    rows: [{ name: '示例企业' }], headers: ['name'],
+    tools: ['get_company_risk_scan', 'get_patent_info', 'get_bidding_info'], maxCalls: 4,
+  };
+  await app.routes.get('/data-cleaning/api/phase3/enrich')(
+    request({ method: 'POST', url: '/data-cleaning/api/phase3/enrich', body }), blocked,
+  );
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.json().code, 'QCC_CONFIRM_REQUIRED');
+  assert.equal(app.calls.length, 0);
+
+  const completed = responseRecorder();
+  await app.routes.get('/data-cleaning/api/phase3/enrich')(
+    request({ method: 'POST', url: '/data-cleaning/api/phase3/enrich', body: {
+      ...body, confirmPaidCalls: true, idempotencyKey: 'phase3-web-enrich-001',
+    } }),
+    completed,
+  );
+  const payload = completed.json();
+  assert.equal(completed.status, 200);
+  assert.equal(payload.marker, 'qcc-phase3-batch');
+  assert.equal(payload.state, 'completed');
+  assert.equal(payload.summary.enriched, 1);
+  assert.equal(payload.summary.actualCalls, 4);
+  assert.match(payload.csv, /qcc_phase3_json/);
+  assert.match(payload.runId, /^phase3-/);
+  assert.equal(app.calls.length, 4);
+
+  const replay = responseRecorder();
+  await app.routes.get('/data-cleaning/api/phase3/enrich')(
+    request({ method: 'POST', url: '/data-cleaning/api/phase3/enrich', body: {
+      ...body, confirmPaidCalls: true, idempotencyKey: 'phase3-web-enrich-001',
+    } }), replay,
+  );
+  assert.equal(replay.json().idempotencyReplayed, true);
+  assert.equal(app.calls.length, 4);
+
+  const fetched = responseRecorder();
+  await app.routes.get('/data-cleaning/api/phase3/run')(
+    request({ url: `/data-cleaning/api/phase3/run/${payload.runId}` }), fetched,
+  );
+  assert.equal(fetched.status, 200);
+  assert.equal(fetched.json().runId, payload.runId);
+  app.dispose();
+});
+
+test('Phase3 多候选只能从 reviewQueue 选择，续跑不重复主体检索', async () => {
+  const app = harness();
+  const started = responseRecorder();
+  await app.routes.get('/data-cleaning/api/phase3/enrich')(
+    request({ method: 'POST', url: '/data-cleaning/api/phase3/enrich', body: {
+      rows: [{ name: '模糊企业' }], headers: ['name'], tools: ['get_patent_info'], maxCalls: 2,
+      confirmPaidCalls: true, idempotencyKey: 'phase3-ambiguous-start',
+    } }), started,
+  );
+  assert.equal(started.json().state, 'awaiting-review');
+  assert.equal(app.calls.length, 1);
+
+  const resolved = responseRecorder();
+  await app.routes.get('/data-cleaning/api/phase3/resolve')(
+    request({ method: 'POST', url: '/data-cleaning/api/phase3/resolve', body: {
+      runId: started.json().runId, companyName: '模糊企业', selectedCreditNo: '9132AMBIG-B',
+      confirmPaidCalls: true, idempotencyKey: 'phase3-ambiguous-resolve',
+    } }), resolved,
+  );
+  assert.equal(resolved.status, 200);
+  assert.equal(resolved.json().state, 'completed');
+  assert.equal(resolved.json().summary.enriched, 1);
+  assert.equal(app.calls.filter((call) => call.name === QCC_TOOL_NAMES.entityLookup).length, 1);
+  assert.equal(app.calls.length, 2);
   app.dispose();
 });
 
