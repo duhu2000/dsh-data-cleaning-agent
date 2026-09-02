@@ -4,8 +4,12 @@
 
 ## [Unreleased]
 
-> 目标版本：`0.4.0`。源码版本、token 到期刷新、401/429/配额故障门与 Linux/Windows 远端 CI
-> 均已通过；尚未创建 `v0.4.0` tag、GitHub Release 或 npm 发布。
+暂无。
+
+## [0.4.0] - 2026-09-02
+
+> 工商全景与历史工商二期、QCC Host Bridge 和完整安全验收版本；已通过 npm OIDC Trusted Publishing
+> 发布并生成 GitHub Release。
 
 ### Added
 - 0.4.0 二期第一切片：新增可测的 QCC 工商全景契约（16 个工商工具 + 4 个历史工商工具）；
@@ -36,6 +40,7 @@
 - 原始证据与脱敏报告仅保存在 Git 忽略的 `.phase2-e2e/`，权限为 `0600`；未触碰生产端口。
 - 自然过期 access token 的真实 refresh、动态工具恢复与续期后最小真实调用已通过；
   401/429/配额耗尽故障注入确认无自动重试、人工重试门正确且审计不泄密。
+- 公共 npm Registry 全新安装和 ESM 导入通过，导出 `apply / inject / name`。
 
 ## [0.3.0] - 2026-09-01
 

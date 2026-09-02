@@ -11,7 +11,7 @@
 
 > 生产 GUI（`http://127.0.0.1:43120`）不用于验证，验证一律使用隔离 `DSH_HOME` + 专用端口。
 
-2026-09-01 的 0.4.0 发布候选已分别在 rc.2（43153）和 alpha.2（43154）
+2026-09-01 的 0.4.0 发布内容已分别在 rc.2（43153）和 alpha.2（43154）
 隔离 Host 完成 tarball 加载冒烟，两者均返回 `enrichSkillRegistered:true`；测试进程已停止。
 
 ## 2. Node 运行时
@@ -67,6 +67,6 @@
 - alpha.2 的 `@Remote` 契约仍可能变动，本包不对其作稳定 API 承诺。
 - web 半区仅 web 组合可用；headless 组合自动跳过（工具与 Skill 仍注册）。
 - XLSX 解析依赖 `xlsx`（懒加载），缺失时返回 `XLSX_UNAVAILABLE` 而非崩溃。
-- `/data-cleaning/api/g5/enrich` 当前为 0.4.0 发布候选能力，单批上限 100 行、并发上限 4，
+- `/data-cleaning/api/g5/enrich` 为 0.4.0 已发布能力，单批上限 100 行、并发上限 4，
   且必须显式 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；token 到期刷新与 401/429/配额故障门已通过，
-  正式可用版本仍以 npm/GitHub Release 为准。
+  npm/GitHub Release 均已发布 `v0.4.0`。

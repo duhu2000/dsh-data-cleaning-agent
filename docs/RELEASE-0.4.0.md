@@ -1,8 +1,10 @@
-# 0.4.0 发布候选检查单
+# 0.4.0 发布记录与检查单
 
 - 源码版本：`0.4.0`
-- 状态：发布候选，尚未创建 `v0.4.0` tag、GitHub Release 或 npm 发布
+- 状态：✅ 已发布；npm `latest`、Git tag 与 GitHub Release 均为 `0.4.0`
 - 基线日期：2026-09-02
+- 发布提交：`4cc7b03`
+- Release workflow：`33575803070`（tag/版本检查、`npm run check`、OIDC publish、GitHub Release 全部成功）
 
 ## 已纳入范围
 
@@ -34,10 +36,9 @@
 1. ✅ access token 自然到期后的真实 refresh、持久 grant 更新、动态工具恢复与续期后最小真实调用。
 2. ✅ 401、429、配额不足的本地故障注入、稳定错误码、人工重试门及审计脱敏。
 
-代码审查、本机 `npm run check`、干净工作树和远端 CI 已完成；剩余只是创建/推送 tag 所触发的正式发布操作，
-不再有 0.4.0 功能实现缺口。
+代码审查、本机 `npm run check`、干净工作树、远端 CI 与正式发布均已完成；不再有 0.4.0 功能或发布缺口。
 
-## 发布命令（阻断门全部通过后）
+## 已执行的发布流程
 
 ```bash
 npm run check
@@ -46,8 +47,12 @@ git tag -a v0.4.0 -m "Release v0.4.0"
 git push origin v0.4.0
 ```
 
-`v0.4.0` tag 会触发 `.github/workflows/release.yml`：校验 tag/包版本、执行完整检查、
-通过 npm OIDC Trusted Publishing 发布并生成 GitHub Release。不要手工写入生产密钥。
+`v0.4.0` tag 已触发 `.github/workflows/release.yml`：校验 tag/包版本、执行完整检查、
+通过 npm OIDC Trusted Publishing 发布并生成 GitHub Release；全程没有手工写入生产密钥。
+
+发布后验证：npm Registry 返回 `latest=0.4.0`，公共 tarball 全新隔离安装成功，ESM 导入可见
+`apply / inject / name`；公共 Registry 包安装到全新 DSH profile 后在隔离端口 43160 成功启动，
+三工具、两个 Skill、Web 与 QCC Bridge seam 均注册；GitHub Release 为非 draft、非 prerelease。
 
 ## 回滚
 

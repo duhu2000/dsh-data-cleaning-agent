@@ -17,6 +17,9 @@
 3. 远端 `main` 已有 10 个有效 commit，并已配置 `dsh-plugin` topic；第 10 个提交修复了“粘贴 CSV 后清洗误按 JSON 解析”的真实 UI 闭环，并加入市场截图，不是空提交。
 4. 仓库创建时间为 2026-09-01 01:47 UTC；PR #4095 首轮 `check` 通过，`Submission gate` 仅因仓库当时为 0.4 天而失败。年龄门于 2026-09-02 01:47 UTC 达成，之后需重跑门禁。
 5. npm `0.3.0` 已在隔离 DSH host 安装冒烟通过，`enrichSkillRegistered:true`；这证明包可用，但不等于市场已经收录。
+6. 2026-09-02 npm `0.4.0` 发布后又从公共 Registry 安装到全新隔离 DSH profile（端口 43160）：
+   三工具、两个 Skill、Web 与 QCC Bridge seam 全部注册，未装 OAuth 时正确返回 `oauth-plugin-missing`；
+   测试 Host 已停止，生产 43120 未触碰。
 
 ## 上游提交材料
 

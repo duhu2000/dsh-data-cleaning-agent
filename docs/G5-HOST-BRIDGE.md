@@ -2,7 +2,7 @@
 
 - 日期：2026-09-02
 - 状态：**G5-2.1～G5-2.5、真实 OAuth/QCC 主路径、token 自然到期刷新与 401/429/配额故障注入已验收**
-- 发布状态：0.4.0 发布候选，尚未创建 tag 或发布 npm 新版本
+- 发布状态：✅ 已随 `v0.4.0` 发布到 npm 与 GitHub Release
 - 决策依据：`docs/adr/0002-programmatic-mcp-tool-execution.md`
 
 ## 本阶段交付

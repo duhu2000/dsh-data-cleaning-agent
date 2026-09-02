@@ -2,7 +2,7 @@
 
 > 目的：让接手的 GPT / 协作者无需回溯全部对话，即可掌握项目全貌、当前基线、已完成事项、待办与后续规划，并直接续做剩余开发任务。
 > 生成日期：2026-09-02
-> 当前源码版本：**0.4.0**（发布候选；npm `latest` 与 GitHub Latest 仍为 `0.3.0`）
+> 当前源码版本：**0.4.0**（npm `latest` 与 GitHub Latest 均已发布）
 
 ---
 
@@ -21,10 +21,10 @@
 | 本机仓库路径 | `/Users/qcc/Documents/DuHu/QCC/beichacha_doc/云聚接口/MCP/MCP/workspace/dsh-data-cleaning-agent` |
 | Git 远端 | `https://github.com/duhu2000/dsh-data-cleaning-agent.git`（分支 `main`） |
 | npm 包名 | `dsh-data-cleaning-agent`（无 scope，public） |
-| npm `latest` | `0.3.0`（带 OIDC provenance） |
-| GitHub Release | `v0.3.0`（Latest，2026-09-01T03:38:43Z）；另有 `v0.2.1` |
-| Git tags | `v0.2.1`、`v0.3.0` |
-| 工作树状态 | 0.4.0 发布候选：二期与 OAuth 0.1.7 兼容修复、真实 OAuth + 20 企业/400 调用、自然到期 refresh、401/429/配额故障注入均已验收；提交 `0c8cb75` 的远端 CI `33569931224` 全绿，可进入 tag 发布检查；G3 上游 PR #4095 等待年龄门与合并 |
+| npm `latest` | `0.4.0`（OIDC Trusted Publishing + provenance） |
+| GitHub Release | `v0.4.0`（Latest，2026-09-02T00:33:38Z） |
+| Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0` |
+| 工作树状态 | 0.4.0 已发布：二期与 OAuth 0.1.7 兼容、真实 OAuth + 20 企业/400 调用、自然到期 refresh、401/429/配额故障注入均已验收；Release workflow `33575803070` 全绿，公共 Registry 隔离安装通过；G3 上游 PR #4095 等待年龄门与合并 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -44,8 +44,8 @@
 | 0.1.0-mvp | 2026-08-31 | 内部 MVP，双基线（rc.2 + alpha.2）端到端验证通过；`@qcc` scope，**未对外发布** | ✅ 完成（仅本机） |
 | 0.2.0 | 2026-09-01 | 开源化 G1：改名 `dsh-data-cleaning-agent`，补齐 README/LICENSE/CONTRIBUTING/install.sh/marketing/CI 骨架 | ✅ 已发布 |
 | 0.2.1 | 2026-09-01 | G2 补充：npm OIDC Trusted Publishing 发布链路验证（无功能变更） | ✅ 已发布 |
-| 0.3.0 | 2026-09-01 | G4 方案 A：内嵌 `enterprise-enrichment` Skill，模型中介式调企查查 MCP 补全企业名单 | ✅ 已发布（npm latest） |
-| 0.4.0 | 2026-09-02 | 二期工商全景 16+4 工具契约、G5 Host Bridge、安全验收与 OAuth 0.1.7 双命名兼容 | 🟡 功能发布门已通过；待最终 CI/tag |
+| 0.3.0 | 2026-09-01 | G4 方案 A：内嵌 `enterprise-enrichment` Skill，模型中介式调企查查 MCP 补全企业名单 | ✅ 已发布 |
+| 0.4.0 | 2026-09-02 | 二期工商全景 16+4 工具契约、G5 Host Bridge、安全验收与 OAuth 0.1.7 双命名兼容 | ✅ 已发布（npm latest） |
 
 ---
 
@@ -128,7 +128,7 @@ dsh-data-cleaning-agent/
 - v1 字段契约：`credit_no / legal_rep / reg_capital / establish_date / reg_status / biz_status / risk_tags`。
 - `lib/index.js` 同时注册 `registerSkill`（data-cleaning）与 `registerEnrichSkill`（enterprise-enrichment）。
 
-### G5-1 企查查 Host Bridge（方案 B 基础层）✅（0.4.0 发布候选）
+### G5-1 企查查 Host Bridge（方案 B 基础层）✅（v0.4.0）
 - `lib/qcc.js` 只经公共 `ctx.tools.get/execute` 调用动态 QCC MCP 工具，不接触 token 或私有 client。
 - 每调用重新解析工具；OAuth 重注册竞态只对 `UNKNOWN_TOOL` 安全重试一次；其余错误不自动重试，避免重复计费。
 - 企业名去重批处理、唯一主体锁定、多候选 `reviewQueue`、未匹配/部分失败、取消/超时已落地。
@@ -136,7 +136,7 @@ dsh-data-cleaning-agent/
 - Mock/Contract 全绿；真实 OAuth、授权跨重启恢复、真实 QCC 主调用路径、access token 自然到期刷新、
   动态工具恢复及续期后最小真实调用均已通过。
 
-### G5-2.1～G5-2.5 E2E 安全准备 ✅（0.4.0 发布候选）
+### G5-2.1～G5-2.5 E2E 安全准备 ✅（v0.4.0）
 - `scripts/g5-e2e.mjs` 默认关闭，只允许回环 DSH Host；真实 enrich 需二次显式确认。
 - 日志/E2E 报告脱敏覆盖凭据、Bearer/JWT、OAuth 参数、企业名、信用代码、邮箱和手机号。
 - `idempotencyKey` 成为计费端点硬门；并发重复请求复用首个 Promise/结果，同键不同请求冲突。
@@ -180,7 +180,7 @@ dsh-data-cleaning-agent/
 ### P1 —— 二期 0.4.0（工商全景 + 股权穿透，Skill 扩展）
 - 覆盖 `mcp__qcc-company__*` 16 工具 + 历史工商：实控人、受益所有人、股东、对外投资、分支机构、
   主要人员、变更记录、年报、联系方式、开票、上市、财务等（详见 `QCC-PHASES-ROADMAP.md` §3）。
-- **发布候选已完成**：工具名已与本地 QCC MCP 注册表逐项核对；新增 `lib/qcc-phase2.js`
+- **已发布**：工具名已与本地 QCC MCP 注册表逐项核对；新增 `lib/qcc-phase2.js`
   契约和 `test/skill-enrich.test.mjs`，Skill 已支持按工商全景/股权穿透/组织沿革/历史工商组选择。
 - **本地开发已完成**：新增验收评估器、默认关闭 Runner 和脱敏报告；
   只读 capabilities 端点可在付费调用前检查 16+4 工具面；
@@ -225,7 +225,7 @@ dsh-data-cleaning-agent/
 | 阶段 | 版本 | 交付形态 | 覆盖 | 状态 |
 | --- | --- | --- | --- | --- |
 | 一期 | 0.3.0 | 方案 A Skill `enterprise-enrichment` | 核心工商 7 字段 + 风险标签 | ✅ 已发布 |
-| 二期 | 0.4.0 | 方案 A 扩展 Skill | 工商全景 16 + 历史工商 | 🟢 功能发布门全部完成；待最终 CI/tag |
+| 二期 | 0.4.0 | 方案 A 扩展 Skill | 工商全景 16 + 历史工商 | ✅ 已发布 |
 | 三期 | 0.5.0 | 方案 A 扩展 + 方案 B 批量后端 | 风险 38 + 知产 18 + 经营 35 | ⬜ 待做 |
 | 四期 | 0.6.0 | （可选） | 历史 34 + 人员 44 + 招投标 6 | ⬜ 待做 |
 
@@ -278,16 +278,15 @@ gh release view vX.Y.Z
 
 ### 本机安装冒烟（隔离 profile，不碰生产 GUI）
 ```bash
-# 已用 mvp/home-market 做过一次：dsh plugin add dsh-data-cleaning-agent@0.3.0
-export DSH_HOME="$PWD/mvp/home-market"
-dsh plugin --profile web add dsh-data-cleaning-agent@0.3.0
-# 清理旧 @qcc 残留、bundle 名改为 dsh-data-cleaning-agent 后：
-DSH_HOME="$DSH_HOME" dsh web --port 43136 --no-open &
+# 2026-09-02 已从公共 Registry 对 0.4.0 做过全新 profile 冒烟：
+export DSH_HOME="/private/tmp/dsh-data-cleaning-agent-v040/home"
+dsh plugin --profile web add dsh-data-cleaning-agent@0.4.0
+DSH_HOME="$DSH_HOME" dsh web --port 43160 --no-open &
 # seam 报告应含：enrichSkillRegistered:true, skillRegistered:true, 3 工具, webMounted:true
-curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/api/mvp/seam
+curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/api/mvp/seam
 ```
-> 2026-09-01 实测：npm 包 0.3.0 在隔离 home 安装、启动、seam、parse/clean/complete/profile/jobs 全 PASS，
-> `enrichSkillRegistered:true` 确认企业补全 Skill 已在真实 host 注册。
+> 2026-09-02 实测：npm 包 0.4.0 在全新隔离 home 安装、启动和 seam 全 PASS；
+> `enrichSkillRegistered:true` 确认企业补全 Skill 已注册，QCC 未安装时安全降级；生产 43120 未触碰。
 
 ### T0 / G3-2 / S7 本地验证（2026-09-01）
 
@@ -360,9 +359,9 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43136/data-cleaning/ap
 1. **G3 完成年龄门与合并闭环**：PR #4095 已提交，2026-09-02 01:47 UTC 后重跑 `Submission gate`；合并后等待 YAML 与 `plugins.json` 同步，再做视觉市场一键安装冒烟。
 2. **0.4.0 收口已完成**：token 自然到期刷新与 401/429/配额故障门已通过；提交 `0c8cb75` 的
    Linux Node 22/24 + Windows Node 24 远端 CI `33569931224` 全绿。
-3. **执行 0.4.0 发布操作**：按 `docs/RELEASE-0.4.0.md` 做最终干净工作树/版本/tag 检查；
-   获得明确发布授权后再创建并推送 `v0.4.0`，由 OIDC workflow 发布 npm/GitHub Release。
-4. 之后按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
+3. **0.4.0 已正式发布**：`v0.4.0`、npm `latest` 与 GitHub Latest 已同步；OIDC Release workflow
+   `33575803070` 全绿，公共 Registry 隔离安装/导入通过。
+4. 下一步按 0.5.0 → 0.6.0 扩展；每期合入前跑 `npm run check`，发布走 §8 的 tag 流程。
 
 ---
 

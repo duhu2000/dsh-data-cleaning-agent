@@ -69,14 +69,14 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - 0.4.0 尚未发布；20 企业、每企业至少 15 个当前维度并含 4 个历史维度的真实账号验收已通过。
   access token 自然到期后的真实刷新、动态工具恢复以及限流/配额故障注入已在隔离环境验收。
 
-### 3.3 QCC 后台批量 Host Bridge（0.4.0 发布候选 / G5-2）
+### 3.3 QCC 后台批量 Host Bridge（0.4.0 / G5-2）
 
 源码 `main` 已提供 `/data-cleaning/api/g5/capabilities`（只读能力探测）和
 `/data-cleaning/api/g5/enrich`（同源批量补全）基础层。它按企业名去重调用、只对唯一精确主体继续补全，
 多候选进入人工确认队列，模型不接触完整明细。
 
-这是 0.4.0 尚未发布的候选能力：真实 OAuth、授权跨重启恢复、QCC 主调用路径、token 自然到期刷新
-与 401 / 429 / 配额故障注入均已完成隔离验收；正式可用版本仍以 npm/GitHub Release 为准。
+这是 0.4.0 已发布能力：真实 OAuth、授权跨重启恢复、QCC 主调用路径、token 自然到期刷新
+与 401 / 429 / 配额故障注入均已完成隔离验收。
 调用批量端点必须由 UI 在用户确认后同时发送 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；
 未确认或缺少幂等键时不会产生任何 QCC 调用。
 
