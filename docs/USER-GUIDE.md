@@ -106,7 +106,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 信用代码后续跑；retryable 失败只能由用户通过 `/g5/retry` 显式重试。run 仅在 Host 内存保留
 30 分钟，Host 重启后失效，不把原始企业行持久化落盘。
 
-### 3.4 三域批量补全（0.5.0 发布候选）
+### 3.4 三域批量补全（0.5.0）
 
 0.5.0 在工作台中增加三个可选域：
 
@@ -151,6 +151,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   `enterprise-enrichment` Skill（方案 A 模型中介式）。字段契约与二期规划见
   [QCC-ENRICHMENT-DESIGN.md](QCC-ENRICHMENT-DESIGN.md)。
 - **Q：可以在后台批量补全吗？** A：可以。0.4.0 G5 工商批量已发布并完成真实 OAuth/token 验收；
-  0.5.0 风险/知产/经营三域为发布候选，先用 estimate 核对调用上限，再显式确认付费调用。
+  0.5.0 风险/知产/经营三域已发布，先用 estimate 核对调用上限，再显式确认使用当前用户自己的 QCC 账号额度。
 - **Q：刷新页面或重启后还能恢复吗？** A：同一 Host 进程内可用 `runId` 恢复，默认保留 30 分钟；
   Host 重启后内存 run 失效，但已下载 CSV 和本地源文件不受影响。

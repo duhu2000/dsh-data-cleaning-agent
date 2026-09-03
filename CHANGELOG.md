@@ -4,9 +4,10 @@
 
 ## [Unreleased]
 
-## [0.5.0] - Release candidate (2026-09-02)
+## [0.5.0] - 2026-09-03
 
-> 风险 / 知产 / 经营三域批量补全、Mockup 对齐工作台与发布候选；尚未打 tag、发布 npm 或生成 GitHub Release。
+> 风险 / 知产 / 经营三域批量补全与 Mockup 对齐工作台；已通过 npm OIDC Trusted Publishing
+> 发布并生成 GitHub Release。
 
 ### Added
 - 冻结三域 91 工具契约：风险 38、知识产权 18、经营 35；兼容 canonical、OAuth 0.1.7 legacy 与短名，
@@ -38,6 +39,7 @@
 - rc.2 实际渲染完成上传映射、体检和中文字段清洗闭环。
 - 2026-09-03 以维护者测试账号完成最小真实 Phase-3 E2E：1 家公开主体、1 个风险工具，
   估算/实际调用均为 2，补全 1 行、待复核 0、错误 0；知产与经营域未做付费实调。
+- Release workflow `33708528501` 通过，npm provenance 为 SLSA v1；公共 Registry 全新安装与 ESM 导入通过。
 
 ## [0.4.0] - 2026-09-02
 

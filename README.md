@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.5.0**（发布候选；npm `latest` 仍为 0.4.0）
+> 当前源码版本 / Current source version: **0.5.0**（已发布；npm `latest` 与 GitHub Latest 均为 0.5.0）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -83,7 +83,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   默认关闭的本机 E2E Runner 已就绪；2026-09-01 已在隔离 rc.2 Host 完成真实 OAuth、跨重启恢复和
   20 家公开企业的 400 次 QCC 调用；自然过期 token 的真实刷新、动态工具恢复及 1 行续期后调用也已通过。
   401 / 429 / 配额耗尽使用 Web→Bridge→ToolRuntime 故障注入验证，不额外消耗真实付费批次。
-- **0.5.0 三域批量扩展（发布候选）**：风险 38、知识产权 18、经营 35 个工具已冻结为 91 工具契约；
+- **0.5.0 三域批量扩展（已发布）**：风险 38、知识产权 18、经营 35 个工具已冻结为 91 工具契约；
   工作台支持域组勾选、零调用上界估算、独立付费确认、多候选人工锁定、部分失败人工重试、
   30 分钟 Host 内存恢复、结果 CSV 与复核 CSV。rc.2 / alpha.2 零调用 Host 冒烟 24/24 通过，
   rc.2 实际渲染与中文企业字段映射闭环通过。2026-09-03 又以维护者自己的测试账号完成最小真实
@@ -100,7 +100,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 [docs/PHASE2-ACCEPTANCE.md](docs/PHASE2-ACCEPTANCE.md)。
 发布记录、验收门和回滚步骤见 [docs/RELEASE-0.4.0.md](docs/RELEASE-0.4.0.md)。
 0.5.0 三域验收状态见 [docs/PHASE3-ACCEPTANCE.md](docs/PHASE3-ACCEPTANCE.md)，
-发布候选、升级与回滚见 [docs/RELEASE-0.5.0.md](docs/RELEASE-0.5.0.md)。
+发布记录、升级与回滚见 [docs/RELEASE-0.5.0.md](docs/RELEASE-0.5.0.md)。
 
 ## 本地开发
 

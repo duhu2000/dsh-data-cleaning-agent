@@ -1,8 +1,8 @@
-# 0.5.0 发布候选记录
+# 0.5.0 发布记录
 
-> 状态：**Release candidate；未打 tag、未发布 npm、未创建 GitHub Release。**
+> 状态：**✅ 已发布；npm `latest`、Git tag 与 GitHub Release 均为 `0.5.0`。**
 >
-> npm `latest` 仍为 `0.4.0`。
+> 发布时间：2026-09-03T02:41:10Z
 
 ## 1. 范围
 
@@ -76,9 +76,12 @@ dsh plugin --profile web add dsh-data-cleaning-agent@0.4.0
 - [x] 维护者测试账号最小真实 Phase-3 E2E：1 家公开主体、1 个风险工具、`maxCalls: 2`，
   实际 2 次调用，1 行补全、0 待复核、0 错误；隔离端口 `43166`，临时凭据副本已清理。
 
-## 6. 发布前外部门
+## 6. 发布结果
 
-- [ ] 用户明确批准创建并推送 `v0.5.0` tag。
-- [ ] 等待 OIDC workflow 完成 npm provenance 与 GitHub Release；再核验公共 Registry 全新安装。
+- [x] 用户明确批准并已创建、推送 annotated tag `v0.5.0`，指向 `c1c889f`。
+- [x] Release workflow `33708528501` 成功，完成 npm OIDC publish 与 GitHub Release。
+- [x] npm Registry 返回 `0.5.0`，provenance predicate 为 SLSA v1。
+- [x] 公共 Registry 全新安装成功，ESM 导入可见 `apply`、`inject` 与 `name`。
 
-发布前任何一项失败都不得移动 `latest`。
+已知文档差异：0.5.0 tarball 的 README 是 tag 时的不可变快照，仍含“发布候选 / latest 0.4.0”字样；
+运行包、provenance 与 Release 正常，GitHub `main` 已修正。npm 同版本不可覆盖，后续仅可由新补丁版本更新包页文案。

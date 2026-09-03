@@ -14,7 +14,7 @@
 2026-09-01 的 0.4.0 发布内容已分别在 rc.2（43153）和 alpha.2（43154）
 隔离 Host 完成 tarball 加载冒烟，两者均返回 `enrichSkillRegistered:true`；测试进程已停止。
 
-2026-09-02 的 0.5.0 发布候选在 rc.2（43136）与 alpha.2（43137）完成 24/24 零调用 Host 冒烟：
+2026-09-03 已发布的 0.5.0 在 rc.2（43136）与 alpha.2（43137）完成 24/24 零调用 Host 冒烟：
 MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过。rc.2 另完成实际工作台渲染、
 中文企业名称映射和本地清洗闭环；alpha.2 仍只定位为兼容探针。
 
@@ -99,6 +99,6 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
 - `/data-cleaning/api/g5/enrich` 为 0.4.0 已发布能力，单批上限 100 行、并发上限 4，
   且必须显式 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；token 到期刷新与 401/429/配额故障门已通过，
   npm/GitHub Release 均已发布 `v0.4.0`。
-- `/data-cleaning/api/phase3/*` 为 0.5.0 发布候选；单批最多 100 行、并发最多 4、默认/硬调用上限
+- `/data-cleaning/api/phase3/*` 为 0.5.0 已发布能力；单批最多 100 行、并发最多 4、默认/硬调用上限
   500/2000。run 只保留在 Host 内存 30 分钟，Host 重启不恢复。
 - alpha.2 的实际 UI 只作兼容探针；0.5.0 的稳定发布与回滚判断以 rc.2 为准。
