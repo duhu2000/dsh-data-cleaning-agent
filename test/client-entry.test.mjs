@@ -3,7 +3,8 @@
  *
  * 浏览器 provider 在本环境不可用（与 spike2 相同），故用 Node shim 忠实复刻
  * web shell 的静态模块表，验证 `lib/client.js` 的 factory 物化、服务注入与
- * 槽位注册全部正确——这正是 M1 在真实浏览器里渲染「🧹 数据清洗」入口的
+ * 槽位注册全部正确——这正是 M1 在真实浏览器里渲染「🧹 数据清洗」入口、
+ * 原生会话能力按钮与右侧工作台的
  * 前置等价物。断言只依赖 DSH 公开契约（`__ModuleLoader__.load`、`require`
  * 表、`ctx.slots.inject/register`、`defineStore`），不依赖构建产物。
  */
@@ -53,6 +54,7 @@ function defineStore(decl) {
 /** 最小 document shim：仅满足 installSidebarStyles 的 querySelector/createElement/append。 */
 function makeDocument() {
   const head = { append() {} };
+  const listeners = new Map();
   const createElement = () => ({
     dataset: {},
     textContent: '',
@@ -63,6 +65,27 @@ function makeDocument() {
   return {
     head,
     createElement,
+    createEvent: () => ({
+      defaultPrevented: false,
+      initCustomEvent(type, _bubbles, cancelable, detail) {
+        this.type = type;
+        this.cancelable = cancelable;
+        this.detail = detail;
+      },
+      preventDefault() {
+        if (this.cancelable) this.defaultPrevented = true;
+      },
+    }),
+    addEventListener: (type, listener) => {
+      const entries = listeners.get(type) ?? new Set();
+      entries.add(listener);
+      listeners.set(type, entries);
+    },
+    removeEventListener: (type, listener) => { listeners.get(type)?.delete(listener); },
+    dispatchEvent: (event) => {
+      for (const listener of listeners.get(event.type) ?? []) listener(event);
+      return !event.defaultPrevented;
+    },
     querySelector: () => null,
     querySelectorAll: () => [],
   };
@@ -126,16 +149,34 @@ function collectNodes(node, predicate, out) {
  */
 function loadClient() {
   let registration = null;
+  const listeners = new Map();
   const windowShim = {
     __ModuleLoader__: { load: (reg) => { registration = reg; } },
     location: { origin: 'http://127.0.0.1:43140' },
+    CustomEvent: class CustomEvent {
+      constructor(type, options = {}) { this.type = type; this.detail = options.detail; }
+    },
+    addEventListener: (type, listener) => {
+      const entries = listeners.get(type) ?? new Set();
+      entries.add(listener);
+      listeners.set(type, entries);
+    },
+    removeEventListener: (type, listener) => { listeners.get(type)?.delete(listener); },
+    dispatchEvent: (event) => {
+      for (const listener of listeners.get(event.type) ?? []) listener(event);
+      return true;
+    },
   };
   globalThis.window = windowShim;
   globalThis.document = makeDocument();
 
   const requireTable = {
     'react/jsx-runtime': { jsx: (type, props) => ({ type, props, jsx: true }) },
-    react: { createElement: (type, props, ...children) => ({ type, props, children }) },
+    react: {
+      createElement: (type, props, ...children) => ({ type, props, children }),
+      useState: (initial) => [initial, () => {}],
+      useEffect: (effect) => effect(),
+    },
     'react-dom': { createPortal: () => { throw new Error('unused'); } },
     '@deepseek-ai/dsh-client-ui-primitives': { Button: 'Button' },
     '@deepseek-ai/dsh-client-runtime/client': { defineStore },
@@ -181,7 +222,7 @@ test('client bundle 注册 id 正确且服务注入与 mcp-connector 对齐', ()
   assert.equal(typeof exports.apply, 'function');
 });
 
-test('apply() 注册 shell.overlay(order 200) 与 sidebar.footer.action(order 10)', () => {
+test('apply() 注册顶部入口生命周期、原生 composer 能力、会话头入口与右侧工作台', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -205,6 +246,8 @@ test('apply() 注册 shell.overlay(order 200) 与 sidebar.footer.action(order 10
 
     assert.ok(slots.has('shell.overlay'), '必须注入 shell.overlay');
     assert.ok(slots.has('sidebar.footer.action'), '必须注入 sidebar.footer.action');
+    assert.ok(slots.has('conversation.input.left'), '必须注入原生 composer 工具行');
+    assert.ok(slots.has('conversation.session.header.actions'), '必须注入原生会话头动作');
     assert.ok(slots.has('tool.call.toolview'), '必须注入 tool.call.toolview（M3 三工具富化卡片）');
 
     const toolviews = slots.get('tool.call.toolview');
@@ -228,7 +271,18 @@ test('apply() 注册 shell.overlay(order 200) 与 sidebar.footer.action(order 10
     const footer = slots.get('sidebar.footer.action')[0];
     assert.equal(footer.options.name, 'sidebar.footer.action');
     assert.equal(footer.options.id, 'data-cleaning-agent');
-    assert.equal(footer.options.order, 10, 'order 10 → 排在 MCP连接器 order 0 下方');
+    assert.equal(footer.options.order, 10, 'footer 只作为 Portal 生命周期和降级入口');
+    assert.equal(typeof footer.options.inject, 'function', '入口必须可启动 DSH 原生会话');
+
+    const capabilities = slots.get('conversation.input.left')[0];
+    assert.equal(capabilities.options.id, 'data-cleaning-agent-capabilities');
+    assert.equal(capabilities.options.order, 110);
+    assert.equal(capabilities.options.store, undefined, 'session scope 不得复用 root scope 的 store handle');
+
+    const header = slots.get('conversation.session.header.actions')[0];
+    assert.equal(header.options.id, 'data-cleaning-agent-workbench');
+    assert.equal(header.options.order, 110);
+    assert.equal(header.options.store, undefined, '会话头同样通过事件桥打开 root 工作台');
 
     assert.ok(footer.options.store && typeof footer.options.store.create === 'function', 'store 为 defineStore 句柄');
     assert.equal(typeof overlay.component, 'function');
@@ -238,7 +292,7 @@ test('apply() 注册 shell.overlay(order 200) 与 sidebar.footer.action(order 10
   }
 });
 
-test('入口按钮：wide 显示「🧹 数据清洗」，点击调用 actions.open', () => {
+test('入口按钮：wide 显示「🧹 数据清洗」，点击打开工作台并启动原生会话', async () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -261,15 +315,22 @@ test('入口按钮：wide 显示「🧹 数据清洗」，点击调用 actions.o
     const { options, component } = footerReg;
     const instance = options.store.create();
 
-    const wideEl = flattenElement(render(component, { wide: true }, instance));
+    let started = 0;
+    const wideEl = flattenElement(render(component, {
+      wide: true,
+      startSession: async () => { started += 1; return 'session-cleaning-1'; },
+    }, instance));
     assert.equal(wideEl.type, 'Button');
     assert.equal(wideEl.props['aria-label'], '数据清洗');
     assert.equal(wideEl.props['aria-haspopup'], 'dialog');
     assert.equal(wideEl.props['aria-expanded'], false);
     assert.deepEqual(wideEl.children, ['🧹 数据清洗']);
 
-    wideEl.props.onClick();
+    await wideEl.props.onClick();
     assert.equal(instance.getSnapshot().open, true);
+    assert.equal(instance.getSnapshot().step, 'upload');
+    assert.equal(instance.getSnapshot().activeSessionId, 'session-cleaning-1');
+    assert.equal(started, 1);
 
     const narrowEl = flattenElement(render(component, { wide: false }, instance));
     assert.deepEqual(narrowEl.children, ['🧹']);
@@ -277,6 +338,130 @@ test('入口按钮：wide 显示「🧹 数据清洗」，点击调用 actions.o
   } finally {
     cleanupGlobals();
   }
+});
+
+test('入口注入使用 DSH 工作区/会话/输入机打开中央原生会话并预填提示词', async () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { exports } = loaded;
+    let footerReg = null;
+    const calls = { workspace: null, draft: null, opened: null };
+    const ctx = {
+      effect: () => () => {},
+      workspaces: {
+        list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-1', sessionIds: ['old'] }], recentWorkspaceId: 'ws-1' }) },
+        connectWorkspace: async (workspaceId) => { calls.workspace = workspaceId; return 'session-cleaning-2'; },
+      },
+      sessions: {
+        list: { getSnapshot: () => ({ current: 'old' }) },
+        open: (sessionId) => { calls.opened = sessionId; },
+      },
+      get: (name) => name === 'conversation' ? {
+        input: { shell: (sessionId) => ({ setDraft: (text) => { calls.draft = { sessionId, text }; } }) },
+      } : undefined,
+      slots: {
+        inject: (name, cb) => { if (name === 'sidebar.footer.action') footerReg = cb(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    exports.apply(ctx);
+    const { startSession } = footerReg.options.inject();
+    const sessionId = await startSession();
+    assert.equal(sessionId, 'session-cleaning-2');
+    assert.equal(calls.workspace, 'ws-1');
+    assert.equal(calls.opened, 'session-cleaning-2');
+    assert.equal(calls.draft.sessionId, 'session-cleaning-2');
+    assert.match(calls.draft.text, /右侧数据清洗工作台/);
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('alpha.2 兼容 Bridge 使用 uiWorkspace.connectWorkspace，不依赖纯 workspaces controller', async () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { exports } = loaded;
+    let footerReg = null;
+    const calls = { workspace: null, fallbackCreates: 0, draft: null, opened: null };
+    const conversation = {
+      input: { shell: (sessionId) => ({ setDraft: (text) => { calls.draft = { sessionId, text }; } }) },
+    };
+    const uiWorkspace = {
+      connectWorkspace: async (workspaceId) => {
+        calls.workspace = workspaceId;
+        return 'session-alpha-2';
+      },
+    };
+    const ctx = {
+      effect: () => () => {},
+      workspaces: {
+        list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-alpha', sessionIds: [] }] }) },
+      },
+      sessions: {
+        list: { getSnapshot: () => ({ current: undefined }) },
+        create: async () => { calls.fallbackCreates += 1; return 'unexpected'; },
+        open: (sessionId) => { calls.opened = sessionId; },
+      },
+      get: (name) => ({ uiWorkspace, conversation })[name],
+      slots: {
+        inject: (name, cb) => { if (name === 'sidebar.footer.action') footerReg = cb(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    exports.apply(ctx);
+    const sessionId = await footerReg.options.inject().startSession();
+    assert.equal(sessionId, 'session-alpha-2');
+    assert.equal(calls.workspace, 'ws-alpha');
+    assert.equal(calls.fallbackCreates, 0);
+    assert.equal(calls.opened, 'session-alpha-2');
+    assert.equal(calls.draft.sessionId, 'session-alpha-2');
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('原生 composer 渲染五个 Mockup 能力按钮并定位右侧工作台步骤', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { exports } = loaded;
+    let capabilityReg = null;
+    let overlayReg = null;
+    const ctx = {
+      effect: () => () => {},
+      slots: {
+        inject: (name, cb) => {
+          if (name === 'conversation.input.left') capabilityReg = cb();
+          if (name === 'shell.overlay') overlayReg = cb();
+          return () => {};
+        },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    exports.apply(ctx);
+    const instance = overlayReg.options.store.create();
+    render(overlayReg.component, {}, instance); // 挂载 root scope 事件桥（关闭态返回 null）。
+    let bar = flattenElement(render(capabilityReg.component, { sessionId: 'session-3' }, instance));
+    const buttons = [];
+    collectNodes(bar, (n) => n.props && ['上传清洗', '质量体检', '匹配核验', '字段补全', '任务历史'].includes(n.props['aria-label']), buttons);
+    assert.equal(buttons.length, 5);
+    const review = buttons.find((button) => button.props['aria-label'] === '匹配核验');
+    review.props.onClick();
+    assert.equal(instance.getSnapshot().open, true);
+    assert.equal(instance.getSnapshot().step, 'review');
+    assert.equal(instance.getSnapshot().activeSessionId, 'session-3');
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('顶部入口实现只依赖 sidebar.workspaces data-slot Portal，并保留 footer 降级', () => {
+  assert.match(source, /SIDEBAR_WORKSPACES_SELECTOR = '\[data-slot="sidebar\.workspaces"\]'/);
+  assert.match(source, /reactDom\.createPortal/);
+  assert.match(source, /if \(!topMount \|\| typeof reactDom\.createPortal !== 'function'\) return launcher/);
+  assert.doesNotMatch(source, /\[data-slot="sidebar\.footer\.action"\]\s*\{[\s\S]*?display:\s*flex\s*!important/);
 });
 
 test('M3 toolview：DataToolCard 把三工具摘要渲染为可读卡片（状态 + 正文）', () => {
@@ -413,9 +598,11 @@ test('工作台：关闭返回 null，打开渲染 Mockup 四步 stepper + QCC �
 
     instance.actions.open();
     const panel = flattenElement(render(component, {}, instance));
-    assert.equal(panel.props.role, 'dialog');
-    assert.equal(panel.props['aria-modal'], 'true');
-    assert.equal(panel.props['aria-label'], '数据清洗');
+    const drawer = findNode(panel, (n) => n.type === 'aside' && n.props && n.props.className.includes('dcAgentWorkbench'));
+    assert.ok(drawer, '必须在 overlay 中渲染右侧 aside 工作台');
+    assert.equal(drawer.props.role, 'dialog');
+    assert.equal(drawer.props['aria-modal'], 'false', '桌面工作台为非模态，中央会话保持可操作');
+    assert.equal(drawer.props['aria-label'], '数据清洗工作台');
 
     // 四步 stepper：上传与映射 / 数据体检 / 匹配核验 / 补全与导出（对齐原始 Mockup）。
     const stepButtons = [];
@@ -442,20 +629,20 @@ test('工作台：关闭返回 null，打开渲染 Mockup 四步 stepper + QCC �
 });
 
 test('工作台关闭态 guard 位于所有 store hooks 之后，避免 React #310', () => {
-  const componentStart = source.indexOf('function WorkbenchOverlay(props)');
+  const componentStart = source.indexOf('function WorkbenchDrawer(props)');
   const componentEnd = source.indexOf('function apply(ctx)', componentStart);
   const componentSource = source.slice(componentStart, componentEnd);
   const guardIndex = componentSource.indexOf('if (!open) return null;');
-  const lastStoreHookIndex = componentSource.indexOf('const jobs = useStore((state) => state.jobs);');
+  const lastStoreHookIndex = componentSource.indexOf('const activeSessionId = useStore((state) => state.activeSessionId);');
 
-  assert.ok(componentStart >= 0 && componentEnd > componentStart, '必须定位到 WorkbenchOverlay');
+  assert.ok(componentStart >= 0 && componentEnd > componentStart, '必须定位到 WorkbenchDrawer');
   assert.ok(lastStoreHookIndex >= 0, '必须定位到最后一个 store hook');
   assert.ok(guardIndex > lastStoreHookIndex, '关闭态 guard 必须在全部 store hooks 之后');
 });
 
 test('上传映射留在第一步确认，且本地清洗使用企业名称字段映射', () => {
   const applyParsedStart = source.indexOf('function applyParsed(result, actions)');
-  const applyParsedEnd = source.indexOf('/** 工作台主视图', applyParsedStart);
+  const applyParsedEnd = source.indexOf('/** 右侧非模态工作台', applyParsedStart);
   const applyParsedSource = source.slice(applyParsedStart, applyParsedEnd);
   assert.doesNotMatch(applyParsedSource, /setStep\('profile'\)/, '解析后必须留在上传映射页供用户确认字段');
   assert.match(source, /required: nameField \? \[nameField\] : \[\]/);

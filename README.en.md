@@ -2,7 +2,7 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.5.1** (stable release)
+> Current source version / 当前源码版本: **0.5.2** (development candidate)
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -40,10 +40,10 @@ Fully restart DeepSeek Harness afterwards (stop and re-run `dsh web`). Then say
 "help me clean this batch of company list data" and the plugin loads its built-in Skill and
 drives the clean / complete / profile tools.
 
-After restart, a "Data Cleaning" entry appears at the bottom of the sidebar: click it to open the
-workbench (upload & map → profile → match & review → enrich & export, four steps). When the model calls the clean /
-complete / profile tools, matching tool cards render in the conversation, and a jobs pill in the
-workbench header shows queued / running tasks.
+After restart, a "Data Cleaning" entry appears between "New Session" and "Workspaces" near the top
+of the sidebar. It opens a native DSH conversation with five composer actions (upload, profile,
+match, enrich, and history) and a right-side workbench for the four-step flow. Clean / complete /
+profile tool calls continue to render matching cards in the native conversation.
 
 Without the `dsh` CLI, use the install script:
 
@@ -65,7 +65,7 @@ Or let an agent install it for you:
 | Parse | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | Async jobs | web `/data-cleaning/api/mvp/jobs` | job state machine + persistent storage |
 | UI | web `/data-cleaning/` | upload → clean/complete → export |
-| In-app entry | sidebar "Data Cleaning" button | opens the Mockup-aligned workbench: upload & map → profile → match & review → enrich & export |
+| In-app entry | top sidebar entry + five native composer actions | keeps the DSH conversation in the center and opens the Mockup-aligned workbench on the right |
 | Tool cards | `tool.call.toolview` (`data_clean_rows`/`data_complete_rows`/`data_profile`) | render clean/complete/profile result cards in-conversation with running/done/failed state |
 | Task progress | workbench header jobs pill | polls `/data-cleaning/api/mvp/jobs`; shows queued / running tasks |
 | Skill | `data-cleaning` | guides the model through the workflow |

@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+### Added
+- 在 DSH 原生输入框工具行增加上传清洗、质量体检、匹配核验、字段补全和任务历史五个能力入口。
+- 在原生会话头增加「清洗工作台」恢复入口，任务历史页复用 Host `/mvp/jobs` 状态。
+
+### Changed
+- 左栏入口采用与 MCP连接器一致的兼容方式：公开 `sidebar.footer.action` 仅托管生命周期和降级，
+  实际按钮 Portal 到 `sidebar.workspaces` 前，显示在「新会话」与「工作区」之间。
+- 点击左栏入口通过 DSH `workspaces` / `sessions` / `conversation` 服务打开中央原生会话并预填清洗提示词。
+- 工作台由 980px 模态遮罩改为默认 510px 的非模态右侧面板；中央原生会话保持可见，移动端仍安全降级为全宽面板。
+
+### Fixed
+- 修复应用入口错误显示在侧栏底部、点击后只出现大尺寸右侧遮罩而没有中央原生对话的问题。
+- 修复 DSH 禁止同一 store handle 跨 root/session scope 复用导致的运行时挂载错误；会话按钮通过同页事件桥接根工作台状态。
+- 右栏打开时按实际重叠量左移输入框能力栏，避免窄桌面视口中「匹配核验」「字段补全」「任务历史」被遮挡。
+- 为 alpha.2 的 `uiWorkspace.connectWorkspace` 与 rc.2 的 `workspaces.connectWorkspace` 增加能力探测 Bridge，避免预发布版本入口只打开工作台却无法预填原生会话。
+
 ## [0.5.1] - 2026-09-03
 
 > 文档与发布流程修正版本；无运行时、QCC 工具契约或 API 变化。

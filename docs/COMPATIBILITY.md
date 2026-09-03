@@ -21,6 +21,11 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
 0.5.1 为已发布的 README 状态与发布 Gate 文档补丁，不修改 Host/Client、QCC 契约或运行时依赖，
 因此继承 0.5.0 的 DSH、Node 与 OAuth 兼容矩阵。
 
+0.5.2 源码候选只调整 Client UI：入口 Portal 到 `sidebar.workspaces` 前，中央区域复用 DSH 原生会话，
+五能力入口使用公开 `conversation.input.left`，会话头恢复入口使用公开
+`conversation.session.header.actions`，右侧面板继续使用 additive `shell.overlay`。不替换单占位
+`details` / `conversation.session.header`，也不修改 Host、QCC 工具契约或计费安全门。
+
 ## 2. Node 运行时
 
 - 本包 `engines.node` 声明 `>=20`。
@@ -73,7 +78,7 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
 
 ### 4.2 应用内入口（M1–M3）双基线实测
 
-侧边栏「数据清洗」入口、全屏工作台、三张工具卡片（`data_clean_rows` /
+0.5.0/0.5.1 的侧边栏底部入口、全屏工作台、三张工具卡片（`data_clean_rows` /
 `data_complete_rows` / `data_profile`）与任务 pill 在双基线均已通过隔离 `DSH_HOME` 冒烟验证：
 
 - **rc.2**：根 HTML 直接引用 `/plugins/dsh-data-cleaning-agent/client.js?rev=…`，client bundle
@@ -83,6 +88,12 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
   200 且含全部入口标记；后端端点一致通过。
 
 两条基线均返回 `[dc-agent] host apply() ran`，且未发起任何真实 QCC 调用。
+
+0.5.2 将入口和工作台改为 Mockup 对齐结构；已在 rc.2 与 alpha.2 的全新隔离安装中复验顶部
+Portal、原生会话、五能力按钮、跨 scope 状态桥、窄桌面布局避让与非模态右栏。alpha.2 将
+工作区导航方法放在 `uiWorkspace.connectWorkspace`，rc.2 使用 `workspaces.connectWorkspace`；
+插件只做运行时能力探测并保留 `sessions.create` 安全降级，不承诺 alpha 实验面稳定。Portal 失败时
+仍保留 footer 降级按钮。
 
 ### 4.3 0.5.0 三域兼容面
 

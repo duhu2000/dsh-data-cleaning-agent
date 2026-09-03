@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.5.1**（正式版本）
+> 当前源码版本 / Current source version: **0.5.2**（开发候选）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -35,8 +35,9 @@ dsh plugin --profile web add dsh-data-cleaning-agent
 安装后**完全重启** DeepSeek Harness（停止后重新运行 `dsh web`）。
 之后在对话中说「帮我清洗这批企业名单数据」，插件会自动加载内嵌 Skill 并调度清洗/补全/画像工具。
 
-重启后侧边栏底部会出现「数据清洗」入口：点击打开工作台（上传与映射 → 数据体检 → 匹配核验 → 补全与导出四步），
-模型调用清洗/补全/画像工具时对话内会渲染对应工具卡片，工作台头部用任务 pill 展示排队/进行中的任务。
+重启后，「数据清洗」入口会显示在侧边栏顶部的「新会话」与「工作区」之间。点击后打开 DSH 原生会话，
+输入框工具行提供上传清洗、质量体检、匹配核验、字段补全和任务历史五个入口；右侧工作台承载
+上传与映射 → 数据体检 → 匹配核验 → 补全与导出四步。模型调用工具时，对话内会渲染对应工具卡片。
 
 没有 `dsh` CLI 时，也可以用安装脚本：
 
@@ -58,7 +59,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 解析 | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | 异步任务 | web `/data-cleaning/api/mvp/jobs` | 任务状态机 + 持久化存储 |
 | UI | web `/data-cleaning/` | 上传 → 清洗/补全 → 导出 |
-| 应用内入口 | 侧边栏「数据清洗」按钮 | 打开 Mockup 对齐工作台：上传与映射 → 数据体检 → 匹配核验 → 补全与导出 |
+| 应用内入口 | 侧栏顶部「数据清洗」+ 原生输入框五能力按钮 | 中央保留 DSH 原生对话，右侧打开 Mockup 对齐工作台 |
 | 工具卡片 | `tool.call.toolview`（`data_clean_rows`/`data_complete_rows`/`data_profile`） | 对话内渲染清洗/补全/画像结果卡，含运行/已完成/失败状态 |
 | 任务进度 | 工作台头部任务 pill | 轮询 `/data-cleaning/api/mvp/jobs`，展示排队/运行中任务 |
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
