@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.5.2**（开发候选）
+> 当前源码版本 / Current source version: **0.5.2**（正式版本）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -103,6 +103,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 0.5.0 三域验收状态见 [docs/PHASE3-ACCEPTANCE.md](docs/PHASE3-ACCEPTANCE.md)，
 发布记录、升级与回滚见 [docs/RELEASE-0.5.0.md](docs/RELEASE-0.5.0.md)。
 0.5.1 文档补丁与防回归发布门见 [docs/RELEASE-0.5.1.md](docs/RELEASE-0.5.1.md)。
+0.5.2 DSH 原生 UI 对齐范围、验收与回滚见 [docs/RELEASE-0.5.2.md](docs/RELEASE-0.5.2.md)。
 
 ## 本地开发
 
