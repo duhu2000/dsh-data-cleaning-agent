@@ -2,8 +2,9 @@
 
 > 目的：作为从 GPT 开发任务转入 DeepSeek Harness（DSH）继续开发的唯一入口。
 > 接手者无需回溯对话，应先执行下方「接手启动清单」，再按 P0 → P1 顺序续做。
-> 生成日期：2026-09-03
-> 当前源码版本：**0.5.1 已发布**（npm `latest`、Git tag 与 GitHub Latest 一致）
+> 最近更新：2026-09-04
+> 当前已发布版本：**0.5.3**（npm `latest`、Git tag 与 GitHub Latest 一致）
+> 当前开发分支：**`feat/ui-workflow-v2`**（T0～T9 完成，已收敛为 0.6.0 发布候选）
 
 ---
 
@@ -11,13 +12,19 @@
 
 ### 当前结论
 
-- **已稳定发布**：`dsh-data-cleaning-agent@0.5.1`，npm `latest` 与 GitHub Release `v0.5.1` 一致。
+- **已稳定发布**：`dsh-data-cleaning-agent@0.5.3`，npm `latest` 与 GitHub Release `v0.5.3` 一致。
+- **当前开发主线**：基于企查查专业版 3.5.1 与新版 Mockup，主流程为“上传数据 → 规则确认 →
+  数据匹配 → 清洗补全 → 下载数据”。T0～T9 已完成：契约、Host taskId/revision、上传/字段映射、
+  提示词向导、中央首页、匹配与补全闭环、结果/异常 CSV+XLSX、历史恢复、双基线和视觉回归均已接通；
+  当前自动化 165/165，rc.2 43190 与 alpha.2 43191 跨重启恢复通过。详见
+  `docs/UI-WORKFLOW-V2.md` 与 `docs/UI-WORKFLOW-V2-ACCEPTANCE.md`。
+  维护者已授权本轮 commit、push 与发布，版本已收敛为 0.6.0；外部结果仍以 Tag workflow 为准。
 - **已完成的主能力**：本地 CSV/XLSX/JSON 清洗补全、三工具、两个 Skill、异步任务、Web UI、
   QCC Host Bridge、批量幂等、多候选人工续跑、脱敏审计、工商 16 + 历史工商 4 工具契约。
 - **真实 E2E 已过**：隔离 DSH `0.1.1-rc.2` 完成 OAuth、授权跨重启恢复、20 企业/400 次 QCC 调用、
   token 自然到期 refresh、续期后最小真实调用、401/429/配额故障注入。
-- **当前代码基线**：本地 `main` 与 `origin/main` 已同步，实现基线包含 `0a22251`；P1.3 / P1.4 / P1.5
-  分别由独立提交收口，P1.6 发布准备、最终 pack 与全新 rc.2 隔离安装门已通过。
+- **当前代码基线**：本地 `main` 与 `origin/main` 同步于 `0be4de3`；`v0.5.3` 发布提交为
+  `f7eac00`。开发分支 `feat/ui-workflow-v2` 从 `main@0be4de3` 创建。
 - **最新 CI**：实现基线 run `33701502872` 在 Linux Node 22/24 + Windows Node 24 全绿，
   Node 20 action runtime 弃用警告已清除；市场验收 run `33701502920` 成功。
 - **P0/G3 已完成**：上游市场 [PR #4095](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
@@ -44,13 +51,13 @@ MARKET_PR_NUMBER=4095 npm run market:check
 
 预期：
 
-- `npm run check` 全绿，0.5.0 发布基线为 125/125 测试通过。
+- `npm run check` 应全绿；已发布 0.5.3 基线为 138/138，当前 T1～T9 为 165/165 测试通过。
 - `market:check` 应返回 `accepted`，不应修改已合并的市场提交 YAML。
 - 若基线不符，先停止功能开发，核对 `git log` / 远端 CI / npm `latest`，不得盲目覆盖用户更改。
 
 ### 不要重复或越界的事
 
-1. 不要重发或覆盖 npm `0.4.0`；不要在未获批准时发布 `0.5.0`。
+1. 不要重发或覆盖任何已发布版本；当前开发分支未经新批准不得打 tag、发布 npm 或创建 GitHub Release。
 2. 客户使用时自带 QCC MCP 账号并自行付费；开发者 Key 不得交付客户。不要重跑 20 企业/400 次
    真实 QCC 调用，除非维护者再次明确批准测试名单、调用上限和自己承担的测试预算。
 3. 不要触碰生产 DSH GUI/Profile（端口 `43120`）；所有安装和 E2E 必须用隔离 `DSH_HOME` 与新端口。
@@ -73,10 +80,10 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | 本机仓库路径 | `/Users/qcc/Documents/DuHu/QCC/beichacha_doc/云聚接口/MCP/MCP/workspace/dsh-data-cleaning-agent` |
 | Git 远端 | `https://github.com/duhu2000/dsh-data-cleaning-agent.git`（分支 `main`） |
 | npm 包名 | `dsh-data-cleaning-agent`（无 scope，public） |
-| npm `latest` | `0.5.1`（OIDC Trusted Publishing + SLSA v1 provenance） |
-| GitHub Release | `v0.5.1`（Latest，2026-09-03T03:06:54Z） |
-| Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0`、`v0.5.0`、`v0.5.1` |
-| 工作树状态 | `v0.5.1` 指向 `19205ec`；`main` / `origin/main` 发布后文档收口；npm/GitHub `latest` 均为 0.5.1 |
+| npm `latest` | `0.5.3`（OIDC Trusted Publishing + SLSA v1 provenance） |
+| GitHub Release | `v0.5.3`（Latest） |
+| Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0`、`v0.5.0`、`v0.5.1`、`v0.5.2`、`v0.5.3` |
+| 工作树状态 | 发布前 `main` / `origin/main` 为 `0be4de3`；`feat/ui-workflow-v2` 为 0.6.0 候选；npm/GitHub 实时结果需在 Tag workflow 后核验 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -103,9 +110,12 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | 0.2.0 | 2026-09-01 | 开源化 G1：改名 `dsh-data-cleaning-agent`，补齐 README/LICENSE/CONTRIBUTING/install.sh/marketing/CI 骨架 | ✅ 已发布 |
 | 0.2.1 | 2026-09-01 | G2 补充：npm OIDC Trusted Publishing 发布链路验证（无功能变更） | ✅ 已发布 |
 | 0.3.0 | 2026-09-01 | G4 方案 A：内嵌 `enterprise-enrichment` Skill，模型中介式调企查查 MCP 补全企业名单 | ✅ 已发布 |
-| 0.4.0 | 2026-09-02 | 二期工商全景 16+4 工具契约、G5 Host Bridge、安全验收与 OAuth 0.1.7 双命名兼容 | ✅ 已发布（npm latest） |
-| 0.5.0 | 2026-09-03 | 三域 91 工具、批量后端、Mockup 对齐工作台、任务恢复/重试与双 CSV | ✅ 已发布（npm latest） |
-| 0.5.1 | 2026-09-03 | README 状态修正 + 标签发布严格文案 Gate；无运行时变化 | ✅ 已发布（npm latest） |
+| 0.4.0 | 2026-09-02 | 二期工商全景 16+4 工具契约、G5 Host Bridge、安全验收与 OAuth 0.1.7 双命名兼容 | ✅ 已发布 |
+| 0.5.0 | 2026-09-03 | 三域 91 工具、批量后端、Mockup 对齐工作台、任务恢复/重试与双 CSV | ✅ 已发布 |
+| 0.5.1 | 2026-09-03 | README 状态修正 + 标签发布严格文案 Gate；无运行时变化 | ✅ 已发布 |
+| 0.5.2 | 2026-09-03 | DSH 原生 UI 对齐：顶部入口、原生会话、五能力入口、非模态右栏 | ✅ 已发布 |
+| 0.5.3 | 2026-09-03 | 中央业务首页、提示词生成器、输入框下能力入口与 Excel/图片 Bridge | ✅ 已发布（npm latest） |
+| 0.6.0 | 2026-09-04 | 五步 taskId 工作流、Host 耐久 CSV/XLSX、异常清单、跨重启恢复与双基线 | 🚀 发布流程中 |
 
 ---
 
@@ -127,6 +137,9 @@ dsh-data-cleaning-agent/
 │   ├── qcc-phase3.js         # 0.5.0 风险/知产/经营 91 工具冻结契约
 │   ├── qcc-phase3-batch.js   # 0.5.0 三域批量、调用预算与 Host 内存 run
 │   ├── jobs.js               # 异步任务状态机 + storageDomain dc_tasks_v1
+│   ├── workflow-contract.js   # v2 五步、字段目录、映射与状态契约
+│   ├── workflow.js            # v2 taskId/revision Host 元数据工作流
+│   ├── artifacts.js           # v2 结果/异常 CSV+XLSX Host 耐久制品与 checksum
 │   ├── web.js                # Host 半区路由 + UI（/data-cleaning/ 前缀）
 │   └── client.js             # Client 半区 seam（window.__ModuleLoader__.load）
 ├── test/                     # 引擎、市场、G5/Phase3 Bridge/Run/Web/UI/Safety/Runner 契约与验收
@@ -170,6 +183,9 @@ dsh-data-cleaning-agent/
 | `PHASE3-ACCEPTANCE.md` | 0.5.0 三域自动化、双基线、UI 与真实付费验收门 |
 | `RELEASE-0.5.0.md` | 0.5.0 发布结果、升级、回滚和发布清单 |
 | `RELEASE-0.5.1.md` | 0.5.1 文档补丁、严格发布门与回滚清单 |
+| `UI-WORKFLOW-V2.md` | 新版五步业务、字段/状态契约、Host API、隐私边界与 T0～T9 证据 |
+| `UI-WORKFLOW-V2-ACCEPTANCE.md` | T6～T9 双基线、视觉、匹配/补全、恢复与发布准备验收 |
+| `UI-WORKFLOW-V2-MIGRATION.md` | 从 0.5.3 升级、数据保留、回滚与前滚策略 |
 
 ---
 
@@ -217,11 +233,18 @@ dsh-data-cleaning-agent/
 - Skill：`data-cleaning`。
 - 异步任务：`queued → running → completed | failed | killed`，持久化 `dc_tasks_v1`。
 - Web 半区：`/data-cleaning/` UI 与 `/data-cleaning/api/mvp/*`（seam/parse/clean/complete/profile/jobs/job/<id>）。
-- 当前 `npm test` 共 125 例，覆盖引擎、市场、G5/Phase3 Bridge/Run/Safety/Runner/Web/UI、故障注入与字段映射。
+- 当前 T1～T9 `npm test` 共 165 例，覆盖引擎、市场、G5/Phase3 Bridge/Run/Safety/Runner/Web/UI、
+  故障注入、字段映射、并发 taskId、v2 工作流、真实 XLSX/异常清单、Host 制品与历史恢复。
 
 ---
 
 ## 5. 剩余任务（按接手顺序）
+
+### 当前 UI-V2 发布主线
+
+T0～T9 已在本地完成，下一步是最终代码审查。建议下一版本使用 `0.6.0`，但没有维护者新批准时不得
+改版本、commit/push、打 Tag、发布 npm 或创建 GitHub Release。发布前按
+`docs/UI-WORKFLOW-V2-ACCEPTANCE.md` 与 `docs/UI-WORKFLOW-V2-MIGRATION.md` 复验。
 
 ### P0 —— DSH 视觉市场收录（G3）✅
 
@@ -436,9 +459,10 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/ap
 
 ## 9. 给接手的「第一优先」建议
 
-1. 如需知产或经营域的逐域真实付费实调，必须重新批准精确工具、夹具、`maxCalls` 与维护者测试预算。
-2. 0.6.0 历史/人员/招投标扩展必须另行确认范围，不随补丁版本顺带扩张。
-3. 后续任何 tag、npm publish 或 GitHub Release 都必须重新取得明确批准，并复用严格 README 发布门。
+1. 先对 `feat/ui-workflow-v2` 的 T1～T9 未提交差异做最终代码审查并重跑 `npm run check`。
+2. 审查通过后建议准备 `0.6.0` 候选；commit/push/Tag/npm/GitHub Release 均需维护者单独授权。
+3. 不重跑真实 QCC；T6～T9 已用合成数据完成 rc.2/alpha.2、跨重启与视觉验收。
+4. 历史/人员/招投标扩展仍需另行确认范围，不随本次 v2 发布顺带扩张。
 
 ---
 

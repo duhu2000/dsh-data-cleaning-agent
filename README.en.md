@@ -2,7 +2,7 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.5.3** (stable release)
+> Current source version / 当前源码版本: **0.6.0** (stable release)
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -46,7 +46,8 @@ near the top of the sidebar. It opens a dedicated native DSH session with a busi
 product/workflow introduction, and a prompt builder at the upper-left of the composer. The builder
 accepts pasted entities, locally parsed spreadsheet data, or image attachments and writes an editable
 task brief back to the native composer. Five workflow actions (upload, profile, match, enrich, history)
-sit below the composer and open the four-step workbench on demand.
+sit below the composer and open the five-step workbench (upload, rules, match, enrich, download)
+on demand. Completed tasks expose four durable Host artifacts: result and exception-list CSV/XLSX.
 
 Without the `dsh` CLI, use the install script:
 
@@ -68,6 +69,8 @@ Or let an agent install it for you:
 | Parse | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | Async jobs | web `/data-cleaning/api/mvp/jobs` | job state machine + persistent storage |
 | UI | web `/data-cleaning/` | upload → clean/complete → export |
+| Five-step tasks | web `/data-cleaning/api/workflow/*` | taskId/revision, rules, match, enrich, recovery, and state audit |
+| Durable artifacts | Host workspace `.dsh-data-cleaning-artifacts/v1` | result/exception CSV+XLSX, checksum verification, restart-safe download |
 | In-app entry | top "Data Cleaning & Completion" entry + five actions below the composer | dedicated business home in the center; opens the Mockup-aligned workbench on demand |
 | Prompt builder | `conversation.input.overlay` | text / spreadsheet / image intake, cleaning and enrichment selection, editable native-composer draft |
 | Tool cards | `tool.call.toolview` (`data_clean_rows`/`data_complete_rows`/`data_profile`) | render clean/complete/profile result cards in-conversation with running/done/failed state |
@@ -76,7 +79,7 @@ Or let an agent install it for you:
 | QCC Skill enrichment | `enterprise-enrichment` | 0.4.0: company panorama, ownership, governance, and historical registration |
 | 0.4.0 preflight | web `/data-cleaning/api/phase2/capabilities` | Read-only 16+4 dynamic-tool check; makes no QCC or paid calls |
 | QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0: real OAuth/QCC path, natural-expiry refresh, and fault injection verified |
-| Three-domain enrichment | web `/data-cleaning/api/phase3/*` | 0.5.0: risk 38 + IPR 18 + operation 35, zero-call estimate, user-owned QCC quota confirmation, candidate review, recovery/retry, and two CSV exports |
+| Three-domain enrichment | web `/data-cleaning/api/phase3/*` | 0.5.0: risk 38 + IPR 18 + operation 35, zero-call estimate, user-owned QCC quota confirmation, candidate review, recovery/retry, and two CSV exports (no domain expansion in 0.6.0) |
 
 ## Qichacha MCP enrichment (status and roadmap)
 
@@ -112,6 +115,8 @@ See [the Phase-3 acceptance record](docs/PHASE3-ACCEPTANCE.md) and
 See [the 0.5.1 release record](docs/RELEASE-0.5.1.md) for the README fix and release-text gate.
 See [the 0.5.2 release record](docs/RELEASE-0.5.2.md) for native DSH UI alignment, verification, and rollback.
 See [the 0.5.3 release record](docs/RELEASE-0.5.3.md) for the business landing view and prompt builder.
+See [the 0.6.0 release record](docs/RELEASE-0.6.0.md) for the taskId workflow, durable artifacts,
+restart recovery, and dual-baseline validation.
 
 See [docs/PLAN-OSS.md](docs/PLAN-OSS.md) for details.
 

@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.5.3**（正式版本）
+> 当前源码版本 / Current source version: **0.6.0**（正式版本）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -39,7 +39,8 @@ dsh plugin --profile web add dsh-data-cleaning-agent
 重启后，「数据清洗补全」入口会显示在侧边栏顶部的「新会话」与「工作区」之间。点击后打开专属的
 DSH 原生会话：首页标题、产品说明与工作流会替换通用探索页；输入框左上角提供提示词生成器，支持
 粘贴名单、解析 Excel/CSV/JSON 或附加图片并选择清洗动作、补全字段。上传清洗、质量体检、匹配核验、
-字段补全和任务历史五个入口位于输入框下方，右侧工作台承载完整四步闭环。
+字段补全和任务历史五个入口位于输入框下方，右侧工作台承载“上传数据 → 规则确认 → 数据匹配 →
+清洗补全 → 下载数据”五步闭环。完成后可下载结果与异常清单的 CSV/XLSX 四类 Host 耐久制品。
 
 没有 `dsh` CLI 时，也可以用安装脚本：
 
@@ -61,6 +62,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 解析 | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | 异步任务 | web `/data-cleaning/api/mvp/jobs` | 任务状态机 + 持久化存储 |
 | UI | web `/data-cleaning/` | 上传 → 清洗/补全 → 导出 |
+| 五步任务 | web `/data-cleaning/api/workflow/*` | taskId/revision、规则、匹配、补全、恢复与状态审计 |
+| 耐久制品 | Host 工作区 `.dsh-data-cleaning-artifacts/v1` | 结果/异常 CSV+XLSX，checksum 校验，跨 Host 重启下载 |
 | 应用内入口 | 侧栏顶部「数据清洗补全」+ 输入框下方五能力按钮 | 中央业务首页与原生对话，右侧按需打开 Mockup 对齐工作台 |
 | 提示词生成 | `conversation.input.overlay` | 文本 / Excel / 图片录入、清洗项与补全维度选择，生成后回填原生输入框供人工修改 |
 | 工具卡片 | `tool.call.toolview`（`data_clean_rows`/`data_complete_rows`/`data_profile`） | 对话内渲染清洗/补全/画像结果卡，含运行/已完成/失败状态 |
@@ -69,7 +72,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 企查查 Skill 补全 | `enterprise-enrichment` | 0.4.0：工商全景、股权穿透与历史工商 |
 | 0.4.0 工具预检 | web `/data-cleaning/api/phase2/capabilities` | 只读检查 16+4 动态工具，不发起 QCC/付费调用 |
 | QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0：后台批量基础层；真实 OAuth/QCC 主路径、自然到期刷新与故障注入均已验收 |
-| 三域补全 | web `/data-cleaning/api/phase3/*` | 0.5.0：风险 38 + 知产 18 + 经营 35；零调用估算、显式付费确认、候选复核、恢复/重试与双 CSV 导出 |
+| 三域补全 | web `/data-cleaning/api/phase3/*` | 0.5.0：风险 38 + 知产 18 + 经营 35；零调用估算、显式付费确认、候选复核、恢复/重试与双 CSV 导出（当前按用户要求暂不扩展工具域） |
 
 ## 企查查 MCP 补全（状态与路线图）
 
@@ -108,6 +111,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 0.5.1 文档补丁与防回归发布门见 [docs/RELEASE-0.5.1.md](docs/RELEASE-0.5.1.md)。
 0.5.2 DSH 原生 UI 对齐范围、验收与回滚见 [docs/RELEASE-0.5.2.md](docs/RELEASE-0.5.2.md)。
 0.5.3 业务首页、提示词生成和输入框下方流程栏见 [docs/RELEASE-0.5.3.md](docs/RELEASE-0.5.3.md)。
+0.6.0 五步 taskId 工作流、耐久制品、跨重启恢复与双基线验收见
+[docs/RELEASE-0.6.0.md](docs/RELEASE-0.6.0.md)。
 
 ## 本地开发
 

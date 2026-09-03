@@ -22,5 +22,8 @@ _scratch/
 .phase2-e2e/
 .env.phase2-e2e
 
+# 数据清洗补全 v2 Host 下载制品（工作区本地、不得进入源码或 npm 包）
+.dsh-data-cleaning-artifacts/
+
 # 参考仓库镜像（仅本机对照，不纳入本仓库）
 _refs_oss/

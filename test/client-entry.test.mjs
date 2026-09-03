@@ -114,6 +114,17 @@ function flattenElement(el) {
   return { type: el.type, props, children };
 }
 
+/** 测试专用：展开由 createElement 产生的嵌套函数组件，不改变生产 React 调用语义。 */
+function expandElementTree(el) {
+  if (el === null || el === undefined) return el;
+  if (typeof el !== 'object') return el;
+  if (Array.isArray(el)) return el.map(expandElementTree);
+  if (typeof el.type === 'function') return expandElementTree(el.type(el.props ?? {}));
+  const flat = flattenElement(el);
+  flat.children = (flat.children ?? []).map(expandElementTree);
+  return flat;
+}
+
 /** 深度优先查找首个满足 predicate 的节点（处理 createElement 中 .map 产生的嵌套数组）。 */
 function findNode(node, predicate) {
   if (node === null || node === undefined) return null;
@@ -451,7 +462,7 @@ test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工�
     exports.__testing.markCleaningSession('session-3');
     const instance = overlayReg.options.store.create();
     render(overlayReg.component, {}, instance); // 挂载 root scope 事件桥（关闭态返回 null）。
-    let bar = flattenElement(render(capabilityReg.component, {
+    let bar = expandElementTree(render(capabilityReg.component, {
       sessionId: 'session-3',
       session: { composerPhase: 'blank', openState: 'open' },
     }, instance));
@@ -461,7 +472,7 @@ test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工�
     const review = buttons.find((button) => button.props['aria-label'] === '匹配核验');
     review.props.onClick();
     assert.equal(instance.getSnapshot().open, true);
-    assert.equal(instance.getSnapshot().step, 'review');
+    assert.equal(instance.getSnapshot().step, 'match');
     assert.equal(instance.getSnapshot().activeSessionId, 'session-3');
   } finally {
     cleanupGlobals();
@@ -494,13 +505,16 @@ test('blank 清洗会话渲染业务首页，普通会话不注入业务内容',
     }, store), null, '普通会话不应出现业务首页');
 
     exports.__testing.markCleaningSession('cleaning-home');
-    const home = flattenElement(render(dockReg.component, {
+    const home = expandElementTree(render(dockReg.component, {
       sessionId: 'cleaning-home',
       session: { composerPhase: 'blank', openState: 'open' },
     }, store));
     assert.ok(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全产品介绍'));
     assert.ok(findNode(home, (n) => n.children?.includes('把企业名单变成可核验、可回写的标准数据')));
     assert.ok(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全工作流'));
+    for (const label of ['任务设置', '上传数据', '规则确认', '质量体检', '数据匹配', '清洗补全', '下载数据']) {
+      assert.ok(findNode(home, (n) => n.children?.includes(label)), `中央业务首页缺少流程：${label}`);
+    }
   } finally {
     cleanupGlobals();
   }
@@ -538,6 +552,41 @@ test('提示词生成器注册在 input.overlay，且只对清洗会话显示触
   }
 });
 
+test('T4 提示词向导采用数据来源、匹配规则、清洗与补全、确认描述四步', () => {
+  for (const label of ['数据来源', '匹配规则', '清洗与补全', '确认描述']) {
+    assert.match(source, new RegExp(`'${label}'`));
+  }
+  assert.match(source, /WORKBENCH_DRAFT_EVENT/);
+  assert.match(source, /requestWorkbenchDraft/);
+  assert.match(source, /回填到对话框/);
+  assert.match(source, /回填本身不会调用企查查 MCP/);
+});
+
+test('T3 自动字段映射、文本名单数据集与质量摘要均为确定性纯函数', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { entriesToDataset, guessMappings, qualitySummaryFor } = loaded.exports.__testing;
+    const parsed = entriesToDataset(['甲公司', '91320594088140947F']);
+    assert.equal(parsed.rowCount, 2);
+    assert.deepEqual(parsed.headers, ['主体标识']);
+    assert.equal(parsed.rows[0].主体标识, '甲公司');
+    assert.equal(parsed.rows[1].主体标识, '91320594088140947F');
+    const mappings = guessMappings(['企业名称', '统一社会信用代码', '联系电话']);
+    assert.deepEqual(mappings.map((item) => item.targetField), ['company_name', 'credit_no', 'phone']);
+    assert.deepEqual(qualitySummaryFor([
+      { 企业名称: '甲公司', 统一社会信用代码: '91320594088140947F', 联系电话: '13800138000' },
+      { 企业名称: '甲公司', 统一社会信用代码: 'BAD', 联系电话: 'BAD' },
+      { 企业名称: '', 统一社会信用代码: '', 联系电话: '' },
+    ], mappings), {
+      total: 3, valid: 2, missingAnchor: 1, duplicates: 0,
+      invalidCreditNo: 1, invalidPhone: 1, emptyFields: 3,
+    });
+  } finally {
+    cleanupGlobals();
+  }
+});
+
 test('任务描述生成包含主体、清洗项、补全字段、消歧与客户自有 QCC 费用边界', () => {
   let loaded;
   try {
@@ -551,13 +600,14 @@ test('任务描述生成包含主体、清洗项、补全字段、消歧与客�
       mode: 'excel',
       fileName: '企业名单.xlsx',
       entries: ['示例科技有限公司 | 91320000TEST'],
-      cleaningKeys: ['normalize_name', 'manual_review'],
-      enrichmentKeys: ['credit_no', 'legal_rep', 'risk'],
+      cleaningKeys: ['clean_name', 'deduplicate'],
+      enrichmentKeys: ['credit_no', 'legal_rep', 'risk_summary'],
+      anchorKeys: ['company_name', 'credit_no'],
     });
     assert.match(prompt, /企业名单\.xlsx/);
     assert.match(prompt, /示例科技有限公司/);
-    assert.match(prompt, /规范企业名称、模糊候选人工确认/);
-    assert.match(prompt, /统一社会信用代码、法定代表人、风险信息/);
+    assert.match(prompt, /名称补全与规范、重复企业去重/);
+    assert.match(prompt, /统一社会信用代码、法定代表人、风险摘要/);
     assert.match(prompt, /存在多个候选必须暂停/);
     assert.match(prompt, /当前用户自己的账号承担/);
   } finally {
@@ -760,7 +810,7 @@ test('M3 jobs pill：工作台 header 渲染后台任务状态位，jobs 列表�
   }
 });
 
-test('工作台：关闭返回 null，打开渲染 Mockup 四步 stepper + QCC 安全状态，关闭按钮调用 actions.close', () => {
+test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安全状态，关闭按钮调用 actions.close', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -793,10 +843,10 @@ test('工作台：关闭返回 null，打开渲染 Mockup 四步 stepper + QCC �
     assert.equal(drawer.props['aria-modal'], 'false', '桌面工作台为非模态，中央会话保持可操作');
     assert.equal(drawer.props['aria-label'], '数据清洗补全工作台');
 
-    // 四步 stepper：上传与映射 / 数据体检 / 匹配核验 / 补全与导出（对齐原始 Mockup）。
+    // 五步核心工作流；质量体检和历史是横向能力。
     const stepButtons = [];
-    collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['上传与映射', '数据体检', '匹配核验', '补全与导出'].includes(n.props['aria-label']), stepButtons);
-    assert.equal(stepButtons.length, 4, '必须渲染四步 stepper');
+    collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['上传数据', '规则确认', '数据匹配', '清洗补全', '下载数据'].includes(n.props['aria-label']), stepButtons);
+    assert.equal(stepButtons.length, 5, '必须渲染五步 stepper');
 
     // 未确认计费前只显示待检测，不触发调用。
     const qccBadge = findNode(panel, (n) => n.props && n.props.title === '仅在当前用户确认使用自己的企查查账号后调用');
@@ -829,17 +879,75 @@ test('工作台关闭态 guard 位于所有 store hooks 之后，避免 React #3
   assert.ok(guardIndex > lastStoreHookIndex, '关闭态 guard 必须在全部 store hooks 之后');
 });
 
-test('上传映射留在第一步确认，且本地清洗使用企业名称字段映射', () => {
-  const applyParsedStart = source.indexOf('function applyParsed(result, actions)');
+test('中央业务首页以独立 React 元素渲染，避免 hero 切换破坏 Hooks 顺序', () => {
+  const componentStart = source.indexOf('function DataCleaningExperience(props)');
+  const componentEnd = source.indexOf('function extractPromptEntries', componentStart);
+  const componentSource = source.slice(componentStart, componentEnd);
+  assert.match(componentSource, /hero \? h\(ProductHome, \{ sessionId \}\) : null/);
+  assert.doesNotMatch(componentSource, /hero \? ProductHome\(/);
+});
+
+test('同一会话并发创建只产生一个 Host taskId，后续写操作保持串行', async () => {
+  let loaded;
+  const previousFetch = globalThis.fetch;
+  let createCalls = 0;
+  try {
+    globalThis.fetch = async () => {
+      createCalls += 1;
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ task: {
+          id: 'dcw-race-safe', revision: 0, title: '竞态测试',
+          objectives: [], fieldSelection: [], mappings: [],
+        } }),
+      };
+    };
+    loaded = loadClient();
+    const { ensureWorkflowTask, queueWorkflowOperation } = loaded.exports.__testing;
+    const actions = new Proxy({}, { get: () => () => {} });
+    const tasks = await Promise.all([
+      ensureWorkflowTask(actions, 'session-race', { title: '任务 A' }),
+      ensureWorkflowTask(actions, 'session-race', { title: '任务 B' }),
+    ]);
+    assert.equal(createCalls, 1);
+    assert.deepEqual(tasks.map((task) => task.id), ['dcw-race-safe', 'dcw-race-safe']);
+
+    const order = [];
+    await Promise.all([
+      queueWorkflowOperation('session-queue', async () => {
+        order.push('first:start');
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        order.push('first:end');
+      }),
+      queueWorkflowOperation('session-queue', async () => { order.push('second'); }),
+    ]);
+    assert.deepEqual(order, ['first:start', 'first:end', 'second']);
+  } finally {
+    globalThis.fetch = previousFetch;
+    cleanupGlobals();
+  }
+});
+
+test('上传解析进入 taskId runtime，字段映射在规则确认页完成', () => {
+  const applyParsedStart = source.indexOf('function applyParsed(result, actions, taskId');
   const applyParsedEnd = source.indexOf('/** 右侧非模态工作台', applyParsedStart);
   const applyParsedSource = source.slice(applyParsedStart, applyParsedEnd);
   assert.doesNotMatch(applyParsedSource, /setStep\('profile'\)/, '解析后必须留在上传映射页供用户确认字段');
+  assert.match(applyParsedSource, /runtimeFor\(taskId\)/);
+  assert.match(source, /actions\.setStep\('rules'\)/);
   assert.match(source, /required: nameField \? \[nameField\] : \[\]/);
   assert.match(source, /dedupeOn: nameField \|\| null/);
   assert.match(source, /options: localCleanOptions/);
+  assert.match(source, /\/api\/workflow\/tasks\/\$\{encodeURIComponent\(latest\.id\)\}\/actions\/\$\{action\}/);
+  assert.match(source, /workflowAction\(actions, activeSessionId, current, 'rules'/);
+  assert.match(source, /current = await performProfile\(current\)/, '规则确认后必须直接生成质量体检并推进 Host 阶段');
+  assert.match(source, /workflowAction\(actions, activeSessionId, cachedTask, 'match-start'/);
+  assert.doesNotMatch(source, /let session = \{ rows:/, '不得继续使用跨任务的模块级原始数据 session');
 });
 
-test('P1.4 匹配核验页提供三域选择、调用估算和用户自有 QCC 账号确认门', () => {
+test('T3 匹配核验页使用基础企业 G5 Bridge、调用估算和用户自有 QCC 账号确认门', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -855,23 +963,58 @@ test('P1.4 匹配核验页提供三域选择、调用估算和用户自有 QCC �
     exports.apply(ctx);
     const instance = overlayReg.options.store.create();
     instance.actions.open();
-    instance.actions.setStep('review');
+    instance.actions.setStep('match');
     let panel = flattenElement(render(overlayReg.component, {}, instance));
 
-    for (const label of ['风险信息 · 38', '知识产权 · 18', '经营信息 · 35']) {
-      assert.ok(findNode(panel, (n) => n.props && n.props['aria-label'] === label), `缺少域选择：${label}`);
-    }
+    assert.ok(findNode(panel, (n) => n.children && n.children.includes('企查查基础企业能力')));
     assert.ok(findNode(panel, (n) => n.children && n.children.includes('估算调用量')), '必须先估算调用量');
 
-    instance.actions.toggleDomain('risk');
-    assert.deepEqual(instance.getSnapshot().selectedDomains, ['risk']);
     instance.actions.setQccEstimate({ uniqueCompanies: 1, tools: ['a'], estimatedCalls: 2, maxCalls: 500, withinLimit: true });
     panel = flattenElement(render(overlayReg.component, {}, instance));
     const confirm = findNode(panel, (n) => n.props && n.props['aria-label'] === '确认使用当前用户的企查查账号额度');
     assert.ok(confirm, '估算后必须显示用户自有 QCC 账号确认复选框');
     assert.equal(confirm.props.checked, false);
     assert.match(source, /额度或费用由该账号自行承担/, '必须明确费用由当前用户连接的 QCC 账号承担');
+    assert.match(source, /\/data-cleaning\/api\/g5\/enrich/);
+    assert.doesNotMatch(source.slice(source.indexOf("step === 'match'"), source.indexOf("step === 'enrich'")), /风险信息 · 38/);
     assert.doesNotMatch(source, /确认企查查付费调用/, '不得使用可能暗示插件开发者代付的旧文案');
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('T8 下载页使用 Host 耐久 CSV/XLSX 制品并支持最近任务 taskId 恢复', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    let overlayReg = null;
+    const ctx = {
+      effect: () => () => {},
+      slots: {
+        inject: (name, cb) => { if (name === 'shell.overlay') overlayReg = cb(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    loaded.exports.apply(ctx);
+    const instance = overlayReg.options.store.create();
+    instance.actions.open();
+    instance.actions.setStep('download');
+    instance.actions.setWorkflowTask({
+      id: 'dcw-test-artifacts', state: 'completed', stage: 'download', revision: 8,
+      source: { rowCount: 2 },
+      artifacts: [
+        { id: 'dca-test-xlsx', kind: 'complete', format: 'xlsx', fileName: '结果.xlsx', rowCount: 2 },
+        { id: 'dca-test-review', kind: 'review', format: 'csv', fileName: '异常.csv', rowCount: 1 },
+      ],
+    });
+    const panel = flattenElement(render(overlayReg.component, {}, instance));
+    assert.ok(findNode(panel, (node) => node.props?.['aria-label'] === '下载 结果.xlsx'));
+    assert.ok(findNode(panel, (node) => node.children?.includes('清洗补全结果 XLSX · 2 行')));
+    assert.ok(findNode(panel, (node) => node.children?.includes('异常清单 CSV · 1 行')));
+    assert.match(source, /requestWorkbenchOpen\(task\.stage \|\| 'upload', sessionId, task\)/);
+    assert.match(source, /detail\.task\?\.id/);
+    assert.match(source, /\/artifacts\/\$\{encodeURIComponent\(artifact\.id\)\}/);
+    assert.doesNotMatch(source, /browser-download:/, '不得继续登记不可恢复的浏览器伪制品引用');
   } finally {
     cleanupGlobals();
   }

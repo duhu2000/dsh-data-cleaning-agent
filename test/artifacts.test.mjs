@@ -1,0 +1,116 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import XLSX from 'xlsx';
+import { ARTIFACT_STORAGE, WorkflowArtifactStore, deriveExceptionRows } from '../lib/artifacts.js';
+
+function memoryFs() {
+  const files = new Map();
+  return {
+    files,
+    async resolve(path) { return { key: path, displayPath: `/workspace/${path}` }; },
+    async writeText(target, content) { files.set(target.key, Buffer.from(content, 'utf8')); },
+    async readBytes(target, _signal, maxBytes) {
+      const bytes = files.get(target.key);
+      if (!bytes) throw Object.assign(new Error('missing'), { code: 'FS_NOT_FOUND' });
+      if (bytes.length > maxBytes) throw Object.assign(new Error('too large'), { code: 'FS_TOO_LARGE' });
+      return bytes;
+    },
+  };
+}
+
+test('Host 生成可校验的 CSV、真实 XLSX 与异常清单四件套', async () => {
+  const fs = memoryFs();
+  let id = 0;
+  const store = new WorkflowArtifactStore({
+    fs,
+    nowFn: () => '2026-09-03T12:00:00.000Z',
+    idFactory: () => `dca-test-000${++id}`,
+  });
+  const rows = [
+    { 企业名称: '甲公司', qcc_match_status: 'exact', 法定代表人: '张三' },
+    { 企业名称: '乙公司', qcc_match_status: 'candidate', 法定代表人: '' },
+  ];
+  const artifacts = await store.createBundle('dcw-test-0001', {
+    rows,
+    headers: ['企业名称', 'qcc_match_status', '法定代表人'],
+    baseName: '供应商/补全结果',
+  });
+  assert.equal(artifacts.length, 4);
+  assert.deepEqual(artifacts.map((item) => `${item.kind}:${item.format}`), [
+    'complete:csv', 'complete:xlsx', 'review:csv', 'review:xlsx',
+  ]);
+  assert.ok(artifacts.every((item) => item.checksum.startsWith('sha256:')));
+  assert.ok(artifacts.every((item) => !item.fileName.includes('/')));
+
+  const resultWorkbookBytes = await store.read('dcw-test-0001', artifacts[1]);
+  const resultWorkbook = XLSX.read(resultWorkbookBytes, { type: 'buffer' });
+  assert.deepEqual(resultWorkbook.SheetNames, ['清洗补全结果']);
+  const resultRows = XLSX.utils.sheet_to_json(resultWorkbook.Sheets['清洗补全结果'], { defval: '' });
+  assert.equal(resultRows.length, 2);
+  assert.equal(resultRows[0].企业名称, '甲公司');
+
+  const exceptionBytes = await store.read('dcw-test-0001', artifacts[3]);
+  const exceptionWorkbook = XLSX.read(exceptionBytes, { type: 'buffer' });
+  const exceptionRows = XLSX.utils.sheet_to_json(exceptionWorkbook.Sheets['异常清单'], { defval: '' });
+  assert.equal(exceptionRows.length, 1);
+  assert.equal(exceptionRows[0].企业名称, '乙公司');
+  assert.match(exceptionRows[0]._exception_reason, /人工核验/);
+});
+
+test('异常判定覆盖候选、未匹配、失败和显式错误', () => {
+  const rows = deriveExceptionRows([
+    { id: 1, qcc_match_status: 'candidate' },
+    { id: 2, qcc_match_status: 'unresolved' },
+    { id: 3, qcc_match_status: 'failed' },
+    { id: 4, qcc_error: '上游超时' },
+    { id: 5, qcc_match_status: 'exact' },
+  ]);
+  assert.deepEqual(rows.map((row) => row.id), [1, 2, 3, 4]);
+  assert.equal(rows[3]._exception_reason, '上游超时');
+});
+
+test('制品路径拒绝任意路径与非 Host 生成标识', async () => {
+  const store = new WorkflowArtifactStore({ fs: memoryFs() });
+  await assert.rejects(
+    () => store.createBundle('../escape', { rows: [{ name: 'x' }], headers: ['name'] }),
+    { code: 'DC_ARTIFACT_ID_INVALID' },
+  );
+  await assert.rejects(
+    () => store.read('dcw-test-0001', { id: '../../secret', format: 'csv' }),
+    { code: 'DC_ARTIFACT_ID_INVALID' },
+  );
+});
+
+test('CSV 中的外部文本不会被表格软件解释为公式', async () => {
+  const store = new WorkflowArtifactStore({
+    fs: memoryFs(),
+    idFactory: (() => { let id = 0; return () => `dca-safe-000${++id}`; })(),
+  });
+  const artifacts = await store.createBundle('dcw-safe-0001', {
+    headers: ['企业名称', '=危险表头'],
+    rows: [{ 企业名称: '=HYPERLINK("https://example.invalid")', '=危险表头': '+1+1' }],
+  });
+  const csv = (await store.read('dcw-safe-0001', artifacts[0])).toString('utf8');
+  assert.match(csv, /'=危险表头/);
+  assert.match(csv, /'=HYPERLINK/);
+  assert.match(csv, /'\+1\+1/);
+});
+
+test('XLSX Base64 存储读取上限覆盖 4/3 编码膨胀', () => {
+  assert.ok(ARTIFACT_STORAGE.maxStoredBytes > ARTIFACT_STORAGE.maxBytes * 4 / 3);
+});
+
+test('数组与对象字段以 JSON 文本写入真实 XLSX', async () => {
+  const store = new WorkflowArtifactStore({
+    fs: memoryFs(),
+    idFactory: (() => { let id = 0; return () => `dca-json-000${++id}`; })(),
+  });
+  const artifacts = await store.createBundle('dcw-json-0001', {
+    headers: ['企业名称', '来源'],
+    rows: [{ 企业名称: '示例企业', 来源: [{ tool: 'mcp__company__get_base_info' }] }],
+  });
+  const bytes = await store.read('dcw-json-0001', artifacts[1]);
+  const workbook = XLSX.read(bytes, { type: 'buffer' });
+  const rows = XLSX.utils.sheet_to_json(workbook.Sheets['清洗补全结果'], { defval: '' });
+  assert.equal(rows[0].来源, '[{"tool":"mcp__company__get_base_info"}]');
+});
