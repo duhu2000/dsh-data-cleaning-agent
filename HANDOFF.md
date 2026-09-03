@@ -16,10 +16,10 @@
   QCC Host Bridge、批量幂等、多候选人工续跑、脱敏审计、工商 16 + 历史工商 4 工具契约。
 - **真实 E2E 已过**：隔离 DSH `0.1.1-rc.2` 完成 OAuth、授权跨重启恢复、20 企业/400 次 QCC 调用、
   token 自然到期 refresh、续期后最小真实调用、401/429/配额故障注入。
-- **当前代码基线**：本地 `main` 与 `origin/main` 已同步到 `06f3af2`；P1.3 / P1.4 / P1.5
+- **当前代码基线**：本地 `main` 与 `origin/main` 已同步，实现基线包含 `0a22251`；P1.3 / P1.4 / P1.5
   分别由独立提交收口，P1.6 发布准备、最终 pack 与全新 rc.2 隔离安装门已通过。
-- **最新 CI**：提交 `06f3af2` 的 run `33701019951` 在 Linux Node 22/24 + Windows Node 24 全绿；
-  `MARKET_PR_NUMBER=4095 npm run market:check` 复核仍为 `accepted`。
+- **最新 CI**：实现基线 run `33701502872` 在 Linux Node 22/24 + Windows Node 24 全绿，
+  Node 20 action runtime 弃用警告已清除；市场验收 run `33701502920` 成功。
 - **P0/G3 已完成**：上游市场 [PR #4095](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
   已合并，目录 YAML、在线 `plugins.json` 与视觉市场隔离安装冒烟均通过。
 - **0.5.0 已完成的主线**：91 工具契约、三域 Skill、批量 Host Bridge、四步工作台、候选续跑、
@@ -70,7 +70,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | npm `latest` | `0.4.0`（OIDC Trusted Publishing + provenance） |
 | GitHub Release | `v0.4.0`（Latest，2026-09-02T00:33:38Z） |
 | Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0` |
-| 工作树状态 | `main` / `origin/main@06f3af2`；0.5.0 发布候选 CI 全绿，待真实付费门决策与发布授权；npm/GitHub `latest` 仍为 0.4.0 |
+| 工作树状态 | `main` / `origin/main` 已同步并包含 `0a22251`；0.5.0 发布候选 CI 全绿，待真实付费门决策与发布授权；npm/GitHub `latest` 仍为 0.4.0 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
