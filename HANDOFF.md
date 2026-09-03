@@ -3,7 +3,7 @@
 > 目的：作为从 GPT 开发任务转入 DeepSeek Harness（DSH）继续开发的唯一入口。
 > 接手者无需回溯对话，应先执行下方「接手启动清单」，再按 P0 → P1 顺序续做。
 > 生成日期：2026-09-03
-> 当前源码版本：**0.5.0 已发布**（npm `latest`、Git tag 与 GitHub Latest 一致）
+> 当前源码版本：**0.5.1 文档补丁候选**（npm `latest`、Git tag 与 GitHub Latest 仍为 0.5.0）
 
 ---
 
@@ -28,6 +28,7 @@
   1 个风险工具，实际 2/2 次调用，1 行补全、0 待复核、0 错误；临时凭据副本已清理。
 - **发布已完成**：`v0.5.0` 指向 `c1c889f`；OIDC publish、SLSA v1 provenance、GitHub Release
   与公共 Registry 全新安装均已验证。客户生产费用不在本插件承担范围内。
+- **0.5.1 候选**：只修正文档快照并增加标签发布严格文案 Gate；运行时/QCC 契约不变，未 tag、未发布。
 
 ### 接手启动清单
 
@@ -74,7 +75,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | npm `latest` | `0.5.0`（OIDC Trusted Publishing + SLSA v1 provenance） |
 | GitHub Release | `v0.5.0`（Latest，2026-09-03T02:41:10Z） |
 | Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0`、`v0.5.0` |
-| 工作树状态 | `v0.5.0` 指向 `c1c889f`；`main` / `origin/main` 发布后文档收口；npm/GitHub `latest` 均为 0.5.0 |
+| 工作树状态 | `v0.5.0` 指向 `c1c889f`；`main` / `origin/main` 准备 0.5.1 文档补丁；npm/GitHub `latest` 均为 0.5.0 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -103,6 +104,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | 0.3.0 | 2026-09-01 | G4 方案 A：内嵌 `enterprise-enrichment` Skill，模型中介式调企查查 MCP 补全企业名单 | ✅ 已发布 |
 | 0.4.0 | 2026-09-02 | 二期工商全景 16+4 工具契约、G5 Host Bridge、安全验收与 OAuth 0.1.7 双命名兼容 | ✅ 已发布（npm latest） |
 | 0.5.0 | 2026-09-03 | 三域 91 工具、批量后端、Mockup 对齐工作台、任务恢复/重试与双 CSV | ✅ 已发布（npm latest） |
+| 0.5.1 | 待发布 | README 状态修正 + 标签发布严格文案 Gate；无运行时变化 | 🔵 本地候选 |
 
 ---
 
@@ -166,6 +168,7 @@ dsh-data-cleaning-agent/
 | `G5-E2E-RUNBOOK.md` | G5 E2E 安全门、脱敏夹具、执行命令与验收矩阵 |
 | `PHASE3-ACCEPTANCE.md` | 0.5.0 三域自动化、双基线、UI 与真实付费验收门 |
 | `RELEASE-0.5.0.md` | 0.5.0 发布结果、升级、回滚和发布清单 |
+| `RELEASE-0.5.1.md` | 0.5.1 文档补丁、严格发布门与回滚清单 |
 
 ---
 
@@ -259,10 +262,11 @@ dsh-data-cleaning-agent/
 ### P2 —— 待用户决策的小版本与 MVP 技术债
 
 1. **`0.4.1` 不再单独发布**：0.4.0 tarball 文案修正并入 0.5.0；不得覆盖 0.4.0。
-2. **异步任务结果持久化**：`result.rows` 仍为内存闭包；任务完成后跨重启下载需新增 storage/临时文件契约。
-3. **XLSX 大文件异步化**：CSV 主路径已验证，XLSX 大文件仍待压测和任务化。
-4. **LLM dispatch seam**：Web 组合内联 seam 尚未接入稳定模型端到端；不影响纯本地和 Host Bridge 主路径。
-5. **Node engine 收敛**：`package.json` 是 `>=20`，DSH Desktop 是 `^22.19.0 || >=24.0.0`；变更前需做兼容影响评估。
+2. **`0.5.1` 文档补丁候选**：README 修正与标签发布严格文案 Gate 已落地；待验证和单独发布授权。
+3. **异步任务结果持久化**：`result.rows` 仍为内存闭包；任务完成后跨重启下载需新增 storage/临时文件契约。
+4. **XLSX 大文件异步化**：CSV 主路径已验证，XLSX 大文件仍待压测和任务化。
+5. **LLM dispatch seam**：Web 组合内联 seam 尚未接入稳定模型端到端；不影响纯本地和 Host Bridge 主路径。
+6. **Node engine 收敛**：`package.json` 是 `>=20`，DSH Desktop 是 `^22.19.0 || >=24.0.0`；变更前需做兼容影响评估。
 
 ### P3 —— 0.6.0（可选）
 
@@ -431,9 +435,9 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/ap
 
 ## 9. 给接手的「第一优先」建议
 
-1. 决定是否为 0.5.0 tarball 的不可变 README 状态文案安排后续补丁版本；不得覆盖 0.5.0。
-2. 如需知产或经营域的逐域真实付费实调，必须重新批准精确工具、夹具、`maxCalls` 与维护者测试预算。
-3. 后续任何 tag、npm publish 或 GitHub Release 都必须重新取得明确批准。
+1. 完成 0.5.1 候选本地/CI 验收；标签前必须把中英文 README 切换为 0.5.1 正式态并跑严格发布门。
+2. 另行取得 `v0.5.1` tag、npm OIDC publish 与 GitHub Release 的明确批准。
+3. 如需知产或经营域的逐域真实付费实调，必须重新批准精确工具、夹具、`maxCalls` 与维护者测试预算。
 4. 0.6.0 历史/人员/招投标扩展必须另行确认范围，不随 0.5.0 顺带扩张。
 
 ---

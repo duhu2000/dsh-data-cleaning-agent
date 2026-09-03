@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Fixed
+- 准备 0.5.1 文档补丁，使下一份 npm tarball 的中英文 README 正确反映最新已发布版本。
+
+### Changed
+- 发布工作流启用严格文案 Gate：`v*` 标签只有在中英文 README 均切换到当前正式版本时才能进入
+  `npm publish`，防止候选状态再次进入不可变 npm 包。
+- `docs:check` 增加普通分支/标签发布双模式与三项回归测试；运行时能力、QCC 工具契约和 API 均不变。
+
 ## [0.5.0] - 2026-09-03
 
 > 风险 / 知产 / 经营三域批量补全与 Mockup 对齐工作台；已通过 npm OIDC Trusted Publishing

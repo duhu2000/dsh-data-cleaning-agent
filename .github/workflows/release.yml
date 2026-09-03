@@ -29,7 +29,10 @@ jobs:
             console.error(`Release tag ${process.env.RELEASE_TAG} does not match package version ${expected}`);
             process.exit(1);
           }'
-      - run: npm run check
+      - name: Run release gates
+        env:
+          DSH_RELEASE_MODE: '1'
+        run: npm run check
       # GitHub OIDC Trusted Publishing：无长期 NPM_TOKEN；需在 npm 侧绑定本仓库 + 本 workflow 后生效。
       - name: Publish to npm
         run: npm publish --access public --provenance
