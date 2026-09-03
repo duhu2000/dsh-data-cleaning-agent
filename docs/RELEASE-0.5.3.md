@@ -2,9 +2,9 @@
 
 > 版本：**0.5.3**
 >
-> 状态：**正式版本；由 `v0.5.3` 标签触发 npm OIDC Trusted Publishing 与 GitHub Release。**
+> 状态：**✅ 已发布；npm `latest`、Git tag 与 GitHub Release 均为 `0.5.3`。**
 >
-> 发布日期：2026-09-03
+> 发布时间：2026-09-03T10:36:28Z
 
 ## 目标
 
@@ -52,8 +52,15 @@
 > 本轮应用内浏览器首次打开时已确认顶部菜单文案；隔离 Host 重启后，本机 URL 被浏览器安全策略阻止二次访问，
 > 因此标题、流程栏位置、弹层及深浅色/窄屏保留为发布后人工观察项，未用替代浏览器绕过。
 
+发布结果：
+
+- `v0.5.3` annotated tag 指向 `f7eac00`；Release workflow `33745170057` 全绿；
+- npm 公共 Registry 返回 `latest=0.5.3`，包含 38 个文件，SHA-1 为 `d349a593d8b45efc794456bf5854e4ec583ca70f`；
+- npm provenance predicate 为 SLSA v1；
+- GitHub Release 为非 draft、非 prerelease：https://github.com/duhu2000/dsh-data-cleaning-agent/releases/tag/v0.5.3 。
+
 ## 升级与回滚
 
-- 升级候选：安装本地 `npm pack` 产物并完全重启 DSH；不覆盖客户 OAuth grant 或 Key。
+- 升级：安装 `dsh-data-cleaning-agent@0.5.3` 并完全重启 DSH；不覆盖客户 OAuth grant 或 Key。
 - 回滚：重新安装 `dsh-data-cleaning-agent@0.5.2` 并完全重启 DSH。
 - 0.5.3 不修改 Host 路由、QCC 工具契约、存储 schema 或导出格式，回滚无需数据迁移。
