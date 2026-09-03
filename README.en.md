@@ -2,7 +2,7 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.5.2** (stable release)
+> Current source version / 当前源码版本: **0.5.3** (stable release)
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -20,9 +20,10 @@ clean name / phone / amount columns (trim, phone normalization, drop missing-req
 negative-amount / duplicate rows), deterministically complete gaps, profile the batch, and
 export clean CSV.
 
-The model only ever receives **aggregate summaries, never raw detail rows**. Details are only
-viewed and exported in the same-origin web UI, keeping customer raw data out of model context
-by construction.
+When spreadsheet data is handled in the right-side workbench, the model receives aggregate
+summaries by default while full rows stay in the same-origin UI. If the user explicitly pastes
+entities, attaches an image, or sends a spreadsheet entity preview through the prompt builder,
+that selected content enters model context; the full spreadsheet still remains local to the workbench.
 
 QCC enrichment follows a **bring-your-own connection and account (BYO QCC)** model. Each customer
 connects QCC MCP in their own DSH environment and uses quota or billing attached to their own QCC
@@ -40,10 +41,12 @@ Fully restart DeepSeek Harness afterwards (stop and re-run `dsh web`). Then say
 "help me clean this batch of company list data" and the plugin loads its built-in Skill and
 drives the clean / complete / profile tools.
 
-After restart, a "Data Cleaning" entry appears between "New Session" and "Workspaces" near the top
-of the sidebar. It opens a native DSH conversation with five composer actions (upload, profile,
-match, enrich, and history) and a right-side workbench for the four-step flow. Clean / complete /
-profile tool calls continue to render matching cards in the native conversation.
+After restart, a "Data Cleaning & Completion" entry appears between "New Session" and "Workspaces"
+near the top of the sidebar. It opens a dedicated native DSH session with a business landing view,
+product/workflow introduction, and a prompt builder at the upper-left of the composer. The builder
+accepts pasted entities, locally parsed spreadsheet data, or image attachments and writes an editable
+task brief back to the native composer. Five workflow actions (upload, profile, match, enrich, history)
+sit below the composer and open the four-step workbench on demand.
 
 Without the `dsh` CLI, use the install script:
 
@@ -65,7 +68,8 @@ Or let an agent install it for you:
 | Parse | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | Async jobs | web `/data-cleaning/api/mvp/jobs` | job state machine + persistent storage |
 | UI | web `/data-cleaning/` | upload → clean/complete → export |
-| In-app entry | top sidebar entry + five native composer actions | keeps the DSH conversation in the center and opens the Mockup-aligned workbench on the right |
+| In-app entry | top "Data Cleaning & Completion" entry + five actions below the composer | dedicated business home in the center; opens the Mockup-aligned workbench on demand |
+| Prompt builder | `conversation.input.overlay` | text / spreadsheet / image intake, cleaning and enrichment selection, editable native-composer draft |
 | Tool cards | `tool.call.toolview` (`data_clean_rows`/`data_complete_rows`/`data_profile`) | render clean/complete/profile result cards in-conversation with running/done/failed state |
 | Task progress | workbench header jobs pill | polls `/data-cleaning/api/mvp/jobs`; shows queued / running tasks |
 | Skill | `data-cleaning` | guides the model through the workflow |
@@ -107,6 +111,7 @@ See [the Phase-3 acceptance record](docs/PHASE3-ACCEPTANCE.md) and
 [the 0.5.0 release record](docs/RELEASE-0.5.0.md) for verification, upgrade, and rollback.
 See [the 0.5.1 release record](docs/RELEASE-0.5.1.md) for the README fix and release-text gate.
 See [the 0.5.2 release record](docs/RELEASE-0.5.2.md) for native DSH UI alignment, verification, and rollback.
+See [the 0.5.3 release record](docs/RELEASE-0.5.3.md) for the business landing view and prompt builder.
 
 See [docs/PLAN-OSS.md](docs/PLAN-OSS.md) for details.
 

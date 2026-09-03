@@ -21,10 +21,17 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
 0.5.1 为已发布的 README 状态与发布 Gate 文档补丁，不修改 Host/Client、QCC 契约或运行时依赖，
 因此继承 0.5.0 的 DSH、Node 与 OAuth 兼容矩阵。
 
-0.5.2 源码候选只调整 Client UI：入口 Portal 到 `sidebar.workspaces` 前，中央区域复用 DSH 原生会话，
+0.5.2 已发布版本只调整 Client UI：入口 Portal 到 `sidebar.workspaces` 前，中央区域复用 DSH 原生会话，
 五能力入口使用公开 `conversation.input.left`，会话头恢复入口使用公开
 `conversation.session.header.actions`，右侧面板继续使用 additive `shell.overlay`。不替换单占位
 `details` / `conversation.session.header`，也不修改 Host、QCC 工具契约或计费安全门。
+
+0.5.3 正式版本修正第二轮 UI 位置：五能力入口迁到公开 `conversation.input.dock`，只使用稳定
+`data-slot` 和 `:has()` 把本插件 cell 排到输入框下方；提示词生成器使用公开
+`conversation.input.overlay` 和标准 `inputActions.setDraft`。DSH 未提供公开 Hero headline 槽位，
+因此仅对插件创建且仍为空白的会话使用精确中英文文本匹配、卸载恢复的 DOM Bridge。图片接入对
+`conversation.createDraftImages` / `input.shell(sessionId).addImages` 做运行时探测，视为隔离兼容层，
+不承诺 alpha 实验面稳定。
 
 ## 2. Node 运行时
 
@@ -94,6 +101,10 @@ Portal、原生会话、五能力按钮、跨 scope 状态桥、窄桌面布局�
 工作区导航方法放在 `uiWorkspace.connectWorkspace`，rc.2 使用 `workspaces.connectWorkspace`；
 插件只做运行时能力探测并保留 `sessions.create` 安全降级，不承诺 alpha 实验面稳定。Portal 失败时
 仍保留 footer 降级按钮。
+
+0.5.3 新增业务首页和提示词生成器，并把流程栏移出输入框。本地 tarball 已完成 rc.2 隔离
+Profile 装载与 Host 注册冒烟；受应用内浏览器本机 URL 策略限制，深浅色、窄屏和精确像素位置仍作为
+发布后人工观察项，当前单元测试与源码契约测试不能替代该视觉检查。
 
 ### 4.3 0.5.0 三域兼容面
 

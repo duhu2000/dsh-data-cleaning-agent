@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.5.2**（正式版本）
+> 当前源码版本 / Current source version: **0.5.3**（正式版本）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -19,8 +19,9 @@
 对姓名、手机号、金额等列做清洗（去空格、手机号规范化、剔除缺失/负金额/重复行）、
 确定性补全与概览画像，并导出干净的 CSV。
 
-模型（LLM）**只拿到统计摘要，从不读取原始明细行**；明细只在同源 web 界面查看与导出，
-从架构上避免把客户原始数据灌进模型上下文。
+通过右侧工作台处理表格时，模型（LLM）默认只拿到统计摘要，完整明细仅在同源 web 界面查看与导出。
+如果用户主动用提示词生成器粘贴名单、附加图片或把表格主体预览回填对话框，这些用户明确选择发送的
+内容会进入模型上下文；表格完整数据仍只保留在本机工作台。
 
 企查查补全采用 **客户自带连接与账号（BYO QCC）**：每位客户在自己的 DSH 中开通企查查 MCP，
 调用消耗其自有账号的套餐额度或按其与企查查的合同计费。本插件不内置、不分发、不共享开发者 Key，
@@ -35,9 +36,10 @@ dsh plugin --profile web add dsh-data-cleaning-agent
 安装后**完全重启** DeepSeek Harness（停止后重新运行 `dsh web`）。
 之后在对话中说「帮我清洗这批企业名单数据」，插件会自动加载内嵌 Skill 并调度清洗/补全/画像工具。
 
-重启后，「数据清洗」入口会显示在侧边栏顶部的「新会话」与「工作区」之间。点击后打开 DSH 原生会话，
-输入框工具行提供上传清洗、质量体检、匹配核验、字段补全和任务历史五个入口；右侧工作台承载
-上传与映射 → 数据体检 → 匹配核验 → 补全与导出四步。模型调用工具时，对话内会渲染对应工具卡片。
+重启后，「数据清洗补全」入口会显示在侧边栏顶部的「新会话」与「工作区」之间。点击后打开专属的
+DSH 原生会话：首页标题、产品说明与工作流会替换通用探索页；输入框左上角提供提示词生成器，支持
+粘贴名单、解析 Excel/CSV/JSON 或附加图片并选择清洗动作、补全字段。上传清洗、质量体检、匹配核验、
+字段补全和任务历史五个入口位于输入框下方，右侧工作台承载完整四步闭环。
 
 没有 `dsh` CLI 时，也可以用安装脚本：
 
@@ -59,7 +61,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 解析 | web `/data-cleaning/api/mvp/parse` | CSV / XLSX / JSON |
 | 异步任务 | web `/data-cleaning/api/mvp/jobs` | 任务状态机 + 持久化存储 |
 | UI | web `/data-cleaning/` | 上传 → 清洗/补全 → 导出 |
-| 应用内入口 | 侧栏顶部「数据清洗」+ 原生输入框五能力按钮 | 中央保留 DSH 原生对话，右侧打开 Mockup 对齐工作台 |
+| 应用内入口 | 侧栏顶部「数据清洗补全」+ 输入框下方五能力按钮 | 中央业务首页与原生对话，右侧按需打开 Mockup 对齐工作台 |
+| 提示词生成 | `conversation.input.overlay` | 文本 / Excel / 图片录入、清洗项与补全维度选择，生成后回填原生输入框供人工修改 |
 | 工具卡片 | `tool.call.toolview`（`data_clean_rows`/`data_complete_rows`/`data_profile`） | 对话内渲染清洗/补全/画像结果卡，含运行/已完成/失败状态 |
 | 任务进度 | 工作台头部任务 pill | 轮询 `/data-cleaning/api/mvp/jobs`，展示排队/运行中任务 |
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
@@ -104,6 +107,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 发布记录、升级与回滚见 [docs/RELEASE-0.5.0.md](docs/RELEASE-0.5.0.md)。
 0.5.1 文档补丁与防回归发布门见 [docs/RELEASE-0.5.1.md](docs/RELEASE-0.5.1.md)。
 0.5.2 DSH 原生 UI 对齐范围、验收与回滚见 [docs/RELEASE-0.5.2.md](docs/RELEASE-0.5.2.md)。
+0.5.3 业务首页、提示词生成和输入框下方流程栏见 [docs/RELEASE-0.5.3.md](docs/RELEASE-0.5.3.md)。
 
 ## 本地开发
 

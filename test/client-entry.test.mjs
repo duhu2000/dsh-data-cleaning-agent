@@ -3,8 +3,8 @@
  *
  * 浏览器 provider 在本环境不可用（与 spike2 相同），故用 Node shim 忠实复刻
  * web shell 的静态模块表，验证 `lib/client.js` 的 factory 物化、服务注入与
- * 槽位注册全部正确——这正是 M1 在真实浏览器里渲染「🧹 数据清洗」入口、
- * 原生会话能力按钮与右侧工作台的
+ * 槽位注册全部正确——这正是 M1 在真实浏览器里渲染「🧹 数据清洗补全」入口、
+ * 原生会话业务首页、提示词生成器、能力按钮与右侧工作台的
  * 前置等价物。断言只依赖 DSH 公开契约（`__ModuleLoader__.load`、`require`
  * 表、`ctx.slots.inject/register`、`defineStore`），不依赖构建产物。
  */
@@ -222,7 +222,7 @@ test('client bundle 注册 id 正确且服务注入与 mcp-connector 对齐', ()
   assert.equal(typeof exports.apply, 'function');
 });
 
-test('apply() 注册顶部入口生命周期、原生 composer 能力、会话头入口与右侧工作台', () => {
+test('apply() 注册顶部入口、composer 下方能力、提示词生成器、会话头入口与右侧工作台', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -246,7 +246,9 @@ test('apply() 注册顶部入口生命周期、原生 composer 能力、会话�
 
     assert.ok(slots.has('shell.overlay'), '必须注入 shell.overlay');
     assert.ok(slots.has('sidebar.footer.action'), '必须注入 sidebar.footer.action');
-    assert.ok(slots.has('conversation.input.left'), '必须注入原生 composer 工具行');
+    assert.ok(slots.has('conversation.input.dock'), '必须注入原生 composer 独立 dock');
+    assert.ok(slots.has('conversation.input.overlay'), '必须注入提示词生成浮层');
+    assert.equal(slots.has('conversation.input.left'), false, '能力按钮不得再放在输入框内部工具行');
     assert.ok(slots.has('conversation.session.header.actions'), '必须注入原生会话头动作');
     assert.ok(slots.has('tool.call.toolview'), '必须注入 tool.call.toolview（M3 三工具富化卡片）');
 
@@ -274,10 +276,15 @@ test('apply() 注册顶部入口生命周期、原生 composer 能力、会话�
     assert.equal(footer.options.order, 10, 'footer 只作为 Portal 生命周期和降级入口');
     assert.equal(typeof footer.options.inject, 'function', '入口必须可启动 DSH 原生会话');
 
-    const capabilities = slots.get('conversation.input.left')[0];
+    const capabilities = slots.get('conversation.input.dock')[0];
     assert.equal(capabilities.options.id, 'data-cleaning-agent-capabilities');
     assert.equal(capabilities.options.order, 110);
     assert.equal(capabilities.options.store, undefined, 'session scope 不得复用 root scope 的 store handle');
+
+    const prompt = slots.get('conversation.input.overlay')[0];
+    assert.equal(prompt.options.id, 'data-cleaning-agent-prompt-generator');
+    assert.equal(prompt.options.order, 110);
+    assert.equal(typeof prompt.options.inject, 'function');
 
     const header = slots.get('conversation.session.header.actions')[0];
     assert.equal(header.options.id, 'data-cleaning-agent-workbench');
@@ -292,7 +299,7 @@ test('apply() 注册顶部入口生命周期、原生 composer 能力、会话�
   }
 });
 
-test('入口按钮：wide 显示「🧹 数据清洗」，点击打开工作台并启动原生会话', async () => {
+test('入口按钮：wide 显示「🧹 数据清洗补全」，点击只启动中央业务会话', async () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -321,20 +328,20 @@ test('入口按钮：wide 显示「🧹 数据清洗」，点击打开工作台�
       startSession: async () => { started += 1; return 'session-cleaning-1'; },
     }, instance));
     assert.equal(wideEl.type, 'Button');
-    assert.equal(wideEl.props['aria-label'], '数据清洗');
-    assert.equal(wideEl.props['aria-haspopup'], 'dialog');
-    assert.equal(wideEl.props['aria-expanded'], false);
-    assert.deepEqual(wideEl.children, ['🧹 数据清洗']);
+    assert.equal(wideEl.props['aria-label'], '数据清洗补全');
+    assert.equal(wideEl.props['aria-haspopup'], undefined);
+    assert.equal(wideEl.props['aria-expanded'], undefined);
+    assert.deepEqual(wideEl.children, ['🧹 数据清洗补全']);
 
     await wideEl.props.onClick();
-    assert.equal(instance.getSnapshot().open, true);
+    assert.equal(instance.getSnapshot().open, false, '初始业务页不应强制展开右侧工作台');
     assert.equal(instance.getSnapshot().step, 'upload');
     assert.equal(instance.getSnapshot().activeSessionId, 'session-cleaning-1');
     assert.equal(started, 1);
 
     const narrowEl = flattenElement(render(component, { wide: false }, instance));
     assert.deepEqual(narrowEl.children, ['🧹']);
-    assert.equal(narrowEl.props['aria-expanded'], true);
+    assert.equal(narrowEl.props['aria-expanded'], undefined);
   } finally {
     cleanupGlobals();
   }
@@ -372,7 +379,7 @@ test('入口注入使用 DSH 工作区/会话/输入机打开中央原生会话�
     assert.equal(calls.workspace, 'ws-1');
     assert.equal(calls.opened, 'session-cleaning-2');
     assert.equal(calls.draft.sessionId, 'session-cleaning-2');
-    assert.match(calls.draft.text, /右侧数据清洗工作台/);
+    assert.match(calls.draft.text, /提示词生成/);
   } finally {
     cleanupGlobals();
   }
@@ -422,7 +429,7 @@ test('alpha.2 兼容 Bridge 使用 uiWorkspace.connectWorkspace，不依赖纯 w
   }
 });
 
-test('原生 composer 渲染五个 Mockup 能力按钮并定位右侧工作台步骤', () => {
+test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工作台步骤', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -433,7 +440,7 @@ test('原生 composer 渲染五个 Mockup 能力按钮并定位右侧工作台�
       effect: () => () => {},
       slots: {
         inject: (name, cb) => {
-          if (name === 'conversation.input.left') capabilityReg = cb();
+          if (name === 'conversation.input.dock') capabilityReg = cb();
           if (name === 'shell.overlay') overlayReg = cb();
           return () => {};
         },
@@ -441,9 +448,13 @@ test('原生 composer 渲染五个 Mockup 能力按钮并定位右侧工作台�
       },
     };
     exports.apply(ctx);
+    exports.__testing.markCleaningSession('session-3');
     const instance = overlayReg.options.store.create();
     render(overlayReg.component, {}, instance); // 挂载 root scope 事件桥（关闭态返回 null）。
-    let bar = flattenElement(render(capabilityReg.component, { sessionId: 'session-3' }, instance));
+    let bar = flattenElement(render(capabilityReg.component, {
+      sessionId: 'session-3',
+      session: { composerPhase: 'blank', openState: 'open' },
+    }, instance));
     const buttons = [];
     collectNodes(bar, (n) => n.props && ['上传清洗', '质量体检', '匹配核验', '字段补全', '任务历史'].includes(n.props['aria-label']), buttons);
     assert.equal(buttons.length, 5);
@@ -455,6 +466,184 @@ test('原生 composer 渲染五个 Mockup 能力按钮并定位右侧工作台�
   } finally {
     cleanupGlobals();
   }
+});
+
+test('blank 清洗会话渲染业务首页，普通会话不注入业务内容', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { exports } = loaded;
+    let dockReg = null;
+    let overlayReg = null;
+    const ctx = {
+      effect: () => () => {},
+      slots: {
+        inject: (name, cb) => {
+          if (name === 'conversation.input.dock') dockReg = cb();
+          if (name === 'shell.overlay') overlayReg = cb();
+          return () => {};
+        },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    exports.apply(ctx);
+    const store = overlayReg.options.store.create();
+    assert.equal(render(dockReg.component, {
+      sessionId: 'ordinary-session',
+      session: { composerPhase: 'blank', openState: 'open' },
+    }, store), null, '普通会话不应出现业务首页');
+
+    exports.__testing.markCleaningSession('cleaning-home');
+    const home = flattenElement(render(dockReg.component, {
+      sessionId: 'cleaning-home',
+      session: { composerPhase: 'blank', openState: 'open' },
+    }, store));
+    assert.ok(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全产品介绍'));
+    assert.ok(findNode(home, (n) => n.children?.includes('把企业名单变成可核验、可回写的标准数据')));
+    assert.ok(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全工作流'));
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('提示词生成器注册在 input.overlay，且只对清洗会话显示触发器', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { exports } = loaded;
+    let promptReg = null;
+    let overlayReg = null;
+    const ctx = {
+      effect: () => () => {},
+      slots: {
+        inject: (name, cb) => {
+          if (name === 'conversation.input.overlay') promptReg = cb();
+          if (name === 'shell.overlay') overlayReg = cb();
+          return () => {};
+        },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    exports.apply(ctx);
+    const store = overlayReg.options.store.create();
+    assert.equal(render(promptReg.component, { sessionId: 'ordinary', inputActions: {} }, store), null);
+    exports.__testing.markCleaningSession('cleaning-prompt');
+    const trigger = flattenElement(render(promptReg.component, {
+      sessionId: 'cleaning-prompt',
+      inputActions: { setDraft() {} },
+    }, store));
+    assert.ok(findNode(trigger, (n) => n.props?.['aria-label'] === '打开提示词生成'));
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('任务描述生成包含主体、清洗项、补全字段、消歧与客户自有 QCC 费用边界', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { buildTaskPrompt, extractPromptEntries } = loaded.exports.__testing;
+    assert.deepEqual(extractPromptEntries({
+      headers: ['公司名称', '统一社会信用代码'],
+      rows: [{ 公司名称: '示例科技有限公司', 统一社会信用代码: '91320000TEST' }],
+    }), ['示例科技有限公司 | 91320000TEST']);
+    const prompt = buildTaskPrompt({
+      mode: 'excel',
+      fileName: '企业名单.xlsx',
+      entries: ['示例科技有限公司 | 91320000TEST'],
+      cleaningKeys: ['normalize_name', 'manual_review'],
+      enrichmentKeys: ['credit_no', 'legal_rep', 'risk'],
+    });
+    assert.match(prompt, /企业名单\.xlsx/);
+    assert.match(prompt, /示例科技有限公司/);
+    assert.match(prompt, /规范企业名称、模糊候选人工确认/);
+    assert.match(prompt, /统一社会信用代码、法定代表人、风险信息/);
+    assert.match(prompt, /存在多个候选必须暂停/);
+    assert.match(prompt, /当前用户自己的账号承担/);
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('图片接入 Bridge 仅在能力存在时创建 draft image 并加入当前会话', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { exports } = loaded;
+    let promptReg = null;
+    const calls = { files: null, ids: null };
+    const conversation = {
+      createDraftImages: (files) => {
+        calls.files = files;
+        return [{ id: 'draft-image-1' }];
+      },
+      releaseDraftImages: () => { throw new Error('success path must not release'); },
+      input: { shell: () => ({ addImages: (ids) => { calls.ids = ids; return true; } }) },
+    };
+    const ctx = {
+      effect: () => () => {},
+      get: (name) => name === 'conversation' ? conversation : undefined,
+      slots: {
+        inject: (name, cb) => { if (name === 'conversation.input.overlay') promptReg = cb(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    exports.apply(ctx);
+    const file = { name: '名单.png', type: 'image/png' };
+    assert.equal(promptReg.options.inject().attachImages('cleaning-image', [file]), 1);
+    assert.deepEqual(calls.files, [file]);
+    assert.deepEqual(calls.ids, ['draft-image-1']);
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('提示词生成器解析出的完整表格通过事件桥进入 root 工作台且不自动拉开右栏', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { exports } = loaded;
+    let overlayReg = null;
+    const ctx = {
+      effect: () => () => {},
+      slots: {
+        inject: (name, cb) => { if (name === 'shell.overlay') overlayReg = cb(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    exports.apply(ctx);
+    const store = overlayReg.options.store.create();
+    render(overlayReg.component, {}, store);
+    const event = document.createEvent('CustomEvent');
+    event.initCustomEvent('dsh:data-cleaning-workbench-dataset', false, true, {
+      sessionId: 'cleaning-excel',
+      result: {
+        fmt: 'xlsx',
+        headers: ['企业名称', '统一社会信用代码'],
+        rowCount: 2,
+        rows: [
+          { 企业名称: '甲公司', 统一社会信用代码: 'A' },
+          { 企业名称: '乙公司', 统一社会信用代码: 'B' },
+        ],
+      },
+    });
+    document.dispatchEvent(event);
+    assert.equal(store.getSnapshot().dataset.rowCount, 2);
+    assert.equal(store.getSnapshot().nameField, '企业名称');
+    assert.equal(store.getSnapshot().activeSessionId, 'cleaning-excel');
+    assert.equal(store.getSnapshot().open, false);
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('UI 位置契约：能力使用 input.dock 并只移动自身 cell，提示词使用官方 overlay', () => {
+  assert.match(source, /ctx\.slots\.inject\('conversation\.input\.dock'/);
+  assert.match(source, /ctx\.slots\.inject\('conversation\.input\.overlay'/);
+  assert.doesNotMatch(source, /ctx\.slots\.inject\('conversation\.input\.left'/);
+  assert.match(source, /\[data-slot="conversation\.input\.dock"\]:has\(\.dcAgentExperience\)/);
+  assert.match(source, /\[data-composer-card\]:has\(\.dcAgentPromptTrigger\)/);
+  assert.match(source, /rewriteHeroChrome/);
 });
 
 test('顶部入口实现只依赖 sidebar.workspaces data-slot Portal，并保留 footer 降级', () => {
@@ -602,7 +791,7 @@ test('工作台：关闭返回 null，打开渲染 Mockup 四步 stepper + QCC �
     assert.ok(drawer, '必须在 overlay 中渲染右侧 aside 工作台');
     assert.equal(drawer.props.role, 'dialog');
     assert.equal(drawer.props['aria-modal'], 'false', '桌面工作台为非模态，中央会话保持可操作');
-    assert.equal(drawer.props['aria-label'], '数据清洗工作台');
+    assert.equal(drawer.props['aria-label'], '数据清洗补全工作台');
 
     // 四步 stepper：上传与映射 / 数据体检 / 匹配核验 / 补全与导出（对齐原始 Mockup）。
     const stepButtons = [];
