@@ -73,11 +73,11 @@ dsh plugin --profile web add dsh-data-cleaning-agent@0.4.0
 - [x] 最终候选执行 `npm run check` 与 pack 内容复核，tarball 为 35 个白名单文件。
 - [x] 最终候选 tarball 安装到全新 DSH `0.1.1-rc.2` 隔离 profile 并启动成功。
 - [x] 隔离 Host 验证 seam、Phase-3 capabilities / estimate 与未确认付费失败关闭；未触碰生产端口 `43120`。
+- [x] 维护者测试账号最小真实 Phase-3 E2E：1 家公开主体、1 个风险工具、`maxCalls: 2`，
+  实际 2 次调用，1 行补全、0 待复核、0 错误；隔离端口 `43166`，临时凭据副本已清理。
 
 ## 6. 发布前外部门
 
-- [ ] 维护者批准后，用维护者自己的 QCC 测试账号执行最小真实三域计费 E2E，或书面接受该门后置；
-  客户生产账号及费用不属于此发布门。
 - [ ] 用户明确批准创建并推送 `v0.5.0` tag。
 - [ ] 等待 OIDC workflow 完成 npm provenance 与 GitHub Release；再核验公共 Registry 全新安装。
 

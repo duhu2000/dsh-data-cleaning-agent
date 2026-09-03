@@ -24,8 +24,9 @@
   已合并，目录 YAML、在线 `plugins.json` 与视觉市场隔离安装冒烟均通过。
 - **0.5.0 已完成的主线**：91 工具契约、三域 Skill、批量 Host Bridge、四步工作台、候选续跑、
   失败重试、双 CSV 与默认关闭 Runner；本地 125/125、双基线 Host 24/24、rc.2 实际 UI 闭环通过。
-- **仍需批准**：维护者测试账号真实三域 E2E 的企业夹具/域/调用上限/测试预算，以及最终
-  `v0.5.0` tag、push 与 OIDC 发布；客户生产费用不在本插件承担范围内。
+- **最小真实门已过**：2026-09-03 在隔离 rc.2 Host 以维护者测试账号执行 1 家公开主体、
+  1 个风险工具，实际 2/2 次调用，1 行补全、0 待复核、0 错误；临时凭据副本已清理。
+- **仍需批准**：最终 `v0.5.0` tag、push 与 OIDC 发布；客户生产费用不在本插件承担范围内。
 
 ### 接手启动清单
 
@@ -72,7 +73,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | npm `latest` | `0.4.0`（OIDC Trusted Publishing + provenance） |
 | GitHub Release | `v0.4.0`（Latest，2026-09-02T00:33:38Z） |
 | Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0` |
-| 工作树状态 | `main` / `origin/main` 已同步并包含 `0a22251`；0.5.0 发布候选 CI 全绿，待真实付费门决策与发布授权；npm/GitHub `latest` 仍为 0.4.0 |
+| 工作树状态 | `main` / `origin/main` 已同步；0.5.0 发布候选 CI 与最小真实 Phase-3 门全绿，待发布授权；npm/GitHub `latest` 仍为 0.4.0 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -240,8 +241,8 @@ dsh-data-cleaning-agent/
 2. **P1.2 Skill 扩展**：✅ 三域按需调用、来源保真、多候选和降级规则已落地。
 3. **P1.3 Host Bridge 扩展**：✅ 批量、调用预算、幂等、Host run、候选续跑和失败工具重试已落地。
 4. **P1.4 Web/UI 与输出契约**：✅ 四步工作台、估算/确认、复核、恢复/重试和双 CSV 已落地。
-5. **P1.5 验收**：✅ 125/125、双基线 24/24、rc.2 实际 UI；真实付费 E2E 仍需用户批准。
-6. **P1.6 发布准备**：✅ 文档/版本、最终 pack 与全新 rc.2 隔离安装均已通过；剩余真实付费门决策和用户批准 tag/OIDC。
+5. **P1.5 验收**：✅ 125/125、双基线 24/24、rc.2 实际 UI；最小真实 Phase-3 E2E 2/2 调用通过。
+6. **P1.6 发布准备**：✅ 文档/版本、最终 pack、全新 rc.2 隔离安装与最小真实门均已通过；仅剩用户批准 tag/OIDC。
 
 0.5.0 最低验收门：
 
@@ -426,10 +427,9 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/ap
 
 ## 9. 给接手的「第一优先」建议
 
-1. 请维护者决定是否批准其测试账号的最小真实三域 E2E；未明确企业夹具、域、`maxCalls`
-   和维护者自担测试预算时不得执行。
-2. 真实门通过或用户明确接受后置后，再请求 `v0.5.0` tag、push 与 OIDC 发布的单独批准。
-3. 发布完成后核验 npm provenance、GitHub Release 与公共 Registry 安装，并更新“发布候选”为“已发布”。
+1. 请求 `v0.5.0` tag、push 与 OIDC 发布的单独批准；未批准时不得触发 release workflow。
+2. 发布完成后核验 npm provenance、GitHub Release 与公共 Registry 安装，并更新“发布候选”为“已发布”。
+3. 如需知产或经营域的逐域真实付费实调，必须重新批准精确工具、夹具、`maxCalls` 与维护者测试预算。
 4. 0.6.0 历史/人员/招投标扩展必须另行确认范围，不随 0.5.0 顺带扩张。
 
 ---

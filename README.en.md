@@ -94,9 +94,9 @@ Besides local deterministic completion, the plugin supports Qichacha MCP enterpr
   intellectual property (18), and operation (35). The workbench supports domain selection, a zero-call upper-bound
   estimate, separate paid-call confirmation, manual ambiguous-candidate locking, partial-failure retry, 30-minute
   Host-memory recovery, and result/review CSV exports. rc.2 and alpha.2 passed 24/24 zero-call Host smoke checks;
-  rc.2 passed actual rendering and Chinese company-field mapping. A real Phase-3 E2E using the maintainer's
-  own test account still requires separate approval of the fixture, domains, call ceiling, and maintainer-funded
-  test budget; this is unrelated to customer production charges.
+  rc.2 passed actual rendering and Chinese company-field mapping. On 2026-09-03, a minimal real Phase-3 E2E
+  using the maintainer's own test account completed one public entity with one risk tool in two actual calls,
+  with no review items or errors. IPR and operation were covered by runtime registration, contract, and zero-call gates only.
 
 The Bridge accepts both the documented `mcp__qcc-company__*` names and the legacy
 `mcp__company__*` names observed from `qcc-dsh-mcp-oauth@0.1.7`. A fresh rc.2 profile must also
