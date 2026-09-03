@@ -2,9 +2,9 @@
 
 > 版本：**0.5.2**
 >
-> 状态：**正式版本；由 `v0.5.2` 标签触发 npm OIDC Trusted Publishing 与 GitHub Release。**
+> 状态：**✅ 已发布；npm `latest`、Git tag 与 GitHub Latest 均为 `0.5.2`。**
 >
-> 发布日期：2026-09-03
+> 发布时间：2026-09-03T06:10:34Z
 
 ## 1. 目的与范围
 
@@ -25,6 +25,10 @@
 - DSH `0.1.1-rc.2` / `0.1.2-alpha.2` 全新隔离安装与 UI 冒烟通过；
 - 已验证顶部入口、中央原生会话、五能力按钮、非模态右栏、布局避让、上传解析和质量体检；
 - 本轮 UI 验收没有调用 QCC，也没有触碰生产 DSH Host。
+- `v0.5.2` annotated tag 指向 `a1bb68a`；Release workflow `33722000758` 全绿；
+- npm 公共 Registry 返回 `latest=0.5.2`，provenance predicate 为 SLSA v1；
+- 公共 Registry 全新安装成功，ESM 导出为 `apply / inject / name`，包内中英文 README 均为 0.5.2 正式态；
+- GitHub Release 为非 draft、非 prerelease：https://github.com/duhu2000/dsh-data-cleaning-agent/releases/tag/v0.5.2 。
 
 ## 3. 升级与回滚
 
