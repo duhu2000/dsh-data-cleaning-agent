@@ -18,8 +18,8 @@ export function assessReadmeVersion({ version, readmes, releaseMode = false }) {
 
   if (releaseMode) {
     const expected = {
-      'README.md': `（已发布；npm \`latest\` 与 GitHub Latest 均为 ${version}）`,
-      'README.en.md': `(released; npm \`latest\` and GitHub Latest are both ${version})`,
+      'README.md': '（正式版本）',
+      'README.en.md': '(stable release)',
     };
     for (const [name, marker] of Object.entries(expected)) {
       if (!readmes[name]?.includes(marker)) {

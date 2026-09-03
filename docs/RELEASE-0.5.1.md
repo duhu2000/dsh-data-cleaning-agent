@@ -1,8 +1,8 @@
-# 0.5.1 文档补丁候选
+# 0.5.1 文档补丁发布记录
 
-> 状态：**本地候选；未创建 tag、未发布 npm、未创建 GitHub Release。**
+> 版本：**0.5.1**（文档与发布流程修正，无运行时代码变化）
 >
-> 当前公共版本：`0.5.0`
+> 公共发布状态以 npm Registry 与 GitHub Releases 为准；本文件随 0.5.1 发布物固化。
 
 ## 1. 目的与范围
 
@@ -30,9 +30,9 @@
 - [x] `npm run check` 全绿：128/128 测试、36 个发布白名单文件。
 - [x] `DSH_RELEASE_MODE=1 npm run docs:check` 在候选文案下按预期以退出码 1 失败。
 - [x] 候选提交 `c03b1bd` 的 CI `33709568591` 全绿：Linux Node 22/24、Windows Node 24。
-- [ ] 发布前将 README.md / README.en.md 切换为 0.5.1 正式发布态。
-- [ ] `DSH_RELEASE_MODE=1 npm run check` 在正式文案下全绿。
-- [ ] 用户单独批准 `v0.5.1` tag、OIDC npm publish 与 GitHub Release。
+- [x] 发布前将 README.md / README.en.md 切换为不含动态 `latest` 的 0.5.1 正式发布态。
+- [x] `DSH_RELEASE_MODE=1 npm run check` 在正式文案下全绿：128/128、36 文件。
+- [x] 用户单独批准 `v0.5.1` tag、OIDC npm publish 与 GitHub Release。
 - [ ] 发布后核验 SLSA provenance、GitHub Latest 与公共 Registry 全新安装。
 
 未经最后两项确认，不得创建标签或发布 npm。

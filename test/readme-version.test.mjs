@@ -24,8 +24,8 @@ test('标签发布拒绝把候选状态 README 打入不可变 npm 包', () => {
 
 test('标签发布接受中英文 README 均为当前正式版本', () => {
   const readmes = {
-    'README.md': '> 当前源码版本：**0.5.1**（已发布；npm `latest` 与 GitHub Latest 均为 0.5.1）',
-    'README.en.md': '> Current source version: **0.5.1** (released; npm `latest` and GitHub Latest are both 0.5.1)',
+    'README.md': '> 当前源码版本：**0.5.1**（正式版本）',
+    'README.en.md': '> Current source version: **0.5.1** (stable release)',
   };
   const result = assessReadmeVersion({ version: '0.5.1', readmes, releaseMode: true });
   assert.equal(result.ok, true);

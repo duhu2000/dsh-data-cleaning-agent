@@ -2,7 +2,7 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.5.1** (documentation patch candidate; npm `latest` and GitHub Latest are both 0.5.0)
+> Current source version / 当前源码版本: **0.5.1** (stable release)
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -105,7 +105,7 @@ install the matching `@deepseek-ai/dsh-mcp-client` explicitly; see the compatibi
 See [the 0.4.0 release record](docs/RELEASE-0.4.0.md) for scope, validation gates, and rollback steps.
 See [the Phase-3 acceptance record](docs/PHASE3-ACCEPTANCE.md) and
 [the 0.5.0 release record](docs/RELEASE-0.5.0.md) for verification, upgrade, and rollback.
-See [the 0.5.1 patch-candidate record](docs/RELEASE-0.5.1.md) for the README fix and release-text gate.
+See [the 0.5.1 release record](docs/RELEASE-0.5.1.md) for the README fix and release-text gate.
 
 See [docs/PLAN-OSS.md](docs/PLAN-OSS.md) for details.
 
