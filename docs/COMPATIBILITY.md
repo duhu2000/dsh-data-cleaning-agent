@@ -33,6 +33,11 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
 `conversation.createDraftImages` / `input.shell(sessionId).addImages` 做运行时探测，视为隔离兼容层，
 不承诺 alpha 实验面稳定。
 
+2026-09-04 的未发布 v2 工作流在 rc.2（43190）与 alpha.2（43191）完成最新本地 tarball
+隔离安装：两条基线均创建 `dc_workflows_v2` 任务与结果/异常 CSV+XLSX 四类制品，停止并重启 Host
+后可按原 taskId 下载，XLSX 反向解析工作表为“清洗补全结果”。稳定发布判断仍以 rc.2 为主，
+alpha.2 只作兼容探针。全程未触碰生产 43120，未调用 QCC。
+
 ## 2. Node 运行时
 
 - 本包 `engines.node` 声明 `>=20`。
@@ -59,7 +64,7 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
 | --- | --- | --- |
 | 工具名前缀 | `qcc_oauth_*` + 规范 `mcp__qcc-*`；0.1.7 实测为 legacy `mcp__company__*` 等 | `data_clean_rows` / `data_complete_rows` / `data_profile` |
 | Skill | — | `data-cleaning`、`enterprise-enrichment` |
-| 存储域 | 自有 grant store | `dc_tasks_v1` |
+| 存储域 | 自有 grant store | `dc_tasks_v1` + `dc_workflows_v2` |
 | 能否共存 | ✅ | ✅（工具名 / Skill 名 / 存储域 / 条目 id 全独立） |
 
 - `enterprise-enrichment` Skill 本身**不重造 OAuth**：它只调用
@@ -102,9 +107,20 @@ Portal、原生会话、五能力按钮、跨 scope 状态桥、窄桌面布局�
 插件只做运行时能力探测并保留 `sessions.create` 安全降级，不承诺 alpha 实验面稳定。Portal 失败时
 仍保留 footer 降级按钮。
 
-0.5.3 新增业务首页和提示词生成器，并把流程栏移出输入框。本地 tarball 已完成 rc.2 隔离
-Profile 装载与 Host 注册冒烟；受应用内浏览器本机 URL 策略限制，深浅色、窄屏和精确像素位置仍作为
-发布后人工观察项，当前单元测试与源码契约测试不能替代该视觉检查。
+0.5.3 新增业务首页和提示词生成器，并把流程栏移出输入框。当前未发布 v2 已在 rc.2 真实页面完成
+浅色、深色及 820×900 窄屏回归；窄屏页面无横向溢出，最近完成任务可恢复原 taskId 并显示四个
+Host 制品下载按钮。alpha.2 继续只检查 Host/路由/制品 Bridge，不作为精确视觉基线。
+
+### 4.4 未发布 v2 制品兼容面（2026-09-04）
+
+| 能力 | rc.2 | alpha.2 | 备注 |
+| --- | --- | --- | --- |
+| `dc_workflows_v2` schema 2 | ✅ | ✅ | taskId + revision；原始行不进入 KV |
+| `ctx.fs.writeText/readBytes` | ✅ | ✅ | 当前已验证的公共 Host seam |
+| 结果/异常 CSV | ✅ | ✅ | UTF-8 文本，工作区本地保存 |
+| 结果/异常 XLSX | ✅ | ✅ | Base64 over writeText；下载恢复真实 ZIP 字节 |
+| checksum / 跨重启下载 | ✅ | ✅ | SHA-256；同一 taskId/artifactId |
+| 深浅色/窄屏实际 UI | ✅ | 探针 | rc.2 为视觉基线，alpha.2 不作稳定视觉承诺 |
 
 ### 4.3 0.5.0 三域兼容面
 
@@ -127,3 +143,7 @@ Profile 装载与 Host 注册冒烟；受应用内浏览器本机 URL 策略限�
 - `/data-cleaning/api/phase3/*` 为 0.5.0 已发布能力；单批最多 100 行、并发最多 4、默认/硬调用上限
   500/2000。run 只保留在 Host 内存 30 分钟，Host 重启不恢复。
 - alpha.2 的实际 UI 只作兼容探针；0.5.0 的稳定发布与回滚判断以 rc.2 为准。
+- v2 单制品上限 32 MiB、单次最多 100,000 行和 256 列；当前 Host 未验证稳定 `writeBytes`，
+  XLSX 因此以 Base64 文本落盘。未来切换二进制 seam 必须保留旧 `v1` 制品读取兼容。
+- v2 已生成制品可跨 Host 重启恢复，但浏览器 runtime 中尚未导出的原始行不会持久化；恢复中途任务
+  仍需用户重新提供输入。制品只在当前工作区，不承诺跨设备同步。

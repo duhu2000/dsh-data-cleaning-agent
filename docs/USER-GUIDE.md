@@ -30,10 +30,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 中央业务首页，右侧工作台保持关闭；输入框下方的五个入口分别定位到上传清洗、质量体检、匹配核验、
 字段补全和任务历史。处理步骤为：
 
-1. **上传与映射**：粘贴或上传 CSV / XLSX / JSON，确认企业名称字段；
-2. **数据体检**：查看列概览、缺失和金额分布；
-3. **匹配核验**：先做本地清洗，再选择风险/知产/经营域；多候选由人工确认；
-4. **补全与导出**：恢复任务、重试可重试失败，下载结果 CSV 和复核 CSV。
+1. **上传数据**：粘贴或上传 CSV / XLSX / JSON，预览列和行；
+2. **规则确认**：映射企业名称/统一社会信用代码/注册号，选择清洗目标与补全字段；
+3. **数据匹配**：运行质量体检与主体匹配，多候选由人工确认；
+4. **清洗补全**：执行本地确定性清洗；需要 QCC 时先零调用估算，再由当前用户确认使用自己的账号额度；
+5. **下载数据**：生成结果 CSV/XLSX 与异常清单 CSV/XLSX，后续可从任务历史恢复下载。
 
 输入框左上角的「提示词生成」提供三种名单录入方式：
 
@@ -52,7 +53,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 ### 2.3 web 界面
 
 打开 DeepSeek Harness 后访问插件的同源界面（`/data-cleaning/`），可上传 CSV/XLSX/JSON，
-执行解析、清洗、补全、导出 CSV。web 界面的后端路由前缀为 `/data-cleaning/api/mvp/*`。
+执行解析、清洗、补全与导出。旧 MVP 路由前缀为 `/data-cleaning/api/mvp/*`；0.6.0 五步任务和
+耐久制品使用 `/data-cleaning/api/workflow/*`。
 
 ## 3. 能力说明
 
@@ -134,7 +136,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 4. 点击“估算调用量”。估算为上界且不执行 QCC 工具；
 5. 只有在核对企业数、工具数、估算调用量和 `maxCalls` 后，才勾选“确认使用当前用户的企查查账号额度”；
 6. 多候选逐项人工选择；失败项只在明确点击重试时重放；
-7. 下载补全结果 CSV，必要时下载候选复核 CSV。
+7. 生成并下载结果/异常清单的 CSV 或 XLSX；需要重新核验的行会进入异常清单。
 
 同源 API 为 `/data-cleaning/api/phase3/*`。单批最多 100 行，并发上限 4，硬调用上限 2000；
 默认调用上限 500。`enrich` / `resolve` / `retry` 均要求 `confirmPaidCalls:true` 和唯一幂等键。
@@ -164,5 +166,6 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   [QCC-ENRICHMENT-DESIGN.md](QCC-ENRICHMENT-DESIGN.md)。
 - **Q：可以在后台批量补全吗？** A：可以。0.4.0 G5 工商批量已发布并完成真实 OAuth/token 验收；
   0.5.0 风险/知产/经营三域已发布，先用 estimate 核对调用上限，再显式确认使用当前用户自己的 QCC 账号额度。
-- **Q：刷新页面或重启后还能恢复吗？** A：同一 Host 进程内可用 `runId` 恢复，默认保留 30 分钟；
-  Host 重启后内存 run 失效，但已下载 CSV 和本地源文件不受影响。
+- **Q：刷新页面或重启后还能恢复吗？** A：五步任务元数据与已生成制品可按 taskId 跨 Host 重启恢复；
+  尚未导出的浏览器原始行不会持久化，需要重新上传。QCC 的临时 `runId` 仍只在同一 Host 进程保留
+  30 分钟，但完成任务的 CSV/XLSX 不依赖该内存 run。
