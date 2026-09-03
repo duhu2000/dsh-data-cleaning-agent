@@ -29,6 +29,7 @@
 
 - [x] `npm run check` 全绿：128/128 测试、36 个发布白名单文件。
 - [x] `DSH_RELEASE_MODE=1 npm run docs:check` 在候选文案下按预期以退出码 1 失败。
+- [x] 候选提交 `c03b1bd` 的 CI `33709568591` 全绿：Linux Node 22/24、Windows Node 24。
 - [ ] 发布前将 README.md / README.en.md 切换为 0.5.1 正式发布态。
 - [ ] `DSH_RELEASE_MODE=1 npm run check` 在正式文案下全绿。
 - [ ] 用户单独批准 `v0.5.1` tag、OIDC npm publish 与 GitHub Release。
