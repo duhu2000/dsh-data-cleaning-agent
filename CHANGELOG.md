@@ -19,6 +19,8 @@
   enrich 模式还要求显式付费确认、经批准夹具和正数 `maxCalls`，报告为 `0600` 且脱敏。
 
 ### Changed
+- GitHub Actions 升级到 `actions/checkout@v7`、`actions/setup-node@v7` 与
+  `softprops/action-gh-release@v3`，移除托管 Runner 的 Node 20 action runtime 弃用警告。
 - 应用内工作台升级为四步：上传与映射 → 数据体检 → 匹配核验 → 补全与导出；支持三域选择、
   调用估算/二次确认、候选复核、失败重试、任务恢复与双 CSV。
 - 本地清洗接受显式字段映射；中文“企业名称/联系电话”等表头会按映射清洗，不再套用默认 `name/phone` 误删。

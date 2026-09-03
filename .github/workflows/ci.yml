@@ -12,8 +12,8 @@ jobs:
       matrix:
         node: [22, 24]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
       # DSH 依赖由 Host 提供；legacy-peer-deps 避免 npm 尝试拼装一套不完整的 Host。
@@ -24,8 +24,8 @@ jobs:
     name: windows (24)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
@@ -37,8 +37,8 @@ jobs:
     needs: [test, windows]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Stamp an installable prerelease version
