@@ -24,6 +24,12 @@ The model only ever receives **aggregate summaries, never raw detail rows**. Det
 viewed and exported in the same-origin web UI, keeping customer raw data out of model context
 by construction.
 
+QCC enrichment follows a **bring-your-own connection and account (BYO QCC)** model. Each customer
+connects QCC MCP in their own DSH environment and uses quota or billing attached to their own QCC
+contract. This plugin does not embed, distribute, or share a maintainer key, does not resell QCC data,
+and does not pay or subsidize customer usage. Maintainer credentials are used only in isolated tests
+and are never shipped in the package.
+
 ## Quick start
 
 ```bash
@@ -66,7 +72,7 @@ Or let an agent install it for you:
 | QCC Skill enrichment | `enterprise-enrichment` | 0.4.0: company panorama, ownership, governance, and historical registration |
 | 0.4.0 preflight | web `/data-cleaning/api/phase2/capabilities` | Read-only 16+4 dynamic-tool check; makes no QCC or paid calls |
 | QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0: real OAuth/QCC path, natural-expiry refresh, and fault injection verified |
-| Three-domain enrichment | web `/data-cleaning/api/phase3/*` | 0.5.0: risk 38 + IPR 18 + operation 35, zero-call estimate, explicit paid confirmation, candidate review, recovery/retry, and two CSV exports |
+| Three-domain enrichment | web `/data-cleaning/api/phase3/*` | 0.5.0: risk 38 + IPR 18 + operation 35, zero-call estimate, user-owned QCC quota confirmation, candidate review, recovery/retry, and two CSV exports |
 
 ## Qichacha MCP enrichment (status and roadmap)
 
@@ -79,16 +85,18 @@ Besides local deterministic completion, the plugin supports Qichacha MCP enterpr
 - **Plan B (programmatic, 0.4.0)**: the Host Bridge supports batch enrichment,
   idempotency, explicit candidate-resolution resume, manual retry of retryable failures, and
   metadata-only auditing through the public `ctx.tools.execute()` runtime. Paid endpoints require
-  both `confirmPaidCalls:true` and a unique `idempotencyKey`; ambiguous candidates are never
-  auto-selected. A loopback-only, fail-closed E2E runner is ready. On 2026-09-01 an isolated rc.2
+  both `confirmPaidCalls:true` and a unique `idempotencyKey`. The flag means the current user
+  confirms use of their own QCC account quota; it does not transfer the charge to the plugin maintainer.
+  Ambiguous candidates are never auto-selected. A loopback-only, fail-closed E2E runner is ready. On 2026-09-01 an isolated rc.2
   Host passed real OAuth, restart recovery, and 400 QCC calls across 20 public companies. Natural-expiry
   token refresh, dynamic-tool recovery, a post-refresh real call, and 401/429/quota fault injection also passed.
 - **0.5.0 three-domain batch extension (release candidate)**: a frozen 91-tool contract covers risk (38),
   intellectual property (18), and operation (35). The workbench supports domain selection, a zero-call upper-bound
   estimate, separate paid-call confirmation, manual ambiguous-candidate locking, partial-failure retry, 30-minute
   Host-memory recovery, and result/review CSV exports. rc.2 and alpha.2 passed 24/24 zero-call Host smoke checks;
-  rc.2 passed actual rendering and Chinese company-field mapping. Real paid Phase-3 E2E still requires separate
-  approval of the fixture, domains, call ceiling, and budget.
+  rc.2 passed actual rendering and Chinese company-field mapping. A real Phase-3 E2E using the maintainer's
+  own test account still requires separate approval of the fixture, domains, call ceiling, and maintainer-funded
+  test budget; this is unrelated to customer production charges.
 
 The Bridge accepts both the documented `mcp__qcc-company__*` names and the legacy
 `mcp__company__*` names observed from `qcc-dsh-mcp-oauth@0.1.7`. A fresh rc.2 profile must also
@@ -116,7 +124,7 @@ unit tests.
 Real G5 validation must be enabled explicitly according to
 [the E2E runbook](docs/G5-E2E-RUNBOOK.md); `npm run e2e:g5` refuses to run by default.
 The Phase-3 runner is also disabled by default: `npm run e2e:phase3` only permits a loopback Host,
-and paid mode requires an additional explicit confirmation gate.
+and real-call mode requires an additional confirmation for use of the maintainer's own test account.
 
 ## Configuration
 

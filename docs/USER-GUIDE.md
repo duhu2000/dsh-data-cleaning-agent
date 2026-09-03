@@ -54,6 +54,15 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 
 ### 3.2 企查查企业名单补全（Skill `enterprise-enrichment`）
 
+#### 账号与费用边界
+
+- 客户必须在自己的 DSH 环境中开通并连接自己的企查查 MCP 账号。
+- QCC 调用消耗客户自有账号的套餐额度，或按客户与企查查之间的合同计费。
+- 本插件及其开发者不提供共享 Key，不代客户购买、结算、垫付或补贴 QCC 调用费用。
+- 开发者 Key 只用于隔离测试环境，不写入代码、日志、夹具或 npm 发布包。
+- API 字段 `confirmPaidCalls` 为兼容性保留；它表示“当前用户确认使用自己的 QCC 账号额度”，
+  不表示插件开发者或维护者承担费用。
+
 先用企查查 MCP 连接插件（`qcc-dsh-mcp-oauth`）完成授权，然后对对话说：
 
 > 帮我补全这份企业名单：工商全景 + 股权穿透，不要历史工商。
@@ -111,13 +120,14 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 2. 生成数据体检，执行本地清洗；
 3. 点击“检测企查查连接”，按需要勾选域；
 4. 点击“估算调用量”。估算为上界且不执行 QCC 工具；
-5. 只有在核对企业数、工具数、估算调用量和 `maxCalls` 后，才勾选“确认企查查付费调用”；
+5. 只有在核对企业数、工具数、估算调用量和 `maxCalls` 后，才勾选“确认使用当前用户的企查查账号额度”；
 6. 多候选逐项人工选择；失败项只在明确点击重试时重放；
 7. 下载补全结果 CSV，必要时下载候选复核 CSV。
 
 同源 API 为 `/data-cleaning/api/phase3/*`。单批最多 100 行，并发上限 4，硬调用上限 2000；
 默认调用上限 500。`enrich` / `resolve` / `retry` 均要求 `confirmPaidCalls:true` 和唯一幂等键。
-当前真实三域付费 E2E 仍是发布门，详见 [PHASE3-ACCEPTANCE.md](PHASE3-ACCEPTANCE.md)。
+当前维护者测试账号的真实三域计费 E2E 仍是发布门；与客户生产费用无关，详见
+[PHASE3-ACCEPTANCE.md](PHASE3-ACCEPTANCE.md)。
 
 ## 4. 数据边界
 

@@ -22,6 +22,10 @@
 模型（LLM）**只拿到统计摘要，从不读取原始明细行**；明细只在同源 web 界面查看与导出，
 从架构上避免把客户原始数据灌进模型上下文。
 
+企查查补全采用 **客户自带连接与账号（BYO QCC）**：每位客户在自己的 DSH 中开通企查查 MCP，
+调用消耗其自有账号的套餐额度或按其与企查查的合同计费。本插件不内置、不分发、不共享开发者 Key，
+不代理结算，也不为客户代付或补贴企查查费用。维护者自己的 Key 仅用于隔离开发测试，不进入发布包。
+
 ## 30 秒开始
 
 ```bash
@@ -74,14 +78,16 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   按 `panorama` / `ownership` / `governance` / `history` 维度组按需调用；未显式选择时不会默认打满全部付费工具。
 - **方案 B（后台程序化，0.4.0）**：Host Bridge 已通过公共 `ctx.tools.execute()` 实现
   批量补全、请求幂等、多候选人工确认续跑、retryable 失败人工重试与安全审计。
-  批量 Web 端点同时要求 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；多候选绝不自动选择。
+  批量 Web 端点同时要求 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；该字段表示当前用户确认
+  使用自己的 QCC 账号额度，不代表插件开发者代客户付款；多候选绝不自动选择。
   默认关闭的本机 E2E Runner 已就绪；2026-09-01 已在隔离 rc.2 Host 完成真实 OAuth、跨重启恢复和
   20 家公开企业的 400 次 QCC 调用；自然过期 token 的真实刷新、动态工具恢复及 1 行续期后调用也已通过。
   401 / 429 / 配额耗尽使用 Web→Bridge→ToolRuntime 故障注入验证，不额外消耗真实付费批次。
 - **0.5.0 三域批量扩展（发布候选）**：风险 38、知识产权 18、经营 35 个工具已冻结为 91 工具契约；
   工作台支持域组勾选、零调用上界估算、独立付费确认、多候选人工锁定、部分失败人工重试、
   30 分钟 Host 内存恢复、结果 CSV 与复核 CSV。rc.2 / alpha.2 零调用 Host 冒烟 24/24 通过，
-  rc.2 实际渲染与中文企业字段映射闭环通过。真实三域付费 E2E 仍须另行批准企业夹具、域、调用上限与预算。
+  rc.2 实际渲染与中文企业字段映射闭环通过。维护者测试账号的真实三域计费 E2E
+  仍须另行批准企业夹具、域、调用上限与测试预算。
 
 `qcc-dsh-mcp-oauth@0.1.7` 在 rc.2 实测注册为 `mcp__company__*` / `mcp__history__*`；
 本插件的兼容 Bridge 会自动映射到文档规范名 `mcp__qcc-company__*` / `mcp__qcc-history__*`。

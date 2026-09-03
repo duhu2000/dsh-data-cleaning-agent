@@ -76,7 +76,8 @@ dsh plugin --profile web add dsh-data-cleaning-agent@0.4.0
 
 ## 6. 发布前外部门
 
-- [ ] 用户批准后执行最小真实三域付费 E2E，或明确书面接受“真实付费门后置”。
+- [ ] 维护者批准后，用维护者自己的 QCC 测试账号执行最小真实三域计费 E2E，或书面接受该门后置；
+  客户生产账号及费用不属于此发布门。
 - [ ] 用户明确批准创建并推送 `v0.5.0` tag。
 - [ ] 等待 OIDC workflow 完成 npm provenance 与 GitHub Release；再核验公共 Registry 全新安装。
 

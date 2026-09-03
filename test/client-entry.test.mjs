@@ -423,7 +423,7 @@ test('工作台：关闭返回 null，打开渲染 Mockup 四步 stepper + QCC �
     assert.equal(stepButtons.length, 4, '必须渲染四步 stepper');
 
     // 未确认计费前只显示待检测，不触发调用。
-    const qccBadge = findNode(panel, (n) => n.props && n.props.title === '仅在明确确认后发起计费调用');
+    const qccBadge = findNode(panel, (n) => n.props && n.props.title === '仅在当前用户确认使用自己的企查查账号后调用');
     assert.ok(qccBadge, '必须显示 QCC 安全状态位');
     assert.equal(qccBadge.children[0], 'QCC · 待检测');
 
@@ -463,7 +463,7 @@ test('上传映射留在第一步确认，且本地清洗使用企业名称字�
   assert.match(source, /options: localCleanOptions/);
 });
 
-test('P1.4 匹配核验页提供三域选择、调用估算和显式付费确认门', () => {
+test('P1.4 匹配核验页提供三域选择、调用估算和用户自有 QCC 账号确认门', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -491,9 +491,11 @@ test('P1.4 匹配核验页提供三域选择、调用估算和显式付费确认
     assert.deepEqual(instance.getSnapshot().selectedDomains, ['risk']);
     instance.actions.setQccEstimate({ uniqueCompanies: 1, tools: ['a'], estimatedCalls: 2, maxCalls: 500, withinLimit: true });
     panel = flattenElement(render(overlayReg.component, {}, instance));
-    const confirm = findNode(panel, (n) => n.props && n.props['aria-label'] === '确认企查查付费调用');
-    assert.ok(confirm, '估算后必须显示独立付费确认复选框');
+    const confirm = findNode(panel, (n) => n.props && n.props['aria-label'] === '确认使用当前用户的企查查账号额度');
+    assert.ok(confirm, '估算后必须显示用户自有 QCC 账号确认复选框');
     assert.equal(confirm.props.checked, false);
+    assert.match(source, /额度或费用由该账号自行承担/, '必须明确费用由当前用户连接的 QCC 账号承担');
+    assert.doesNotMatch(source, /确认企查查付费调用/, '不得使用可能暗示插件开发者代付的旧文案');
   } finally {
     cleanupGlobals();
   }

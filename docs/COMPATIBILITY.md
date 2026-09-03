@@ -89,7 +89,7 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
 | Phase-3 capabilities / estimate | ✅ | ✅ | 零 QCC 调用 |
 | 未确认 enrich 阻断 | ✅ | ✅ | HTTP 409，ToolRuntime 前阻断 |
 | 工作台实际交互 | ✅ | 探针 | rc.2 完成上传映射、体检、中文字段清洗 |
-| 真实三域付费 E2E | 待批准 | 不作为发布门 | 需批准夹具、域、上限、预算 |
+| 维护者测试账号真实三域 E2E | 待批准 | 不作为发布门 | 需批准夹具、域、上限及维护者自担测试预算 |
 
 ## 5. 已知限制
 

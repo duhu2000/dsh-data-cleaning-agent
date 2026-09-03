@@ -21,6 +21,8 @@
 ### Changed
 - GitHub Actions 升级到 `actions/checkout@v7`、`actions/setup-node@v7` 与
   `softprops/action-gh-release@v3`，移除托管 Runner 的 Node 20 action runtime 弃用警告。
+- 明确 QCC 采用客户自带连接/账号（BYO QCC）：客户自行承担其账号额度或合同费用，插件不共享 Key、
+  不代理结算、不代付；`confirmPaidCalls` 仅表示当前用户确认使用自己的 QCC 账号额度。
 - 应用内工作台升级为四步：上传与映射 → 数据体检 → 匹配核验 → 补全与导出；支持三域选择、
   调用估算/二次确认、候选复核、失败重试、任务恢复与双 CSV。
 - 本地清洗接受显式字段映射；中文“企业名称/联系电话”等表头会按映射清洗，不再套用默认 `name/phone` 误删。
@@ -33,7 +35,8 @@
 ### Verified
 - `npm run check`：125/125 测试通过；lint、双语版本、marketing 与 pack 白名单全绿。
 - DSH `0.1.1-rc.2` / `0.1.2-alpha.2` 隔离 Host 零调用冒烟共 24/24 通过；生产端口 43120 未触碰。
-- rc.2 实际渲染完成上传映射、体检和中文字段清洗闭环；真实三域付费 E2E 留作发布前显式批准门。
+- rc.2 实际渲染完成上传映射、体检和中文字段清洗闭环；维护者测试账号的真实三域计费 E2E
+  留作发布前显式批准门。
 
 ## [0.4.0] - 2026-09-02
 
