@@ -2,13 +2,15 @@
 
 > 版本：**0.5.1**（文档与发布流程修正，无运行时代码变化）
 >
-> 公共发布状态以 npm Registry 与 GitHub Releases 为准；本文件随 0.5.1 发布物固化。
+> 状态：**✅ 已发布；npm `latest`、Git tag 与 GitHub Latest 均为 `0.5.1`。**
+>
+> 发布时间：2026-09-03T03:06:54Z
 
 ## 1. 目的与范围
 
 0.5.1 只修正 0.5.0 npm tarball 中不可变 README 的历史状态文案，并加固发布流程：
 
-- 中英文 README 随 `package.json` 更新为 0.5.1 文档补丁候选；
+- 中英文 README 随 `package.json` 更新，并在标签提交中切换为不含动态 `latest` 的 0.5.1 正式态；
 - 标签发布时，`docs:check` 强制要求两份 README 都声明当前版本已正式发布；
 - Release workflow 显式设置 `DSH_RELEASE_MODE=1`，严格文案门在 `npm publish` 前执行；
 - 增加普通分支允许候选、标签拒绝候选、标签接受正式文案三项单测；
@@ -33,9 +35,11 @@
 - [x] 发布前将 README.md / README.en.md 切换为不含动态 `latest` 的 0.5.1 正式发布态。
 - [x] `DSH_RELEASE_MODE=1 npm run check` 在正式文案下全绿：128/128、36 文件。
 - [x] 用户单独批准 `v0.5.1` tag、OIDC npm publish 与 GitHub Release。
-- [ ] 发布后核验 SLSA provenance、GitHub Latest 与公共 Registry 全新安装。
+- [x] `v0.5.1` annotated tag 指向 `19205ec`；Release workflow `33710151625` 全绿。
+- [x] npm OIDC publish 与 SLSA v1 provenance、GitHub Latest 均已验证。
+- [x] 公共 Registry 全新安装通过，ESM 导出与中英文 README 正式态均正确。
 
-未经最后两项确认，不得创建标签或发布 npm。
+后续任何版本仍须重新取得发布授权，不得覆盖已发布版本。
 
 ## 4. 回滚
 

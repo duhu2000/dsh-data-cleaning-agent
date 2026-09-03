@@ -9,11 +9,10 @@
 
 ## 0. 一句话状态
 
-`0.5.0` 已正式发布：npm `latest`、Git tag 与 GitHub Latest 一致。P1.1～P1.6 开发、验收、
-最小真实 Phase-3 E2E 与发布后公共安装均已完成。源码正在准备 0.5.1 文档补丁候选，修正下一份
-npm 包的 README 状态并新增标签发布文案 Gate；尚未创建 0.5.1 标签或发布。`v0.5.0` 指向 `c1c889f`；
-Release workflow `33708528501` 全绿，npm provenance 为 SLSA v1。CI run `33708216132` 的
-Linux Node 22/24 与 Windows Node 24 矩阵全绿；Actions 使用 Node 24 runtime。
+`0.5.1` 已正式发布：npm `latest`、Git tag 与 GitHub Latest 一致。它修复 npm 包内 README 状态并
+新增标签发布严格文案 Gate，不改变运行时或 QCC 契约。`v0.5.1` 指向 `19205ec`；Release workflow
+`33710151625` 全绿，npm provenance 为 SLSA v1，公共 Registry 全新安装、ESM 导出与实际 README
+均已验证。0.5.0 的 P1.1～P1.6、最小真实 Phase-3 E2E 结论保持有效。
 P0/G3 市场收录已全部门完成（PR 合并 + 目录 YAML 落库 + `plugins.json` 命中 + 视觉市场一键安装冒烟通过）。
 
 ---
@@ -46,7 +45,7 @@ P0/G3 市场收录已全部门完成（PR 合并 + 目录 YAML 落库 + `plugins
 | **P1.5** | 0.5.0 验收 | ✅ 完成 | `npm run check` 125/125；双基线 Host 24/24；rc.2 实际渲染；最小真实 Phase-3 E2E 2/2 调用、1 行补全、0 错误 |
 | **P1.6** | 0.5.0 发布 | ✅ 完成 | `v0.5.0`、npm OIDC provenance、GitHub Release 与公共 Registry 全新安装均已通过 |
 | **P2** | `0.4.1` 文案补丁 | ⏸️ 取消单独发布 | 0.4.0 tarball 文案修正并入 0.5.0，不覆盖已发布版本 |
-| **P2.1** | `0.5.1` README 补丁 + 发布 Gate | ✅ 候选完成 | 128/128、36 文件及 CI `33709568591` 全绿；严格标签门按预期阻断候选文案，待发布前正式态收口和单独授权 |
+| **P2.1** | `0.5.1` README 补丁 + 发布 Gate | ✅ 已发布 | 128/128、36 文件、严格标签门、OIDC provenance、GitHub Release 与公共安装全绿 |
 
 ---
 
@@ -61,9 +60,9 @@ P1.3、P1.4、P1.5 均已形成独立提交；P1.6 版本与发布物料已完�
 
 | 项 | 值 |
 | --- | --- |
-| 代码基线 | `v0.5.0` → `c1c889f`；`main` / `origin/main` 准备 0.5.1 文档补丁 |
-| 当前源码版本 | `0.5.1`（文档补丁候选） |
-| npm `latest` | `0.5.0`（OIDC Trusted Publishing + SLSA v1 provenance） |
+| 代码基线 | `v0.5.1` → `19205ec`；`main` / `origin/main` 发布后文档收口 |
+| 当前源码版本 | `0.5.1`（已发布） |
+| npm `latest` | `0.5.1`（OIDC Trusted Publishing + SLSA v1 provenance） |
 | 稳定发布基线 | DSH `0.1.1-rc.2`（冒烟端口 43136 / 43141） |
 | 兼容探针基线 | DSH `0.1.2-alpha.2`（冒烟端口 43137 / 43143，仅探针，非稳定契约） |
 | 生产 GUI | `http://127.0.0.1:43120` —— **严禁触碰** |
@@ -85,10 +84,10 @@ P1.3、P1.4、P1.5 均已形成独立提交；P1.6 版本与发布物料已完�
 
 ## 6. 下一步（按优先级）
 
-1. 完成 0.5.1 本地/CI 验收；发布前切换 README 正式态并重新跑严格发布门。
-2. 单独取得 `v0.5.1` tag / OIDC 发布授权；未批准时保持候选，不覆盖 0.5.0。
-3. 如需对知产或经营域追加真实付费实调，重新批准工具、企业夹具、`maxCalls` 和维护者测试预算；
+1. 如需对知产或经营域追加真实付费实调，重新批准工具、企业夹具、`maxCalls` 和维护者测试预算；
    该扩展不属于当前 0.5.0 发布阻断项。
+2. 0.6.0 历史/人员/招投标扩展在产品范围确认后再启动。
+3. 后续版本继续复用严格 README 发布 Gate，并单独取得 tag / npm / GitHub Release 授权。
 
 ---
 

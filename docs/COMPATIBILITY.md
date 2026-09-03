@@ -18,7 +18,7 @@
 MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过。rc.2 另完成实际工作台渲染、
 中文企业名称映射和本地清洗闭环；alpha.2 仍只定位为兼容探针。
 
-0.5.1 为 README 状态与发布 Gate 文档补丁候选，不修改 Host/Client、QCC 契约或运行时依赖，
+0.5.1 为已发布的 README 状态与发布 Gate 文档补丁，不修改 Host/Client、QCC 契约或运行时依赖，
 因此继承 0.5.0 的 DSH、Node 与 OAuth 兼容矩阵。
 
 ## 2. Node 运行时
