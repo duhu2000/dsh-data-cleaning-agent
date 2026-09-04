@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+### Fixed
+- 修复 DSH Code Mode 下同源 Web 路由直接调用动态 QCC 工具会被 ToolRuntime 拒绝的问题：新增
+  `data_cleaning_qcc_run` Agent-owned 高层工具，工作台仅在 Host 暂存明细并向原生会话发送不含企业
+  名单的 commandId；真实 QCC 调用以父执行 token/Session 的 nested execution 运行。
+- 当宿主不提供工具注册能力时 fail closed，并在 capabilities 中报告
+  `agentCommandToolRegistered:false`，不会暂存或误执行付费任务。
+- 历史任务恢复下载页改为读取 Host 持久化的匹配/补全摘要；进程重启后不再把已补全数和待核验数
+  显示为“—”。
+
+### Verified
+- DSH `0.1.1-rc.2` 真实连接环境完成一次且仅一次主体检索：唯一精确匹配
+  `企查查科技股份有限公司`（统一社会信用代码 `91320594088140947F`）；未查询工商详情、未重试。
+- 同一公开主体通过工作台完整执行 Agent-owned 批次：实际 2 次 QCC 调用，1/1 精确补全，回填
+  信用代码、法定代表人、注册资本、成立日期与登记状态；0 待核验、0 失败、无重试。
+- 结果 CSV/XLSX 与异常清单 CSV/XLSX 四件套均生成成功，下载后 checksum 与 Host 元数据一致，
+  XLSX 结构校验通过；重启 DSH Host 后任务、统计和四件套仍可从任务历史恢复。
+- `npm run check` 通过，174/174 自动化测试全绿。
+
 ## [0.6.0] - 2026-09-04
 
 ### Added

@@ -71,7 +71,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
 | 企查查 Skill 补全 | `enterprise-enrichment` | 0.4.0：工商全景、股权穿透与历史工商 |
 | 0.4.0 工具预检 | web `/data-cleaning/api/phase2/capabilities` | 只读检查 16+4 动态工具，不发起 QCC/付费调用 |
-| QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0：后台批量基础层；真实 OAuth/QCC 主路径、自然到期刷新与故障注入均已验收 |
+| QCC Host Bridge | `data_cleaning_qcc_run` + web `/data-cleaning/api/g5/*` | Web 仅在 Host 暂存任务；Agent-owned 高层工具以 nested execution 调用动态 QCC 工具；真实 OAuth/QCC 主路径、自然到期刷新与故障注入均已验收 |
 | 三域补全 | web `/data-cleaning/api/phase3/*` | 0.5.0：风险 38 + 知产 18 + 经营 35；零调用估算、显式付费确认、候选复核、恢复/重试与双 CSV 导出（当前按用户要求暂不扩展工具域） |
 
 ## 企查查 MCP 补全（状态与路线图）
@@ -83,9 +83,11 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   `mcp__qcc-company__get_company_registration_info`，把返回的最新工商信息回填到补全工具。
   0.4.0 已将 16 个工商工具和 4 个历史工商工具固化为可测契约，
   按 `panorama` / `ownership` / `governance` / `history` 维度组按需调用；未显式选择时不会默认打满全部付费工具。
-- **方案 B（后台程序化，0.4.0）**：Host Bridge 已通过公共 `ctx.tools.execute()` 实现
-  批量补全、请求幂等、多候选人工确认续跑、retryable 失败人工重试与安全审计。
-  批量 Web 端点同时要求 `confirmPaidCalls:true` 和唯一 `idempotencyKey`；该字段表示当前用户确认
+- **方案 B（Agent-owned 批量，0.4.0 起）**：DSH Code Mode 下，工作台先把名单安全暂存在本机
+  Host，并只把不含企业名单的 commandId 类型化意图发送到原生会话；Agent 随后准确调用一次
+  `data_cleaning_qcc_run`，Bridge 使用该父执行的 token/Session 以 nested execution 调度动态 QCC 工具。
+  该路径实现批量补全、请求幂等、多候选人工确认续跑、retryable 失败人工重试与安全审计。
+  暂存命令前要求 `confirmPaidCalls:true`；该字段表示当前用户确认
   使用自己的 QCC 账号额度，不代表插件开发者代客户付款；多候选绝不自动选择。
   默认关闭的本机 E2E Runner 已就绪；2026-09-01 已在隔离 rc.2 Host 完成真实 OAuth、跨重启恢复和
   20 家公开企业的 400 次 QCC 调用；自然过期 token 的真实刷新、动态工具恢复及 1 行续期后调用也已通过。

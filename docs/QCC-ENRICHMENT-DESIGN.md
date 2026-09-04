@@ -208,8 +208,10 @@ content:
 ## 9. 与方案 B 的边界与预留
 
 - 方案 A 不改 `lib/`（最多可选加 `data_rows_to_csv` 工具）。
-- 方案 B 已新增 `lib/qcc.js`：Spike #7 双基线证明公共 `ctx.tools.execute()` 可程序化调度动态
-  MCP 工具；G5-2 幂等、候选续跑、人工重试与安全 Runner 的 Mock/Contract 已通过。
+- 方案 B 已新增 `lib/qcc.js` 与 `lib/qcc-command.js`：工作台通过同源 Web 路由把名单暂存在
+  Host，只向原生会话发送 commandId；`data_cleaning_qcc_run` 持有 Agent 父执行 token/Session 后，
+  才可通过公共 `ctx.tools.execute()` 以 nested execution 调度动态 MCP 工具。G5-2 幂等、候选续跑、
+  人工重试与安全 Runner 的 Mock/Contract 已通过。
   禁止访问 mcp-client 私有 client；真实 OAuth/QCC 主路径已验收，token 到期刷新与
   2026-09-02 已完成自然过期 token refresh 与 401/429/配额故障注入验收；
   故障注入使用本地 ToolRuntime，不重复真实付费批次。

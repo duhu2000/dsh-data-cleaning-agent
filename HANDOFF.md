@@ -4,7 +4,7 @@
 > 接手者无需回溯对话，应先执行下方「接手启动清单」，再按 P0 → P1 顺序续做。
 > 最近更新：2026-09-04
 > 当前已发布版本：**0.6.0**（npm `latest`、Git tag 与 GitHub Latest 一致）
-> 当前开发分支：**`main`**（UI-V2 T0～T9 已发布）
+> 当前开发分支：**`fix/t10-market-acceptance`**（基于 `origin/main`；T10 市场验收修复分支）
 
 ---
 
@@ -16,14 +16,27 @@
 - **当前开发主线**：基于企查查专业版 3.5.1 与新版 Mockup，主流程为“上传数据 → 规则确认 →
   数据匹配 → 清洗补全 → 下载数据”。T0～T9 已完成：契约、Host taskId/revision、上传/字段映射、
   提示词向导、中央首页、匹配与补全闭环、结果/异常 CSV+XLSX、历史恢复、双基线和视觉回归均已接通；
-  当前自动化 165/165，rc.2 43190 与 alpha.2 43191 跨重启恢复通过。详见
+  当前自动化 174/174，rc.2 43190 与 alpha.2 43191 跨重启恢复通过。详见
   `docs/UI-WORKFLOW-V2.md` 与 `docs/UI-WORKFLOW-V2-ACCEPTANCE.md`。
   PR #1 已合并，`v0.6.0`、npm OIDC provenance、GitHub Release 与公共安装已全部通过。
+- **T10 最新修复**：本地市场安装已验证菜单/会话隔离；真实 rc.2 Code Mode 进一步确认
+  Web handler 不能直接派发动态 QCC 工具。当前工作树已改为 Agent-owned 命令路径：Web 只在 Host
+  暂存名单并发送不含明细的 commandId 类型化意图，Agent 准确调用一次 `data_cleaning_qcc_run`，
+  Bridge 再携带父执行 token/Session 以 nested execution 调用 QCC。`npm run check` 174/174 通过。
+- **T10 完整真实闭环（2026-09-04）**：在维护者明确授权其自有 QCC 账号调用后，工作台对
+  公开主体“企查查科技股份有限公司”完成上传解析、字段映射、质量体检、零调用估算、额度确认、
+  Agent-owned `data_cleaning_qcc_run`、主体定位、工商详情补全、结果回填与四件套导出。批次实际
+  `callsUsed:2`，1/1 精确补全，回填信用代码、法定代表人、注册资本、成立日期和登记状态；0 待核验、
+  0 失败、无重试。Host 进程重启后任务、统计和四件套仍可从任务历史恢复下载，制品 checksum 与
+  下载内容一致；测试原始响应、OAuth/token 与凭据均未写入仓库。
+- **T10 前置失败证据**：切换 Agent-owned 路径前，旧 Web 直连路径曾产生 1 次受控 Code Mode
+  拒绝；该失败不会重试，保留为禁止 Web handler 直接派发动态 MCP 的架构证据。
 - **已完成的主能力**：本地 CSV/XLSX/JSON 清洗补全、三工具、两个 Skill、异步任务、Web UI、
   QCC Host Bridge、批量幂等、多候选人工续跑、脱敏审计、工商 16 + 历史工商 4 工具契约。
 - **真实 E2E 已过**：隔离 DSH `0.1.1-rc.2` 完成 OAuth、授权跨重启恢复、20 企业/400 次 QCC 调用、
   token 自然到期 refresh、续期后最小真实调用、401/429/配额故障注入。
-- **当前代码基线**：`v0.6.0` 指向 PR #1 合并提交 `084efd0`；本地开发回到 `main`。
+- **当前代码基线**：`v0.6.0` 指向 PR #1 合并提交 `084efd0`；
+  `fix/t10-market-acceptance` 包含 T10 修复与真实验收记录。
 - **最新 CI**：PR run `33817126492` 在 Linux Node 22/24 + Windows Node 24 及打包门全绿；
   Release workflow `33817341580` 完成 npm OIDC publish 与 GitHub Release。
 - **P0/G3 已完成**：上游市场 [PR #4095](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
@@ -61,7 +74,8 @@ MARKET_PR_NUMBER=4095 npm run market:check
    真实 QCC 调用，除非维护者再次明确批准测试名单、调用上限和自己承担的测试预算。
 3. 不要触碰生产 DSH GUI/Profile（端口 `43120`）；所有安装和 E2E 必须用隔离 `DSH_HOME` 与新端口。
 4. 不要提交 `.phase2-e2e/`、`.g5-e2e/`、OAuth 参数、token、真实企业名单或工具原始响应。
-5. 不要访问 mcp-client 私有 client/loader 内部；只能走已验证的公共 `ctx.tools.get/execute`。
+5. 不要访问 mcp-client 私有 client/loader 内部；动态 QCC 调用必须由 Agent-owned 高层工具通过
+   已验证的公共 `ctx.tools.get/execute` nested execution 路径完成，Web handler 不得直接派发。
 6. 不要把 `0.1.2-alpha.2` 的实验 API 当稳定公开契约。
 
 ## 0. 一句话定位
@@ -130,7 +144,8 @@ dsh-data-cleaning-agent/
 │   ├── tools.js              # data_clean_rows / data_complete_rows / data_profile
 │   ├── skill.js              # 内嵌 Skill：data-cleaning
 │   ├── skill-enrich.js       # 内嵌 Skill：enterprise-enrichment（QCC 方案 A，0.3.0 新增）
-│   ├── qcc.js                # G5 Host Bridge：公共 ToolRuntime + 批量消歧/补全
+│   ├── qcc.js                # G5 Host Bridge：Agent-owned nested ToolRuntime + 批量消歧/补全
+│   ├── qcc-command.js        # Host 暂存 commandId + data_cleaning_qcc_run 高层工具
 │   ├── qcc-runs.js           # G5 Host 内存 run、幂等、候选续跑与人工重试
 │   ├── qcc-safety.js         # G5 日志/E2E 脱敏与安全审计白名单
 │   ├── qcc-phase3.js         # 0.5.0 风险/知产/经营 91 工具冻结契约
@@ -288,7 +303,9 @@ T0～T9 已完成并随 `0.6.0` 发布。发布证据见 `docs/RELEASE-0.6.0.md`
 3. **异步任务结果持久化**：v2 已以 Host 制品层完成结果/异常 CSV+XLSX 跨重启下载；旧 `dc_tasks_v1`
    任务仍保持原行为。
 4. **XLSX 大文件压测**：耐久 XLSX 已发布，32 MiB / 100,000 行硬上限内的大文件性能仍待专项压测。
-5. **LLM dispatch seam**：Web 组合内联 seam 尚未接入稳定模型端到端；不影响纯本地和 Host Bridge 主路径。
+5. **LLM dispatch seam**：✅ T10 已接入 `conversation.send → data_cleaning_qcc_run → nested QCC`，
+   并完成工作台单企业“主体查询 + 工商详情 + 回填 + 四件套导出 + Host 重启恢复”真实验收；
+   批次实际 2 次 QCC 调用、1/1 精确补全、0 待核验、0 失败、无重试。
 6. **Node engine 收敛**：`package.json` 是 `>=20`，DSH Desktop 是 `^22.19.0 || >=24.0.0`；变更前需做兼容影响评估。
 
 ### P3 —— 后续版本（版本号待定，仅规划）
