@@ -54,7 +54,39 @@ test('Host 生成可校验的 CSV、真实 XLSX 与异常清单四件套', async
   const exceptionRows = XLSX.utils.sheet_to_json(exceptionWorkbook.Sheets['异常清单'], { defval: '' });
   assert.equal(exceptionRows.length, 1);
   assert.equal(exceptionRows[0].企业名称, '乙公司');
-  assert.match(exceptionRows[0]._exception_reason, /人工核验/);
+  assert.match(exceptionRows[0].异常原因, /人工核验/);
+});
+
+test('补全结果使用中文表头并保留所有已选字段空列', async () => {
+  const store = new WorkflowArtifactStore({
+    fs: memoryFs(),
+    idFactory: (() => { let id = 0; return () => `dca-cn-test-000${++id}`; })(),
+  });
+  const fieldSelection = [
+    'credit_no', 'reg_status', 'legal_rep', 'reg_capital', 'establish_date',
+    'registered_address', 'province', 'city', 'business_scope', 'industry_large',
+    'industry_middle', 'operating_period', 'company_size', 'company_profile',
+  ];
+  const artifacts = await store.createBundle('dcw-cnheader-0001', {
+    headers: ['原始企业名称'],
+    fieldSelection,
+    rows: [{
+      原始企业名称: '企查查科技股份有限公司',
+      credit_no: '91320594088140947F',
+      legal_rep: '陈德强',
+      qcc_match_status: 'enriched',
+    }],
+  });
+  const bytes = await store.read('dcw-cnheader-0001', artifacts.find((item) => item.kind === 'complete' && item.format === 'xlsx'));
+  const workbook = XLSX.read(bytes, { type: 'buffer' });
+  const matrix = XLSX.utils.sheet_to_json(workbook.Sheets['清洗补全结果'], { header: 1, defval: '' });
+  assert.deepEqual(matrix[0].slice(0, 15), [
+    '原始企业名称', '统一社会信用代码', '登记状态', '法定代表人', '注册资本', '成立日期',
+    '注册地址', '省份地区', '城市', '经营范围', '一级行业', '二级行业', '营业期限', '企业规模', '企业简介',
+  ]);
+  assert.equal(matrix[1][1], '91320594088140947F');
+  assert.equal(matrix[1][10], '');
+  assert.ok(!matrix[0].some((header) => /^(credit_no|legal_rep|reg_capital|establish_date|reg_status)$/.test(header)));
 });
 
 test('异常判定覆盖候选、未匹配、失败和显式错误', () => {

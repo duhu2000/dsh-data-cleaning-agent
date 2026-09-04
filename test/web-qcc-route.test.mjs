@@ -237,6 +237,7 @@ test('G5 Agent command 只在 Host 暂存名单，Agent-owned 工具执行时才
     rows: [{ name: '敏感企业名称' }],
     headers: ['name'],
     nameField: 'name',
+    fieldSelection: ['credit_no', 'legal_rep', 'registered_address'],
   };
   await app.routes.get('/data-cleaning/api/g5/commands')(
     request({ method: 'POST', url: '/data-cleaning/api/g5/commands', body: input }),
@@ -282,6 +283,7 @@ test('G5 Agent command 只在 Host 暂存名单，Agent-owned 工具执行时才
   assert.equal(fetched.status, 200);
   assert.equal(fetched.json().command.state, 'completed');
   assert.equal(fetched.json().command.run.rows[0].qcc_match_status, 'enriched');
+  assert.deepEqual(fetched.json().command.run.fieldSelection, input.fieldSelection);
 
   await definition.execute({ commandId: command.commandId }, {
     callId: 'outer-command-duplicate', rootCallId: 'root-command-duplicate', token: 'parent-token-duplicate', agent,

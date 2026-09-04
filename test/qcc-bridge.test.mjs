@@ -6,6 +6,7 @@ import {
   QccHostBridge,
   classifyEntityMatch,
   decodeQccToolValue,
+  mapProfileFields,
   mapRegistrationFields,
   mapRiskTags,
 } from '../lib/qcc.js';
@@ -296,19 +297,35 @@ test('实体匹配严格区分唯一、多候选和未匹配', () => {
 });
 
 test('工商字段与风险标签按 QCC 返回原文映射，不自行计算', () => {
-  assert.deepEqual(mapRegistrationFields({
+  const fields = mapRegistrationFields({
+    企业名称: '企查查科技股份有限公司',
     统一社会信用代码: '9132MOCK',
     法定代表人: '张三',
     注册资本: '1,000万元人民币',
     成立日期: '2020-01-02',
     登记状态: '存续',
-  }), {
-    credit_no: '9132MOCK',
-    legal_rep: '张三',
-    reg_capital: '1,000万元人民币',
-    establish_date: '2020-01-02',
-    reg_status: '存续',
-    biz_status: '',
+    注册地址: '江苏省苏州市工业园区月亮湾路 10 号',
+    所属地区: '江苏省苏州市工业园区',
+    经营范围: '软件开发',
+    国标行业: '信息技术服务业',
+    营业期限: '2020-01-02至长期',
+    人员规模: '1000-1999人',
+  });
+  assert.equal(fields.credit_no, '9132MOCK');
+  assert.equal(fields.legal_rep, '张三');
+  assert.equal(fields.reg_capital, '1,000万元人民币');
+  assert.equal(fields.registered_address, '江苏省苏州市工业园区月亮湾路 10 号');
+  assert.equal(fields.province, '江苏省');
+  assert.equal(fields.city, '苏州市');
+  assert.equal(fields.district, '工业园区');
+  assert.equal(fields.business_scope, '软件开发');
+  assert.equal(fields.industry_category, '信息技术服务业');
+  assert.equal(fields.operating_period, '2020-01-02至长期');
+  assert.equal(fields.company_size, '1000-1999人');
+  assert.deepEqual(mapProfileFields({ 简介: '企业简介原文', 企查查行业: 'IT技术服务' }), {
+    industry_large: '',
+    industry_middle: '',
+    company_profile: '企业简介原文',
   });
   assert.equal(mapRiskTags({
     风险因子扫描: [
@@ -317,6 +334,38 @@ test('工商字段与风险标签按 QCC 返回原文映射，不自行计算', 
       { 风险因子: '裁判文书', 条目数: '3' },
     ],
   }), '行政处罚:2；裁判文书:3');
+});
+
+test('所选工商和画像字段全部落列，企查查行业未声明层级时不冒充一/二级', async () => {
+  const tools = fakeTools({
+    [QCC_TOOL_NAMES.entityLookup]: async () => success(mcpValue({
+      匹配结果: '唯一精确匹配',
+      企业信息: { 企业名称: '示例企业', 统一社会信用代码: '9132FULL' },
+    })),
+    [QCC_TOOL_NAMES.registration]: async () => success(mcpValue({
+      企业名称: '示例企业', 统一社会信用代码: '9132FULL', 登记状态: '存续',
+      法定代表人: '李某', 注册资本: '500万元', 成立日期: '2020-01-01',
+      注册地址: '北京市朝阳区示例路', 所属地区: '北京市朝阳区', 经营范围: '软件开发',
+      营业期限: '2020-01-01至长期', 人员规模: '100-499人',
+    })),
+    [QCC_TOOL_NAMES.profile]: async () => success(mcpValue({ 简介: '一家软件企业', 企查查行业: 'IT技术服务' })),
+  });
+  const fieldSelection = [
+    'credit_no', 'reg_status', 'legal_rep', 'reg_capital', 'establish_date', 'registered_address',
+    'province', 'city', 'business_scope', 'industry_large', 'industry_middle', 'operating_period',
+    'company_size', 'company_profile',
+  ];
+  const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
+  const result = await bridge.enrichRows([{ name: '示例企业' }], { fieldSelection });
+  assert.deepEqual(Object.keys(result.rows[0]).filter((key) => fieldSelection.includes(key)), fieldSelection);
+  assert.equal(result.rows[0].registered_address, '北京市朝阳区示例路');
+  assert.equal(result.rows[0].province, '北京市');
+  assert.equal(result.rows[0].city, '北京市');
+  assert.equal(result.rows[0].company_profile, '一家软件企业');
+  assert.equal(result.rows[0].industry_large, '');
+  assert.equal(result.rows[0].industry_middle, '');
+  assert.equal(Object.hasOwn(result.rows[0], 'risk_tags'), false);
+  assert.equal(tools.calls.filter((call) => call.name === QCC_TOOL_NAMES.profile).length, 1);
 });
 
 test('人工锁定候选后只调用工商与可选风险，不重复实体检索', async () => {

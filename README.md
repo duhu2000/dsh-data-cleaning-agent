@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.6.1**（正式版本）
+> 当前源码版本 / Current source version: **0.6.2**（正式版本）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -113,7 +113,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 0.5.1 文档补丁与防回归发布门见 [docs/RELEASE-0.5.1.md](docs/RELEASE-0.5.1.md)。
 0.5.2 DSH 原生 UI 对齐范围、验收与回滚见 [docs/RELEASE-0.5.2.md](docs/RELEASE-0.5.2.md)。
 0.5.3 业务首页、提示词生成和输入框下方流程栏见 [docs/RELEASE-0.5.3.md](docs/RELEASE-0.5.3.md)。
-0.6.1 Agent-owned QCC 工作台、会话隔离、恢复统计及真实闭环验收见
+0.6.2 中文导出表头、完整字段选择传递与画像字段补全见
+[docs/RELEASE-0.6.2.md](docs/RELEASE-0.6.2.md)。0.6.1 Agent-owned QCC 工作台、会话隔离、恢复统计及真实闭环验收见
 [docs/RELEASE-0.6.1.md](docs/RELEASE-0.6.1.md)。0.6.0 五步 taskId 工作流、耐久制品、
 跨重启恢复与双基线验收见 [docs/RELEASE-0.6.0.md](docs/RELEASE-0.6.0.md)。
 
