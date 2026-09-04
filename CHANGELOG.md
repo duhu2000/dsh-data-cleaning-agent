@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-09-04
+
 ### Fixed
 - 修复 DSH Code Mode 下同源 Web 路由直接调用动态 QCC 工具会被 ToolRuntime 拒绝的问题：新增
   `data_cleaning_qcc_run` Agent-owned 高层工具，工作台仅在 Host 暂存明细并向原生会话发送不含企业
