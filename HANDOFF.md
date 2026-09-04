@@ -3,8 +3,8 @@
 > 目的：作为从 GPT 开发任务转入 DeepSeek Harness（DSH）继续开发的唯一入口。
 > 接手者无需回溯对话，应先执行下方「接手启动清单」，再按 P0 → P1 顺序续做。
 > 最近更新：2026-09-04
-> 当前已发布版本：**0.6.0**（npm `latest`、Git tag 与 GitHub Latest 一致）
-> 当前开发分支：**`fix/t10-market-acceptance`**（基于 `origin/main`；T10 市场验收修复分支）
+> 当前已发布版本：**0.6.1**（npm `latest`、Git tag 与 GitHub Latest 一致）
+> 当前开发分支：**`main`**（T10 修复与 0.6.1 发布已完成）
 
 ---
 
@@ -12,18 +12,18 @@
 
 ### 当前结论
 
-- **已稳定发布**：`dsh-data-cleaning-agent@0.6.0`，npm `latest` 与 GitHub Release `v0.6.0` 一致。
+- **已稳定发布**：`dsh-data-cleaning-agent@0.6.1`，npm `latest` 与 GitHub Release `v0.6.1` 一致。
 - **当前开发主线**：基于企查查专业版 3.5.1 与新版 Mockup，主流程为“上传数据 → 规则确认 →
   数据匹配 → 清洗补全 → 下载数据”。T0～T9 已完成：契约、Host taskId/revision、上传/字段映射、
   提示词向导、中央首页、匹配与补全闭环、结果/异常 CSV+XLSX、历史恢复、双基线和视觉回归均已接通；
   当前自动化 174/174，rc.2 43190 与 alpha.2 43191 跨重启恢复通过。详见
   `docs/UI-WORKFLOW-V2.md` 与 `docs/UI-WORKFLOW-V2-ACCEPTANCE.md`。
   PR #1 已合并，`v0.6.0`、npm OIDC provenance、GitHub Release 与公共安装已全部通过。
-- **T10 最新修复**：本地市场安装已验证菜单/会话隔离；真实 rc.2 Code Mode 进一步确认
+- **T10 最新修复（已随 0.6.1 发布）**：本地市场安装已验证菜单/会话隔离；真实 rc.2 Code Mode 进一步确认
   Web handler 不能直接派发动态 QCC 工具。当前工作树已改为 Agent-owned 命令路径：Web 只在 Host
   暂存名单并发送不含明细的 commandId 类型化意图，Agent 准确调用一次 `data_cleaning_qcc_run`，
   Bridge 再携带父执行 token/Session 以 nested execution 调用 QCC。`npm run check` 174/174 通过。
-- **T10 完整真实闭环（2026-09-04）**：在维护者明确授权其自有 QCC 账号调用后，工作台对
+- **T10 完整真实闭环（2026-09-04，已随 0.6.1 发布）**：在维护者明确授权其自有 QCC 账号调用后，工作台对
   公开主体“企查查科技股份有限公司”完成上传解析、字段映射、质量体检、零调用估算、额度确认、
   Agent-owned `data_cleaning_qcc_run`、主体定位、工商详情补全、结果回填与四件套导出。批次实际
   `callsUsed:2`，1/1 精确补全，回填信用代码、法定代表人、注册资本、成立日期和登记状态；0 待核验、
@@ -35,10 +35,9 @@
   QCC Host Bridge、批量幂等、多候选人工续跑、脱敏审计、工商 16 + 历史工商 4 工具契约。
 - **真实 E2E 已过**：隔离 DSH `0.1.1-rc.2` 完成 OAuth、授权跨重启恢复、20 企业/400 次 QCC 调用、
   token 自然到期 refresh、续期后最小真实调用、401/429/配额故障注入。
-- **当前代码基线**：`v0.6.0` 指向 PR #1 合并提交 `084efd0`；
-  `fix/t10-market-acceptance` 包含 T10 修复与真实验收记录。
-- **最新 CI**：PR run `33817126492` 在 Linux Node 22/24 + Windows Node 24 及打包门全绿；
-  Release workflow `33817341580` 完成 npm OIDC publish 与 GitHub Release。
+- **当前代码基线**：`v0.6.1` 指向 PR #3 合并提交 `77a19aa`；T10 功能修复经 PR #2 合入。
+- **最新 CI**：PR #3 run `33880178738`、合并后 main run `33880293991` 全绿；Release workflow
+  `33880569564` 完成 npm OIDC publish 与 GitHub Release。
 - **P0/G3 已完成**：上游市场 [PR #4095](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/4095)
   已合并，目录 YAML、在线 `plugins.json` 与视觉市场隔离安装冒烟均通过。
 - **0.5.0 已完成的主线**：91 工具契约、三域 Skill、批量 Host Bridge、四步工作台、候选续跑、
@@ -63,7 +62,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 
 预期：
 
-- `npm run check` 应全绿；已发布 0.6.0 基线为 165/165 测试通过。
+- `npm run check` 应全绿；已发布 0.6.1 基线为 174/174 测试通过。
 - `market:check` 应返回 `accepted`，不应修改已合并的市场提交 YAML。
 - 若基线不符，先停止功能开发，核对 `git log` / 远端 CI / npm `latest`，不得盲目覆盖用户更改。
 
@@ -93,10 +92,10 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | 本机仓库路径 | `/Users/qcc/Documents/DuHu/QCC/beichacha_doc/云聚接口/MCP/MCP/workspace/dsh-data-cleaning-agent` |
 | Git 远端 | `https://github.com/duhu2000/dsh-data-cleaning-agent.git`（分支 `main`） |
 | npm 包名 | `dsh-data-cleaning-agent`（无 scope，public） |
-| npm `latest` | `0.6.0`（OIDC Trusted Publishing + SLSA v1 provenance） |
-| GitHub Release | `v0.6.0`（Latest） |
-| Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0`、`v0.5.0`、`v0.5.1`、`v0.5.2`、`v0.5.3`、`v0.6.0` |
-| 工作树状态 | `v0.6.0` 指向 `084efd0`；PR #1 已合并，`main` 在发布 Tag 后仅补充发布记录 |
+| npm `latest` | `0.6.1`（OIDC Trusted Publishing + SLSA v1 provenance） |
+| GitHub Release | `v0.6.1`（Latest） |
+| Git tags | `v0.2.1`、`v0.3.0`、`v0.4.0`、`v0.5.0`、`v0.5.1`、`v0.5.2`、`v0.5.3`、`v0.6.0`、`v0.6.1` |
+| 工作树状态 | `v0.6.1` 指向 `77a19aa`；PR #2/#3 已合并，`main` 在 Tag 后补充发布记录 |
 | git 身份 | `DuHu <duhu@greatld.com>` |
 | gh 账号 | `duhu2000` |
 | npm 维护者 | `duhu2000 <dlaohu2008@gmail.com>` |
@@ -129,6 +128,7 @@ MARKET_PR_NUMBER=4095 npm run market:check
 | 0.5.2 | 2026-09-03 | DSH 原生 UI 对齐：顶部入口、原生会话、五能力入口、非模态右栏 | ✅ 已发布 |
 | 0.5.3 | 2026-09-03 | 中央业务首页、提示词生成器、输入框下能力入口与 Excel/图片 Bridge | ✅ 已发布 |
 | 0.6.0 | 2026-09-04 | 五步 taskId 工作流、Host 耐久 CSV/XLSX、异常清单、跨重启恢复与双基线 | ✅ 已发布（npm latest） |
+| 0.6.1 | 2026-09-04 | Agent-owned QCC 工作台、会话隔离、恢复统计与真实闭环修复 | ✅ 已发布（npm latest） |
 
 ---
 
@@ -475,7 +475,7 @@ curl -s -H 'sec-fetch-site: same-origin' http://127.0.0.1:43160/data-cleaning/ap
 
 ## 9. 给接手的「第一优先」建议
 
-1. 在干净 `main` 上重跑 `npm run check`；期望版本 0.6.0、165/165。
+1. 在干净 `main` 上重跑 `npm run check`；期望版本 0.6.1、174/174。
 2. 如需人工复验，从视觉市场安装到全新隔离 DSH Profile；不得触碰生产 43120。
 3. 不重跑真实 QCC；T6～T9 已用合成数据完成 rc.2/alpha.2、跨重启与视觉验收。
 4. 历史/人员/招投标仅保留后续规划，仍需另行确认范围，不随补丁版本扩张。

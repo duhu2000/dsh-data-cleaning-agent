@@ -45,6 +45,20 @@
 
 ## 外部发布核验
 
-Tag 推送后必须确认 Release workflow 全绿、npm `latest=0.6.1`、provenance 存在、GitHub Release
-非 draft/非 prerelease，并从公共 Registry 在全新隔离目录安装验证。实际 workflow run、tarball
-哈希与公共安装结果将在发布完成后的仓库进度记录中补充。
+- PR [#3](https://github.com/duhu2000/dsh-data-cleaning-agent/pull/3) 四项 CI 全绿后合并；
+  `v0.6.1` 指向合并提交 `77a19aa`。
+- Release workflow [33880569564](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/runs/33880569564)
+  全绿；版本校验、发布模式门禁、npm OIDC publish 与 GitHub Release 均成功。
+- npm `latest` 为 `0.6.1`；发布时间为 2026-09-04T13:53:39Z（北京时间 2026-09-04 21:53）。
+- tarball SHA-1：`ab9aaff6738e3ede08768138bc7a9000ccc28ed2`。
+- tarball integrity：
+  `sha512-VWsVelLCxpGYDZ1TZrxlZWLGC86IjtOJDZAszukCs5LaPwkos8UcJn0IWmYtdKF7S3a8TsQGN1KhOhDL0OCHFw==`。
+- npm Registry 返回 SLSA v1 provenance；隔离安装后的 `npm audit signatures` 验证 10 个 Registry
+  签名和 1 个 attestation。
+- 从公共 Registry 全新安装成功；包版本为 0.6.1，主入口可导入，浏览器 client 语法门通过，
+  `lib/qcc-command.js` 与本发布记录均存在。
+- DSH `0.1.1-rc.2` 全新隔离 Profile 安装 `dsh-data-cleaning-agent@0.6.1` 成功并加载 Host 插件。
+  第二个临时 Web Host 因本机全局文件监听资源耗尽（`EMFILE`）未完成 HTTP seam；未停止或改动用户
+  正在运行的 3080 实例。真实工作台闭环证据见上方「验收证据」。
+- GitHub Release [v0.6.1](https://github.com/duhu2000/dsh-data-cleaning-agent/releases/tag/v0.6.1)
+  已发布，为 Latest，非 draft、非 prerelease。

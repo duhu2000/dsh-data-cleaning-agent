@@ -9,15 +9,16 @@
 
 ## 0. 一句话状态
 
-`0.6.0 五步工作流与耐久制品` 已正式发布：npm `latest`、Git tag 与 GitHub Release 一致。
-`v0.6.0` 指向 `084efd0`；Release workflow `33817341580` 全绿，npm provenance 为 SLSA v1；
-公共 Registry 全新安装、核心模块导入与签名/attestation 验证通过。0.5.0 的 P1.1～P1.6、
-最小真实 Phase-3 E2E 结论保持有效。
+`0.6.1 Agent-owned QCC 工作台修复` 已正式发布：npm `latest`、Git tag 与 GitHub Release 一致。
+`v0.6.1` 指向 `77a19aa`；Release workflow `33880569564` 全绿，npm provenance 为 SLSA v1；
+公共 Registry 与全新 DSH Profile 安装、核心模块导入及签名/attestation 验证通过。0.6.0 五步工作流
+和 0.5.0 的 P1.1～P1.6、最小真实 Phase-3 E2E 结论保持有效。
 P0/G3 市场收录已全部门完成（PR 合并 + 目录 YAML 落库 + `plugins.json` 命中 + 视觉市场一键安装冒烟通过）。
 
 T0～T9 已完成实现、隔离验收、PR 合并与正式发布：
 五步 taskId/revision 工作流、四步提示词向导、中央首页、匹配/补全状态闭环、四类 Host 耐久制品、
-真实 XLSX/异常清单、历史恢复和发布准备均已落地。当前自动化 165/165 通过。
+真实 XLSX/异常清单、历史恢复和发布准备均已落地。T10 Agent-owned 调度、会话隔离与恢复统计修复
+已随 0.6.1 发布，当前自动化 174/174 通过。
 
 rc.2（43190）与 alpha.2（43191）隔离 Profile 均完成任务/四制品创建和跨 Host 重启恢复；XLSX
 反向解析通过。rc.2 真实页面完成浅色、深色及 820×900 窄屏回归，无页面横向溢出，最近任务能恢复
@@ -66,13 +67,14 @@ rc.2（43190）与 alpha.2（43191）隔离 Profile 均完成任务/四制品创
 | **UI-V2 / T7** | 匹配与补全闭环 | ✅ 完成 | 候选人工核验、`partial` 显式重试、匹配/补全到 `export_ready`；QCC 计费安全门保持不变 |
 | **UI-V2 / T8** | 导出与恢复 | ✅ 完成 | 四类耐久制品、最近任务携带原 taskId 恢复、无浏览器原始行时跨 Host 重启下载 |
 | **UI-V2 / T9** | 验收与发布 | ✅ 已发布 | 165/165、兼容/迁移/回滚/验收文档；PR #1、`v0.6.0`、npm OIDC provenance、GitHub Release 与公共安装全绿 |
+| **T10 / 0.6.1** | 市场安装与 Agent-owned QCC 闭环 | ✅ 已发布 | PR #2/#3、174/174、真实 2 次 QCC 调用、四件套与重启恢复；npm OIDC provenance、GitHub Latest 与公共安装全绿 |
 
 ---
 
 ## 3. 当前工作树
 
-`main` 已包含 0.6.0 五步工作流与本发布记录；`v0.6.0` 固定指向 `084efd0`，功能分支已通过
-PR #1 合并。npm `latest` 与 GitHub Latest 均为 0.6.0。
+`main` 已包含 0.6.1 Agent-owned QCC 工作台修复与发布记录；`v0.6.1` 固定指向 `77a19aa`，
+功能修复和发布准备分别通过 PR #2/#3 合并。npm `latest` 与 GitHub Latest 均为 0.6.1。
 运行制品目录 `.dsh-data-cleaning-artifacts/` 已加入 Git 忽略规则，不进入源码或 npm 包。
 
 ---
@@ -81,10 +83,10 @@ PR #1 合并。npm `latest` 与 GitHub Latest 均为 0.6.0。
 
 | 项 | 值 |
 | --- | --- |
-| 代码基线 | `v0.6.0` → `084efd0`；PR #1 已合并；当前分支 `main` |
-| 当前源码版本 | `0.6.0`（正式发布） |
-| npm `latest` | `0.6.0`（OIDC Trusted Publishing + SLSA v1 provenance） |
-| GitHub Release | `v0.6.0`（非 draft / 非 prerelease） |
+| 代码基线 | `v0.6.1` → `77a19aa`；PR #2/#3 已合并；当前分支 `main` |
+| 当前源码版本 | `0.6.1`（正式发布） |
+| npm `latest` | `0.6.1`（OIDC Trusted Publishing + SLSA v1 provenance） |
+| GitHub Release | `v0.6.1`（Latest，非 draft / 非 prerelease） |
 | 稳定发布基线 | DSH `0.1.1-rc.2`（冒烟端口 43136 / 43141） |
 | 兼容探针基线 | DSH `0.1.2-alpha.2`（冒烟端口 43137 / 43143，仅探针，非稳定契约） |
 | 生产 GUI | `http://127.0.0.1:43120` —— **严禁触碰** |
@@ -106,8 +108,8 @@ PR #1 合并。npm `latest` 与 GitHub Latest 均为 0.6.0。
 
 ## 6. 下一步（按优先级）
 
-1. 在隔离 DSH Profile 从视觉市场安装 0.6.0，执行一次人工五步 UI 冒烟；不得触碰生产 43120。
-2. 收集 0.6.0 实际使用反馈，只以新补丁版本修复问题，不覆盖已发布包。
+1. 在现有本地 DSH 中从视觉市场升级到 0.6.1，复验多智能体会话隔离与 Agent-owned 调度。
+2. 收集 0.6.1 实际使用反馈，只以新补丁版本修复问题，不覆盖已发布包。
 3. 历史域、人员域、招投标域继续延期；无新批准不扩大工具范围或执行真实付费调用。
 
 ---
