@@ -191,8 +191,9 @@ v1 字段契约（方案 A）：
 ### 4.4 三期并行 · 方案 B 批量后端
 
 一期/二期/三期均为模型中介式（模型逐个调 QCC 工具）。当名单规模进入百级/千级，模型逐调成本高，
-方案 B 已启动：插件内 `lib/qcc.js` 经公共 `ctx.tools.execute()` 调用 mcp-client 动态注册的工具；
-不直接访问 `ctx.loader` 条目或 mcp-client 私有 client。
+方案 B 已启动：插件内 `lib/qcc-command.js` 注册 Agent-owned 高层工具，由 `lib/qcc.js` 使用父执行
+token/Session，经公共 `ctx.tools.execute()` 以 nested execution 调用 mcp-client 动态注册的工具；
+Web 路由只暂存任务，不直接派发动态 QCC 工具，也不访问 `ctx.loader` 条目或 mcp-client 私有 client。
 
 - Spike #7：rc.2 / alpha.2 双基线 PASS。
 - G5-2：在 G5-1 基础上完成默认关闭 E2E Runner、脱敏、请求幂等、多候选确认续跑、

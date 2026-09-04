@@ -82,6 +82,24 @@ test('Bridge 每次调用重新解析工具且使用唯一 callId', async () => 
   assert.ok(tools.getCalls.filter((name) => name === QCC_TOOL_NAMES.oauthStatus).length >= 2);
 });
 
+test('Agent-owned 调用把父执行 token 与 Session 传给 DSH nested ToolRuntime', async () => {
+  const tools = fakeTools({
+    [QCC_TOOL_NAMES.entityLookup]: async () => success(mcpValue({ 匹配结果: '未匹配' })),
+  });
+  const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
+  const agent = { session: { id: 'session-1' } };
+  await bridge.call(QCC_TOOL_NAMES.entityLookup, { searchKey: '示例企业' }, {
+    execution: {
+      rootCallId: 'root-1',
+      token: 'parent-token-1',
+      agent,
+    },
+  });
+  assert.equal(tools.calls[0].rootCallId, 'root-1');
+  assert.equal(tools.calls[0].parent, 'parent-token-1');
+  assert.equal(tools.calls[0].agent, agent);
+});
+
 test('Bridge 兼容 qcc-dsh-mcp-oauth 0.1.7 的 legacy serverName', async () => {
   const legacy = 'mcp__company__get_company_registration_info';
   const tools = fakeTools({
@@ -193,6 +211,30 @@ test('401、429、403、5xx 与非法请求映射为稳定安全错误', async (
       },
     );
     assert.equal(tools.calls.length, 1);
+  }
+});
+
+test('ToolRuntime 未提供结构化错误码时只从文本提取安全分类，不泄露原文', async () => {
+  const cases = [
+    ['Error: only `run_code` is callable directly — secret-token 敏感企业', 'QCC_EXECUTION_DENIED', 'DSH_EXECUTION_DENIED'],
+    ['MCP error -32602: invalid arguments — secret-token 敏感企业', 'QCC_UPSTREAM_REJECTED', 'INVALID_ARGUMENT'],
+    ['HTTP 429 too many requests — secret-token 敏感企业', 'QCC_RATE_LIMITED', '429'],
+    ['opaque upstream failure — secret-token 敏感企业', 'QCC_TOOL_FAILED', 'UNCLASSIFIED_TOOL_ERROR'],
+  ];
+  for (const [message, expectedCode, expectedUpstreamCode] of cases) {
+    const tools = fakeTools({
+      [QCC_TOOL_NAMES.registration]: async () => ({ isError: true, error: { message }, content: [] }),
+    });
+    const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
+    await assert.rejects(
+      bridge.call(QCC_TOOL_NAMES.registration, { searchKey: '示例企业' }),
+      (error) => {
+        assert.equal(error.code, expectedCode);
+        assert.equal(error.upstreamCode, expectedUpstreamCode);
+        assert.doesNotMatch(JSON.stringify(error.toJSON()), /secret-token|敏感企业/);
+        return true;
+      },
+    );
   }
 });
 

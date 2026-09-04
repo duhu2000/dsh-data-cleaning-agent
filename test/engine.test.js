@@ -99,6 +99,7 @@ test('completeRows: 确定性填充 + 不可补全标记', () => {
   assert.equal(r.fillStats.amount, 1);
   assert.equal(r.fillStats.name, 1);
   assert.equal(r.fillStats.phoneNormalized, 1);
+  assert.equal(r.completedCount, 3);
   assert.equal(r.completed[0].phone, '13800000001');
   assert.equal(r.completed[1].name, '未命名');
   assert.equal(r.completed[1].amount, '0');

@@ -56,7 +56,7 @@ alpha.2 只作兼容探针。全程未触碰生产 43120，未调用 QCC。
 | 存储 | `ctx.storageDomain` | `open({name,version,tables})` → `table('jobs')` |
 | web 路由 | `webServer.register({kind:'prefix', path, handler})` | 最长前缀匹配；前缀需以 `/` 结尾且匹配 `pathname.startsWith(prefix + '/')` |
 | 同源守卫 | `isTrusted(req)` | `sec-fetch-site !== 'cross-site'` 且 origin 为 127.0.0.1/localhost |
-| 程序化工具调用 | `ctx.tools.get()` + `ctx.tools.execute()` | S7 双基线验证；每次调用重新解析，不缓存动态 MCP 工具 |
+| Agent-owned 动态工具调用 | `ctx.tools.register()` 高层工具 + `ctx.tools.get()` + 带 `parent/agent/rootCallId` 的 `ctx.tools.execute()` | rc.2 Code Mode 实测要求 nested execution；每次调用重新解析，不缓存动态 MCP 工具 |
 
 ## 4. 与企查查 MCP OAuth 插件的共存
 
@@ -72,8 +72,9 @@ alpha.2 只作兼容探针。全程未触碰生产 43120，未调用 QCC。
   `mcp__qcc-company__*` / `mcp__qcc-risk__*`（授权成功后由 mcp-client 动态提供）。
 - 若 qcc-dsh-mcp-oauth 未安装或未授权，`enterprise-enrichment` Skill 的第一步
   `qcc_oauth_status` 即会中断并引导用户先连接，不会假装补全。
-- G5 Host Bridge 不读取 grant/token，也不访问 mcp-client 私有 client；只经共享 `ctx.tools`
-  调用动态注册的 `mcp__qcc-*` 工具。G5-2 增加幂等、候选续跑、人工重试与安全审计；
+- G5 Host Bridge 不读取 grant/token，也不访问 mcp-client 私有 client。Web 路由只暂存已确认任务，
+  原生会话中的 `data_cleaning_qcc_run` 高层工具持有 Agent 父执行上下文，再经共享 `ctx.tools`
+  nested execution 调用动态注册的 `mcp__qcc-*` 工具。G5-2 增加幂等、候选续跑、人工重试与安全审计；
   run 明细仅驻留 Host 内存。Bridge 会把 OAuth 0.1.7 的 legacy `mcp__company__*` / `mcp__history__*`
   映射到规范名称，并在 capabilities 中同时报告两者。
 - 0.5.0 三域 Bridge 同时兼容 `mcp__qcc-{risk,ipr,operation}__*`、OAuth 0.1.7 实测 legacy

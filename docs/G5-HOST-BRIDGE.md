@@ -1,13 +1,16 @@
 # G5 Host Bridge：方案 B 批量补全基础层
 
 - 日期：2026-09-02
-- 状态：**G5-2.1～G5-2.5、真实 OAuth/QCC 主路径、token 自然到期刷新与 401/429/配额故障注入已验收**
+- 状态：**G5-2.1～G5-2.5、Agent-owned nested execution、真实 OAuth/QCC 主路径、token 自然到期刷新与 401/429/配额故障注入已验收**
 - 发布状态：✅ 已随 `v0.4.0` 发布到 npm 与 GitHub Release
 - 决策依据：`docs/adr/0002-programmatic-mcp-tool-execution.md`
 
 ## 本阶段交付
 
-`lib/qcc.js` 基于 DSH 公共 `ctx.tools.get()` / `ctx.tools.execute()` 实现 Host Bridge：
+`lib/qcc-command.js` 与 `lib/qcc.js` 基于 DSH 公共工具运行时实现 Host Bridge。2026-09-04
+在真实 rc.2 Code Mode 验证发现：动态 MCP 工具必须作为 Agent-owned 父工具调用的 nested execution
+运行，普通 Web handler 不能直接成为其父执行。因此正式 UI 路径采用「Host 暂存 + 类型化会话意图 +
+高层工具」：
 
 1. 仅允许 `qcc_oauth_*`、规范 `mcp__qcc-*__*` 与 OAuth 0.1.7 已验证 legacy serverName，拒绝任意工具代理。
 2. 每次调用重新解析工具，兼容 OAuth 刷新造成的注销/重注册窗口；只对 `UNKNOWN_TOOL` 做一次安全重试，其他失败不自动重试，避免重复计费。
@@ -15,19 +18,26 @@
 4. 解析 MCP `structuredContent` 或 QCC 文本 JSON，复用一期字段契约。
 5. 批量输入按企业名去重调用；唯一精确主体才继续工商/风险补全，多候选进入 `reviewQueue`，未匹配保留为 `unresolved`。
 6. 单企业失败隔离，不中断其他企业；原始/补全明细只在 Host/Web 同源边界内流转。
+7. Web 暂存任务不产生 QCC 调用；发送给模型的提示只含 commandId/taskId/kind，不含企业名单和字段值。
+8. `data_cleaning_qcc_run` 由 Agent 调用一次，并把父执行的 `token / agent / rootCallId` 传给每个
+   动态 QCC nested execution；重复调用同一 commandId 复用同一 Promise/结果，不重复计费。
 
 ## 数据流
 
 ```text
-同源 Web 请求（显式确认计费）
-  → QccHostBridge.enrichRows
-    → 企业名去重 + 受控并发（1–4）
+同源 Web 请求（显式确认使用当前用户自己的 QCC 额度）
+  → Host 暂存 rows，返回不含 rows 的 commandId 类型化提示（零 QCC 调用）
+  → 原生 conversation.send(prompt)
+  → Agent 调用一次 data_cleaning_qcc_run(commandId)
+    → QccHostBridge.enrichRows
+      → 企业名去重 + 受控并发（1–4）
       → ctx.tools.get（每次重新解析）
-      → ctx.tools.execute(mcp__qcc-company__get_company_by_query)
+      → ctx.tools.execute(..., parent=exec.token, agent=exec.agent)
         ├─ 唯一精确 → 锁定信用代码 → 工商详情 → 可选风险扫描
         ├─ 多候选   → reviewQueue，停止该主体下游调用
         └─ 未匹配   → unresolved
-  → 摘要 + 同源明细 + CSV 下载
+  → 高层工具只向对话返回摘要
+  → 同源 UI 轮询 commandId，取得 Host run 明细并进入候选/补全/导出
 ```
 
 ## Web 契约
@@ -38,8 +48,21 @@
 
 只检查工具是否注册，不调用 OAuth 或任何计费 QCC 工具。返回 Bridge marker、连接态推断和批量限制。
 同时声明 `idempotencyRequired / candidateResume / manualRetry`，run 状态仅为 `host-memory`。
+还会返回 `agentCommandTool / agentCommandToolRegistered / agentOwnedExecutionRequired`；若当前 Host
+不支持工具注册，命令准备接口以 `503 QCC_AGENT_COMMAND_UNAVAILABLE` 关闭，不会产生 QCC 调用。
 
-### 批量补全
+### Agent-owned 命令（正式工作台路径）
+
+- `POST /data-cleaning/api/g5/commands`：要求 `confirmPaidCalls:true`，把 enrich/resolve/retry 输入暂存
+  在 Host；返回 commandId 与不含企业名单的可见会话提示，本步骤 `paidCalls:false`。
+- `data_cleaning_qcc_run({commandId})`：只能在 Agent tool execution 内运行，缺少父执行 token/Session
+  时返回 `QCC_AGENT_EXECUTION_REQUIRED`。
+- `GET /data-cleaning/api/g5/commands/<commandId>`：同源读取 prepared/running/completed/failed 和完成后的
+  Host run，不调用 QCC。
+
+命令默认 30 分钟过期、最多 50 个；同一 commandId 在运行中和完成后都不会重复派发。
+
+### 兼容批量端点（非 Code Mode UI 主路径）
 
 `POST /data-cleaning/api/g5/enrich`
 
@@ -56,6 +79,9 @@
 ```
 
 约束：
+
+- 该端点保留给 Mock/Contract、Runner 与非 Code Mode 兼容场景；rc.2 Code Mode 的工作台不得用它
+  直接派发动态 QCC 工具，应使用上面的 Agent-owned 命令路径。
 
 - `confirmPaidCalls` 必须严格为 `true`，否则在任何工具调用前返回 `QCC_CONFIRM_REQUIRED`。
 - `idempotencyKey` 必填；相同键与相同请求复用首个结果，不重复调用工具；同键不同请求返回冲突。

@@ -520,6 +520,102 @@ test('blank 清洗会话渲染业务首页，普通会话不注入业务内容',
   }
 });
 
+test('会话归属为单一显式激活态，点击新会话或其它智能体入口后可立即撤销', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const {
+      clearCleaningDraft,
+      deactivateCleaningSession,
+      installSessionOwnershipBridge,
+      isCleaningSession,
+      isKnownCleaningDraft,
+      markCleaningSession,
+    } = loaded.exports.__testing;
+    let draft = '请帮我清洗并补全企业名单。可点击输入框左上角「提示词生成」录入名单、上传 Excel 或图片，也可直接修改本段任务说明后开始。';
+    const ctx = {
+      get: (name) => name === 'conversation' ? {
+        input: { shell: () => ({ snapshot: { draft }, setDraft: (value) => { draft = value; } }) },
+      } : undefined,
+    };
+    const ownButton = {
+      getAttribute: () => '数据清洗补全',
+      textContent: '数据清洗补全',
+      closest: (selector) => selector.startsWith('.dcAgentLauncher') ? ownButton : ownButton,
+    };
+    const genericButton = {
+      getAttribute: () => '新建会话',
+      textContent: '新建会话',
+      closest: (selector) => selector.startsWith('.dcAgentLauncher') ? null : genericButton,
+    };
+    assert.equal(clearCleaningDraft(ctx, 'stale-session', true), true);
+    assert.equal(draft, '', '升级后遗留的默认清洗文案必须清空');
+    draft = '用户正在编辑的其它任务';
+    assert.equal(clearCleaningDraft(ctx, 'ordinary-session', true), false);
+    assert.equal(draft, '用户正在编辑的其它任务', '初始化不得清空用户自写草稿');
+    const generatedDraft = '请执行一项企业名单数据清洗补全任务。 输入来源：手工录入。 企查查连接、套餐额度和费用均由当前用户自己的账号承担。 提供结果和待复核清单的导出。';
+    assert.equal(isKnownCleaningDraft(generatedDraft), true);
+    draft = generatedDraft;
+    assert.equal(clearCleaningDraft(ctx, 'generated-session', true), true);
+    assert.equal(draft, '', '刷新后必须清理插件向导生成的完整任务描述');
+    assert.equal(isKnownCleaningDraft('用户要求清洗企业名单'), false, '普通用户文案不得被识别为插件草稿');
+    const release = installSessionOwnershipBridge(ctx);
+
+    assert.equal(isCleaningSession('ordinary-session'), false);
+    markCleaningSession('cleaning-owned');
+    draft = '清洗子系统草稿';
+    assert.equal(isCleaningSession('cleaning-owned'), true);
+    document.dispatchEvent({ type: 'click', target: ownButton });
+    assert.equal(isCleaningSession('cleaning-owned'), true, '点击自身入口不得撤销清洗子系统');
+    document.dispatchEvent({ type: 'click', target: genericButton });
+    assert.equal(isCleaningSession('cleaning-owned'), false, '新会话必须恢复为无清洗内容的默认首页');
+    assert.equal(draft, '', '退出子系统必须清空复用空白会话中的清洗草稿');
+
+    markCleaningSession('cleaning-second');
+    assert.equal(deactivateCleaningSession('another-session'), false);
+    assert.equal(isCleaningSession('cleaning-second'), true);
+    assert.equal(deactivateCleaningSession(), true);
+    assert.equal(isCleaningSession('cleaning-second'), false);
+    release();
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('会话归属 Bridge 在 DSH 异步恢复草稿后仅清理插件默认文案', () => {
+  let loaded;
+  const OriginalMutationObserver = globalThis.MutationObserver;
+  let observerCallback = null;
+  let disconnected = false;
+  try {
+    globalThis.MutationObserver = class MutationObserver {
+      constructor(callback) { observerCallback = callback; }
+      observe() {}
+      disconnect() { disconnected = true; }
+    };
+    loaded = loadClient();
+    document.documentElement = {};
+    const { installSessionOwnershipBridge } = loaded.exports.__testing;
+    let draft = '';
+    const ctx = {
+      sessions: { list: { getSnapshot: () => ({ current: 'restored-session' }) } },
+      get: (name) => name === 'conversation' ? {
+        input: { shell: () => ({ snapshot: { draft }, setDraft: (value) => { draft = value; } }) },
+      } : undefined,
+    };
+    const release = installSessionOwnershipBridge(ctx);
+    draft = '请帮我清洗并补全企业名单。可点击输入框左上角「提示词生成」录入名单、上传 Excel 或图片，也可直接修改本段任务说明后开始。';
+    observerCallback?.([]);
+    assert.equal(draft, '', '异步恢复的默认清洗文案必须被清除');
+    assert.equal(disconnected, true, '成功清理后应停止观察，避免常驻监听');
+    release();
+  } finally {
+    if (OriginalMutationObserver === undefined) delete globalThis.MutationObserver;
+    else globalThis.MutationObserver = OriginalMutationObserver;
+    cleanupGlobals();
+  }
+});
+
 test('提示词生成器注册在 input.overlay，且只对清洗会话显示触发器', () => {
   let loaded;
   try {
@@ -585,6 +681,12 @@ test('T3 自动字段映射、文本名单数据集与质量摘要均为确定�
   } finally {
     cleanupGlobals();
   }
+});
+
+test('仅本地清洗目标跳过企查查匹配页，统计卡拒绝渲染对象值', () => {
+  assert.match(source, /const requiresQcc = objectives\.includes\('validate_identity'\) \|\| objectives\.includes\('complete_fields'\)/);
+  assert.match(source, /requiresQcc \? '下一步：匹配核验' : '下一步：本地清洗补全'/);
+  assert.match(source, /return '—';[\s\S]*?displayStatValue\(value\)/);
 });
 
 test('任务描述生成包含主体、清洗项、补全字段、消歧与客户自有 QCC 费用边界', () => {
@@ -887,6 +989,56 @@ test('中央业务首页以独立 React 元素渲染，避免 hero 切换破坏 
   assert.doesNotMatch(componentSource, /hero \? ProductHome\(/);
 });
 
+test('清洗 hero 在第三方全局标题与尽调 dock 存在时仍保持会话级隔离，并可逆恢复', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    const { rewriteHeroChrome } = loaded.exports.__testing;
+    const headline = {
+      dataset: {},
+      textContent: '访前尽调智能体',
+      style: { display: '' },
+    };
+    const foreignModes = { parentElement: null };
+    const foreignDock = { parentElement: null, style: { display: '' } };
+    const ownDock = { parentElement: null };
+    const foreignPrompt = { parentElement: null, style: { display: '' } };
+    const composerStack = {
+      querySelectorAll: (selector) => selector === '[aria-label="尽调类型"], .qccDock'
+        ? [foreignModes, foreignPrompt]
+        : [],
+    };
+    foreignModes.parentElement = foreignDock;
+    foreignDock.parentElement = composerStack;
+    ownDock.parentElement = composerStack;
+    foreignPrompt.parentElement = ownDock;
+    const hero = {
+      querySelectorAll: (selector) => selector === 'span' ? [headline] : [],
+      querySelector: (selector) => selector === '[class*="headlineText"]' ? headline : null,
+    };
+    const marker = {
+      dataset: { sessionId: 'cleaning-collision' },
+      parentElement: ownDock,
+      closest: (selector) => selector === '[data-phase="hero"]' ? hero : null,
+    };
+    globalThis.document = {
+      querySelectorAll: (selector) => selector === '.dcAgentExperience' ? [marker] : [],
+    };
+
+    const restore = rewriteHeroChrome('cleaning-collision', true);
+    assert.equal(headline.textContent, '数据清洗补全智能体');
+    assert.equal(foreignDock.style.display, 'none');
+    assert.equal(foreignPrompt.style.display, 'none');
+
+    restore();
+    assert.equal(headline.textContent, '访前尽调智能体');
+    assert.equal(foreignDock.style.display, '');
+    assert.equal(foreignPrompt.style.display, '');
+  } finally {
+    cleanupGlobals();
+  }
+});
+
 test('同一会话并发创建只产生一个 Host taskId，后续写操作保持串行', async () => {
   let loaded;
   const previousFetch = globalThis.fetch;
@@ -975,7 +1127,10 @@ test('T3 匹配核验页使用基础企业 G5 Bridge、调用估算和用户自�
     assert.ok(confirm, '估算后必须显示用户自有 QCC 账号确认复选框');
     assert.equal(confirm.props.checked, false);
     assert.match(source, /额度或费用由该账号自行承担/, '必须明确费用由当前用户连接的 QCC 账号承担');
-    assert.match(source, /\/data-cleaning\/api\/g5\/enrich/);
+    assert.match(source, /\/data-cleaning\/api\/g5\/commands/);
+    assert.match(source, /sessionConversation\.send\(prompt\)/, '付费调用必须通过可见 Session intent 进入 Agent-owned 工具');
+    assert.match(source, /data-cleaning\/api\/g5\/commands\/\$\{encodeURIComponent\(commandId\)\}/);
+    assert.doesNotMatch(source, /const runQcc[\s\S]{0,1800}\/data-cleaning\/api\/g5\/enrich/, '工作台不得在 Code Mode 下直接调用动态 MCP');
     assert.doesNotMatch(source.slice(source.indexOf("step === 'match'"), source.indexOf("step === 'enrich'")), /风险信息 · 38/);
     assert.doesNotMatch(source, /确认企查查付费调用/, '不得使用可能暗示插件开发者代付的旧文案');
   } finally {
@@ -1002,6 +1157,8 @@ test('T8 下载页使用 Host 耐久 CSV/XLSX 制品并支持最近任务 taskId
     instance.actions.setWorkflowTask({
       id: 'dcw-test-artifacts', state: 'completed', stage: 'download', revision: 8,
       source: { rowCount: 2 },
+      enrichmentSummary: { completed: 2, reviewRequired: 1 },
+      matchSummary: { reviewRequired: 1 },
       artifacts: [
         { id: 'dca-test-xlsx', kind: 'complete', format: 'xlsx', fileName: '结果.xlsx', rowCount: 2 },
         { id: 'dca-test-review', kind: 'review', format: 'csv', fileName: '异常.csv', rowCount: 1 },
@@ -1011,6 +1168,12 @@ test('T8 下载页使用 Host 耐久 CSV/XLSX 制品并支持最近任务 taskId
     assert.ok(findNode(panel, (node) => node.props?.['aria-label'] === '下载 结果.xlsx'));
     assert.ok(findNode(panel, (node) => node.children?.includes('清洗补全结果 XLSX · 2 行')));
     assert.ok(findNode(panel, (node) => node.children?.includes('异常清单 CSV · 1 行')));
+    const recoveredEnriched = findNode(panel, (node) => node.props?.className === 'dcAgentCard'
+      && findNode(node, (child) => child.children?.includes('匹配补全')));
+    const recoveredReview = findNode(panel, (node) => node.props?.className === 'dcAgentCard'
+      && findNode(node, (child) => child.children?.includes('待核验')));
+    assert.ok(findNode(recoveredEnriched, (node) => node.type === 'b' && node.children?.includes(2)), '重启恢复后应显示 Host 持久化补全计数');
+    assert.ok(findNode(recoveredReview, (node) => node.type === 'b' && node.children?.includes(1)), '重启恢复后应显示 Host 持久化待核验计数');
     assert.match(source, /requestWorkbenchOpen\(task\.stage \|\| 'upload', sessionId, task\)/);
     assert.match(source, /detail\.task\?\.id/);
     assert.match(source, /\/artifacts\/\$\{encodeURIComponent\(artifact\.id\)\}/);

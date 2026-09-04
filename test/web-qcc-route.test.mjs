@@ -38,6 +38,7 @@ function request({ method = 'GET', url, body } = {}) {
 function harness({ omitDefinitions = [], registrationFault = null } = {}) {
   const routes = new Map();
   const calls = [];
+  const registeredTools = new Map();
   let retryRegistrationCalls = 0;
   let registrationFaultsRemaining = Math.max(0, Number(registrationFault?.times ?? 0));
   const definitions = new Set([
@@ -56,6 +57,14 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
   for (const name of omitDefinitions) definitions.delete(name);
   const tools = {
     get: (name) => definitions.has(name) ? { name } : undefined,
+    register(definition) {
+      definitions.add(definition.name);
+      registeredTools.set(definition.name, definition);
+      return () => {
+        definitions.delete(definition.name);
+        registeredTools.delete(definition.name);
+      };
+    },
     async execute(exec) {
       calls.push(exec);
       if (exec.name === QCC_TOOL_NAMES.entityLookup) {
@@ -148,7 +157,7 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
     TOOL_NAME: 'data_clean_rows',
     SKILL_NAME: 'data-cleaning',
   });
-  return { routes, calls, report, dispose };
+  return { routes, calls, registeredTools, report, dispose };
 }
 
 test('MVP 页面粘贴 CSV 后的清洗操作复用解析接口', async () => {
@@ -210,9 +219,75 @@ test('G5 capabilities 路由被挂载且只做被动工具探测', async () => {
   assert.equal(res.json().paidCallConfirmationRequired, true);
   assert.equal(res.json().idempotencyRequired, true);
   assert.equal(res.json().candidateResume, true);
+  assert.equal(res.json().agentCommandTool, 'data_cleaning_qcc_run');
+  assert.equal(res.json().agentCommandToolRegistered, true);
+  assert.equal(res.json().agentOwnedExecutionRequired, true);
   assert.equal(res.json().capabilities.phase2.companyReady, true);
   assert.equal(app.calls.length, 0);
   assert.equal(app.report.qccBridgeMounted, true);
+  app.dispose();
+});
+
+test('G5 Agent command 只在 Host 暂存名单，Agent-owned 工具执行时才调用 QCC', async () => {
+  const app = harness();
+  const blocked = responseRecorder();
+  const input = {
+    kind: 'enrich',
+    taskId: 'dcw-agent-owned-1',
+    rows: [{ name: '敏感企业名称' }],
+    headers: ['name'],
+    nameField: 'name',
+  };
+  await app.routes.get('/data-cleaning/api/g5/commands')(
+    request({ method: 'POST', url: '/data-cleaning/api/g5/commands', body: input }),
+    blocked,
+  );
+  assert.equal(blocked.status, 409);
+  assert.equal(blocked.json().code, 'QCC_CONFIRM_REQUIRED');
+  assert.equal(app.calls.length, 0);
+
+  const prepared = responseRecorder();
+  await app.routes.get('/data-cleaning/api/g5/commands')(
+    request({ method: 'POST', url: '/data-cleaning/api/g5/commands', body: { ...input, confirmPaidCalls: true } }),
+    prepared,
+  );
+  const command = prepared.json().command;
+  assert.equal(prepared.status, 201);
+  assert.equal(prepared.json().paidCalls, false);
+  assert.match(command.commandId, /^dcq-/);
+  assert.doesNotMatch(command.prompt, /敏感企业名称/);
+  assert.equal(app.calls.length, 0);
+
+  const definition = app.registeredTools.get('data_cleaning_qcc_run');
+  assert.ok(definition);
+  assert.equal(definition.output.schema.properties.summary.type, 'object');
+  const agent = { session: { id: 'session-agent-owned-1' } };
+  const result = await definition.execute({ commandId: command.commandId }, {
+    callId: 'outer-command-1',
+    rootCallId: 'root-command-1',
+    token: 'parent-token-1',
+    agent,
+    signal: new AbortController().signal,
+  });
+  assert.equal(result.summary.enriched, 1);
+  assert.equal(app.calls.length, 2);
+  assert.ok(app.calls.every((call) => call.parent === 'parent-token-1'));
+  assert.ok(app.calls.every((call) => call.agent === agent));
+
+  const fetched = responseRecorder();
+  await app.routes.get('/data-cleaning/api/g5/commands')(
+    request({ url: `/data-cleaning/api/g5/commands/${command.commandId}` }),
+    fetched,
+  );
+  assert.equal(fetched.status, 200);
+  assert.equal(fetched.json().command.state, 'completed');
+  assert.equal(fetched.json().command.run.rows[0].qcc_match_status, 'enriched');
+
+  await definition.execute({ commandId: command.commandId }, {
+    callId: 'outer-command-duplicate', rootCallId: 'root-command-duplicate', token: 'parent-token-duplicate', agent,
+    signal: new AbortController().signal,
+  });
+  assert.equal(app.calls.length, 2);
   app.dispose();
 });
 

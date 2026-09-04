@@ -78,7 +78,7 @@ Or let an agent install it for you:
 | Skill | `data-cleaning` | guides the model through the workflow |
 | QCC Skill enrichment | `enterprise-enrichment` | 0.4.0: company panorama, ownership, governance, and historical registration |
 | 0.4.0 preflight | web `/data-cleaning/api/phase2/capabilities` | Read-only 16+4 dynamic-tool check; makes no QCC or paid calls |
-| QCC Host Bridge | web `/data-cleaning/api/g5/*` | 0.4.0: real OAuth/QCC path, natural-expiry refresh, and fault injection verified |
+| QCC Host Bridge | `data_cleaning_qcc_run` + web `/data-cleaning/api/g5/*` | Web stages commands in the Host; an Agent-owned high-level tool uses nested execution for dynamic QCC tools; real OAuth/QCC path, natural-expiry refresh, and fault injection verified |
 | Three-domain enrichment | web `/data-cleaning/api/phase3/*` | 0.5.0: risk 38 + IPR 18 + operation 35, zero-call estimate, user-owned QCC quota confirmation, candidate review, recovery/retry, and two CSV exports (no domain expansion in 0.6.0) |
 
 ## Qichacha MCP enrichment (status and roadmap)
@@ -89,10 +89,12 @@ Besides local deterministic completion, the plugin supports Qichacha MCP enterpr
   `qcc-dsh-mcp-oauth`, the Skill guides the model to call
   `mcp__qcc-company__get_company_by_query` / `mcp__qcc-company__get_company_registration_info`
   per company name and feed the fresh registration data back into the completion tool.
-- **Plan B (programmatic, 0.4.0)**: the Host Bridge supports batch enrichment,
-  idempotency, explicit candidate-resolution resume, manual retry of retryable failures, and
-  metadata-only auditing through the public `ctx.tools.execute()` runtime. Paid endpoints require
-  both `confirmPaidCalls:true` and a unique `idempotencyKey`. The flag means the current user
+- **Plan B (Agent-owned batch, since 0.4.0)**: in DSH Code Mode, the workbench stages rows in the
+  local Host and sends only a typed commandId intent, containing no company list, to the native
+  conversation. The Agent calls `data_cleaning_qcc_run` exactly once; the bridge then dispatches
+  dynamic QCC tools as nested executions using the parent execution token and Session. This path
+  supports batch enrichment, idempotency, candidate-resolution resume, manual retry of retryable
+  failures, and metadata-only auditing. Command staging requires `confirmPaidCalls:true`. The flag means the current user
   confirms use of their own QCC account quota; it does not transfer the charge to the plugin maintainer.
   Ambiguous candidates are never auto-selected. A loopback-only, fail-closed E2E runner is ready. On 2026-09-01 an isolated rc.2
   Host passed real OAuth, restart recovery, and 400 QCC calls across 20 public companies. Natural-expiry

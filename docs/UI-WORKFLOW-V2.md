@@ -130,7 +130,7 @@ draft → uploaded → rules_confirmed → diagnosed(可选)
 | T6 | rc.2 深色、浅色、820×900 窄屏无横向溢出 | 真实浏览器通过 |
 | T7 | 多候选人工核验、`partial` 显式重试、补全后回到 `export_ready` | 自动化覆盖 |
 | T8 | 最近任务携带原 taskId 恢复、无原始 runtime 行时下载四类 Host 制品 | 自动化 + rc.2 浏览器通过 |
-| T9 | 迁移/回滚、兼容矩阵、发布检查和版本决策 | 文档完成；建议 0.6.0，尚未发布 |
+| T9 | 迁移/回滚、兼容矩阵、发布检查和版本决策 | 文档完成；0.6.0 已发布并完成公共安装核验 |
 
 ### 真实 Host 证据（2026-09-03）
 
@@ -167,8 +167,7 @@ draft → uploaded → rules_confirmed → diagnosed(可选)
 4. T6（完成）：Host 耐久下载制品、XLSX 与异常清单、双基线、视觉回归、迁移与回滚。
 5. T7（完成）：候选人工核验、部分失败重试、匹配与补全状态闭环。
 6. T8（完成）：四类制品导出、最近任务恢复及跨 Host 重启下载。
-7. T9（发布准备完成）：建议下一版本使用 `0.6.0`；待最终代码审查与维护者另行批准 commit、push、
-   Tag、npm 和 GitHub Release。
+7. T9（完成）：`0.6.0` 已完成代码审查、合并、Tag、npm OIDC 发布、GitHub Release 与公共安装核验。
 
 详细验收见 `docs/UI-WORKFLOW-V2-ACCEPTANCE.md`，升级/回滚见
 `docs/UI-WORKFLOW-V2-MIGRATION.md`。
