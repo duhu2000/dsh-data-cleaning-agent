@@ -41,6 +41,17 @@
 
 ## 外部发布核验
 
-Tag 推送后必须确认 Release workflow 全绿、npm `latest=0.6.0`、provenance 存在、GitHub Release
-非 draft/非 prerelease，并从公共 Registry 在全新隔离 Profile 安装验证。实际 workflow run、tarball
-哈希与公共安装结果在发布完成后的仓库进度记录中补充。
+- PR [#1](https://github.com/duhu2000/dsh-data-cleaning-agent/pull/1) 全部 CI 通过后合并；
+  `v0.6.0` 指向合并提交 `084efd0`。
+- Release workflow [33817341580](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/runs/33817341580)
+  全绿，npm OIDC publish 与 GitHub Release 两个发布步骤均成功。
+- npm `latest` 为 `0.6.0`；发布时间为 2026-09-03T23:23:12Z（北京时间 2026-09-04 07:23）。
+- tarball SHA-1：`559db5f3de6ef799b0d7549d0bebb144e8cfb91d`。
+- tarball integrity：
+  `sha512-ib83dgrBNnubouISvnzJb/zbjuBnJXEuee/fVgSzlZZcZLdA/5aB8fb4YF0L+DmOINIJfb44akUMBnBajv7lVg==`。
+- npm Registry 返回 SLSA v1 provenance attestation；隔离安装后的 `npm audit signatures` 验证
+  10 个 Registry 签名和 1 个 attestation。
+- 从公共 Registry 全新安装 `dsh-data-cleaning-agent@0.6.0` 成功；包版本、五步工作流契约和
+  `WorkflowArtifactStore` 导入验证通过。
+- GitHub Release [v0.6.0](https://github.com/duhu2000/dsh-data-cleaning-agent/releases/tag/v0.6.0)
+  已发布，非 draft、非 prerelease。
