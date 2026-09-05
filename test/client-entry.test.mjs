@@ -558,6 +558,8 @@ test('会话归属为单一显式激活态，点击新会话或其它智能体�
     draft = generatedDraft;
     assert.equal(clearCleaningDraft(ctx, 'generated-session', true), true);
     assert.equal(draft, '', '刷新后必须清理插件向导生成的完整任务描述');
+    const executionDraft = '请执行已在「数据清洗补全工作台」确认的企业数据任务。\n\n安全任务凭证：dcq-test\n\n请调用 data_cleaning_qcc_run。';
+    assert.equal(isKnownCleaningDraft(executionDraft), true, '未发送的可编辑执行说明也属于插件草稿');
     assert.equal(isKnownCleaningDraft('用户要求清洗企业名单'), false, '普通用户文案不得被识别为插件草稿');
     const release = installSessionOwnershipBridge(ctx);
 
@@ -662,12 +664,18 @@ test('T3 自动字段映射、文本名单数据集与质量摘要均为确定�
   let loaded;
   try {
     loaded = loadClient();
-    const { entriesToDataset, guessMappings, qualitySummaryFor } = loaded.exports.__testing;
+    const { entriesToDataset, guessMappings, plainEntityListDataset, qualitySummaryFor, resultFieldLabel } = loaded.exports.__testing;
     const parsed = entriesToDataset(['甲公司', '91320594088140947F']);
     assert.equal(parsed.rowCount, 2);
     assert.deepEqual(parsed.headers, ['主体标识']);
     assert.equal(parsed.rows[0].主体标识, '甲公司');
     assert.equal(parsed.rows[1].主体标识, '91320594088140947F');
+    const pasted = plainEntityListDataset('深圳奥雅设计股份有限公司\n\n星际量子（北京）科技有限公司');
+    assert.equal(pasted.rowCount, 2, '无表头的换行名单不得把第一家企业当成表头');
+    assert.deepEqual(pasted.rows.map((row) => row.主体标识), ['深圳奥雅设计股份有限公司', '星际量子（北京）科技有限公司']);
+    assert.equal(plainEntityListDataset('企业名称\n甲公司'), null, '显式表头仍应交给 CSV 解析器');
+    assert.equal(resultFieldLabel('credit_no'), '统一社会信用代码');
+    assert.equal(resultFieldLabel('qcc_match_status'), '匹配状态');
     const mappings = guessMappings(['企业名称', '统一社会信用代码', '联系电话']);
     assert.deepEqual(mappings.map((item) => item.targetField), ['company_name', 'credit_no', 'phone']);
     assert.deepEqual(qualitySummaryFor([
@@ -944,6 +952,8 @@ test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安�
     assert.equal(drawer.props.role, 'dialog');
     assert.equal(drawer.props['aria-modal'], 'false', '桌面工作台为非模态，中央会话保持可操作');
     assert.equal(drawer.props['aria-label'], '数据清洗补全工作台');
+    assert.match(source, /body:has\(\.dcAgentWorkbench\) \[data-conversation-scroll\]/, '桌面工作台打开时必须使用 DSH 稳定标记为中央会话让出空间');
+    assert.match(source, /padding-right: min\(460px, 42vw\)/, '桌面让位宽度必须与工作台宽度保持一致');
 
     // 五步核心工作流；质量体检和历史是横向能力。
     const stepButtons = [];
@@ -1082,6 +1092,41 @@ test('同一会话并发创建只产生一个 Host taskId，后续写操作保�
   }
 });
 
+test('已完成任务再录入名单时自动创建新 taskId', async () => {
+  let loaded;
+  const previousFetch = globalThis.fetch;
+  let createCalls = 0;
+  try {
+    globalThis.fetch = async () => {
+      createCalls += 1;
+      const sequence = createCalls;
+      return {
+        ok: true,
+        status: 201,
+        json: async () => ({ task: {
+          id: `dcw-fresh-${sequence}`,
+          revision: 0,
+          state: sequence === 1 ? 'completed' : 'draft',
+          title: `任务 ${sequence}`,
+          objectives: [], fieldSelection: [], mappings: [],
+        } }),
+      };
+    };
+    loaded = loadClient();
+    const { ensureEditableWorkflowTask, ensureWorkflowTask } = loaded.exports.__testing;
+    const actions = new Proxy({}, { get: () => () => {} });
+    const completed = await ensureWorkflowTask(actions, 'session-fresh');
+    const editable = await ensureEditableWorkflowTask(actions, 'session-fresh', { title: '新任务' });
+    assert.equal(completed.id, 'dcw-fresh-1');
+    assert.equal(editable.id, 'dcw-fresh-2');
+    assert.equal(editable.state, 'draft');
+    assert.equal(createCalls, 2);
+  } finally {
+    globalThis.fetch = previousFetch;
+    cleanupGlobals();
+  }
+});
+
 test('上传解析进入 taskId runtime，字段映射在规则确认页完成', () => {
   const applyParsedStart = source.indexOf('function applyParsed(result, actions, taskId');
   const applyParsedEnd = source.indexOf('/** 右侧非模态工作台', applyParsedStart);
@@ -1095,7 +1140,9 @@ test('上传解析进入 taskId runtime，字段映射在规则确认页完成',
   assert.match(source, /\/api\/workflow\/tasks\/\$\{encodeURIComponent\(latest\.id\)\}\/actions\/\$\{action\}/);
   assert.match(source, /workflowAction\(actions, activeSessionId, current, 'rules'/);
   assert.match(source, /current = await performProfile\(current\)/, '规则确认后必须直接生成质量体检并推进 Host 阶段');
-  assert.match(source, /workflowAction\(actions, activeSessionId, cachedTask, 'match-start'/);
+  assert.match(source, /prepareEditableQccCommand/);
+  assert.match(source, /setSessionDraft\(activeSessionId, command\.prompt\)/);
+  assert.doesNotMatch(source, /const runQcc[\s\S]{0,900}workflowAction\(actions, activeSessionId, cachedTask, 'match-start'/);
   assert.doesNotMatch(source, /let session = \{ rows:/, '不得继续使用跨任务的模块级原始数据 session');
 });
 
@@ -1128,7 +1175,9 @@ test('T3 匹配核验页使用基础企业 G5 Bridge、调用估算和用户自�
     assert.equal(confirm.props.checked, false);
     assert.match(source, /额度或费用由该账号自行承担/, '必须明确费用由当前用户连接的 QCC 账号承担');
     assert.match(source, /\/data-cleaning\/api\/g5\/commands/);
-    assert.match(source, /sessionConversation\.send\(prompt\)/, '付费调用必须通过可见 Session intent 进入 Agent-owned 工具');
+    assert.match(source, /sessionConversation\.send\(prompt\)/, '候选确认与显式重试仍必须通过 Agent-owned 工具');
+    assert.match(source, /shell\.setDraft\(prompt\)/, '初次匹配必须先回填可编辑任务说明');
+    assert.match(source, /生成可编辑任务说明/);
     assert.match(source, /data-cleaning\/api\/g5\/commands\/\$\{encodeURIComponent\(commandId\)\}/);
     assert.doesNotMatch(source, /const runQcc[\s\S]{0,1800}\/data-cleaning\/api\/g5\/enrich/, '工作台不得在 Code Mode 下直接调用动态 MCP');
     assert.doesNotMatch(source.slice(source.indexOf("step === 'match'"), source.indexOf("step === 'enrich'")), /风险信息 · 38/);

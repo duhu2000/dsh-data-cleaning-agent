@@ -257,6 +257,10 @@ test('G5 Agent command 只在 Host 暂存名单，Agent-owned 工具执行时才
   assert.equal(prepared.json().paidCalls, false);
   assert.match(command.commandId, /^dcq-/);
   assert.doesNotMatch(command.prompt, /敏感企业名称/);
+  assert.doesNotMatch(command.prompt, /```json|schemaVersion/, '用户可见草稿不应暴露内部 JSON 意图');
+  assert.match(command.prompt, /处理数量：1 条企业记录/);
+  assert.match(command.prompt, /统一社会信用代码、法定代表人、注册地址/);
+  assert.match(command.prompt, new RegExp(`安全任务凭证：${command.commandId}`));
   assert.equal(app.calls.length, 0);
 
   const definition = app.registeredTools.get('data_cleaning_qcc_run');
