@@ -45,6 +45,7 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
     'data_clean_rows',
     'data_complete_rows',
     'data_profile',
+    'modlens_read_image',
     QCC_TOOL_NAMES.oauthConnect,
     QCC_TOOL_NAMES.oauthStatus,
     QCC_TOOL_NAMES.entityLookup,
@@ -67,6 +68,12 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
     },
     async execute(exec) {
       calls.push(exec);
+      if (exec.name === 'modlens_read_image') {
+        return {
+          isError: false,
+          value: { ocr: { full_text: '示例企业有限公司 91320594088140947F\n星际量子（北京）科技有限公司 91110108MA01LUR06B', lines: [] } },
+        };
+      }
       if (exec.name === QCC_TOOL_NAMES.entityLookup) {
         const searchKey = exec.arguments.searchKey;
         if (searchKey === '模糊企业') {
@@ -225,6 +232,60 @@ test('G5 capabilities 路由被挂载且只做被动工具探测', async () => {
   assert.equal(res.json().capabilities.phase2.companyReady, true);
   assert.equal(app.calls.length, 0);
   assert.equal(app.report.qccBridgeMounted, true);
+  app.dispose();
+});
+
+test('图片名单路由只暂存原图，Agent-owned 高层工具识别后可轮询结果', async () => {
+  const app = harness();
+  const capabilities = responseRecorder();
+  await app.routes.get('/data-cleaning/api/images/capabilities')(
+    request({ url: '/data-cleaning/api/images/capabilities' }),
+    capabilities,
+  );
+  assert.equal(capabilities.status, 200);
+  assert.equal(capabilities.json().capabilities.ready, true);
+  assert.equal(capabilities.json().qccCalls, false);
+
+  const png = Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.alloc(24),
+  ]);
+  const prepared = responseRecorder();
+  await app.routes.get('/data-cleaning/api/images/commands')(
+    request({
+      method: 'POST',
+      url: '/data-cleaning/api/images/commands',
+      body: { fileName: '名单.png', mimeType: 'image/png', content: png.toString('base64') },
+    }),
+    prepared,
+  );
+  assert.equal(prepared.status, 201);
+  const command = prepared.json().command;
+  assert.match(command.commandId, /^dci-/);
+  assert.match(command.prompt, /data_cleaning_extract_image_companies/);
+  assert.equal(app.calls.length, 0, '暂存图片不得执行视觉或 QCC 调用');
+
+  const definition = app.registeredTools.get('data_cleaning_extract_image_companies');
+  const agent = { session: { id: 'image-session' } };
+  const result = await definition.execute({ commandId: command.commandId }, {
+    rootCallId: 'image-root', token: 'image-parent', agent, signal: new AbortController().signal,
+  });
+  assert.equal(result.entryCount, 2);
+  assert.deepEqual(result.entries, [
+    '示例企业有限公司 | 91320594088140947F',
+    '星际量子（北京）科技有限公司 | 91110108MA01LUR06B',
+  ]);
+  assert.equal(app.calls.length, 1);
+  assert.equal(app.calls[0].name, 'modlens_read_image');
+  assert.equal(app.calls[0].parent, 'image-parent');
+
+  const fetched = responseRecorder();
+  await app.routes.get('/data-cleaning/api/images/commands')(
+    request({ url: `/data-cleaning/api/images/commands/${command.commandId}` }),
+    fetched,
+  );
+  assert.equal(fetched.json().command.state, 'completed');
+  assert.equal(fetched.json().command.result.entryCount, 2);
   app.dispose();
 });
 

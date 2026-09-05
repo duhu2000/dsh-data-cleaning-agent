@@ -2,7 +2,7 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.7.0** (stable release)
+> Current source version / 当前源码版本: **0.8.0** (stable release)
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -49,6 +49,15 @@ task brief back to the native composer. Five workflow actions (upload, profile, 
 sit below the composer and open the five-step workbench (upload, rules, match, enrich, download)
 on demand. Completed tasks expose four durable Host artifacts: result and exception-list CSV/XLSX.
 
+Since 0.8.0, pasting an image into the native composer of a data-cleaning session, or dropping/selecting
+a PNG, JPEG, or WebP in the prompt builder, opens the image-list workflow with a clickable native
+thumbnail. After Host staging, the client releases the native composer attachment so text-only chat
+models can accept the readable recognition turn. An Agent-owned high-level tool then uses a runtime-detected
+image-text provider, returns company names/credit codes for human review, and
+then enters the existing taskId workflow. `modlens_read_image` is the verified provider. If it is not
+installed/configured, the feature fails closed and users can switch to text or Excel; recognition makes
+no QCC call.
+
 Without the `dsh` CLI, use the install script:
 
 ```bash
@@ -73,7 +82,8 @@ Or let an agent install it for you:
 | Durable artifacts | Host workspace `.dsh-data-cleaning-artifacts/v1` | result/exception CSV+XLSX, checksum verification, restart-safe download |
 | In-app entry | top "Data Cleaning & Completion" entry + five actions below the composer | dedicated business home in the center; opens the Mockup-aligned workbench on demand |
 | Prompt builder | `conversation.input.overlay` | text / spreadsheet / image intake, cleaning and enrichment selection, editable native-composer draft |
-| Tool cards | `tool.call.toolview` (`data_clean_rows`/`data_complete_rows`/`data_profile`) | render clean/complete/profile result cards in-conversation with running/done/failed state |
+| Image list intake | `data_cleaning_extract_image_companies` + web `/data-cleaning/api/images/*` | native thumbnail/lightbox, paste/drop, ephemeral Host image, Agent-owned provider recognition, human review; no QCC call during recognition |
+| Tool cards | `tool.call.toolview` (clean/complete/profile/image-list) | render four tool result cards in-conversation with running/done/failed state |
 | Task progress | workbench header jobs pill | polls `/data-cleaning/api/mvp/jobs`; shows queued / running tasks |
 | Skill | `data-cleaning` | guides the model through the workflow |
 | QCC Skill enrichment | `enterprise-enrichment` | 0.4.0: company panorama, ownership, governance, and historical registration |
@@ -119,6 +129,8 @@ See [the 0.5.2 release record](docs/RELEASE-0.5.2.md) for native DSH UI alignmen
 See [the 0.5.3 release record](docs/RELEASE-0.5.3.md) for the business landing view and prompt builder.
 See [the 0.7.0 release record](docs/RELEASE-0.7.0.md) for the first 40 and second 58
 one-company-one-row fields, deduplicated QCC tool dispatch, and real two-company acceptance.
+See [the 0.8.0 release record](docs/RELEASE-0.8.0.md) for image paste/drop, native previews,
+Agent-owned OCR, and the human-review handoff.
 See [the 0.6.3 release record](docs/RELEASE-0.6.3.md) for multiline entity-list parsing,
 editable execution summaries, and workbench/composer layout fixes.
 See [the 0.6.2 release record](docs/RELEASE-0.6.2.md) for Chinese export headers,

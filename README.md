@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.7.0**（正式版本）
+> 当前源码版本 / Current source version: **0.8.0**（正式版本）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -42,6 +42,13 @@ DSH 原生会话：首页标题、产品说明与工作流会替换通用探索�
 字段补全和任务历史五个入口位于输入框下方，右侧工作台承载“上传数据 → 规则确认 → 数据匹配 →
 清洗补全 → 下载数据”五步闭环。完成后可下载结果与异常清单的 CSV/XLSX 四类 Host 耐久制品。
 
+0.8.0 起，在数据清洗补全会话的原生输入框粘贴图片，或在「提示词生成」的图片页
+拖入/选择 PNG、JPEG、WebP，会显示可点击放大的原生缩略图。回填识别指令时，图片已由 Host 安全暂存，
+Client 会先释放 Composer 附件再回填纯文本指令，因此文本模型也能执行。用户发送可读识别指令后，Agent-owned
+高层工具使用运行时已探测的图片文字 Provider，将企业名称/信用代码回传向导供人工核对，
+再进入既有 taskId 匹配补全流程。已验证 Provider 为 `modlens_read_image`；未安装/配置时功能
+fail closed，不会调用 QCC，可改用文本或 Excel。
+
 没有 `dsh` CLI 时，也可以用安装脚本：
 
 ```bash
@@ -66,7 +73,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 耐久制品 | Host 工作区 `.dsh-data-cleaning-artifacts/v1` | 结果/异常 CSV+XLSX，checksum 校验，跨 Host 重启下载 |
 | 应用内入口 | 侧栏顶部「数据清洗补全」+ 输入框下方五能力按钮 | 中央业务首页与原生对话，右侧按需打开 Mockup 对齐工作台 |
 | 提示词生成 | `conversation.input.overlay` | 文本 / Excel / 图片录入、清洗项与补全维度选择，生成后回填原生输入框供人工修改 |
-| 工具卡片 | `tool.call.toolview`（`data_clean_rows`/`data_complete_rows`/`data_profile`） | 对话内渲染清洗/补全/画像结果卡，含运行/已完成/失败状态 |
+| 图片名单 | `data_cleaning_extract_image_companies` + web `/data-cleaning/api/images/*` | 原生缩略图/放大、粘贴/拖入；Host 临时图片 + Agent-owned Provider 识别 + 人工核对，识别阶段不调用 QCC |
+| 工具卡片 | `tool.call.toolview`（清洗/补全/画像/图片名单） | 对话内渲染四类工具结果卡，含运行/已完成/失败状态 |
 | 任务进度 | 工作台头部任务 pill | 轮询 `/data-cleaning/api/mvp/jobs`，展示排队/运行中任务 |
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
 | 企查查 Skill 补全 | `enterprise-enrichment` | 0.4.0：工商全景、股权穿透与历史工商 |
@@ -114,7 +122,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 0.5.2 DSH 原生 UI 对齐范围、验收与回滚见 [docs/RELEASE-0.5.2.md](docs/RELEASE-0.5.2.md)。
 0.5.3 业务首页、提示词生成和输入框下方流程栏见 [docs/RELEASE-0.5.3.md](docs/RELEASE-0.5.3.md)。
 0.7.0 第一批 40 字段、第二批 58 字段、调用编排和真实两企业验收见
-[docs/RELEASE-0.7.0.md](docs/RELEASE-0.7.0.md)。0.6.3 多行名单解析、可编辑执行说明与工作台遮挡修复见
+[docs/RELEASE-0.7.0.md](docs/RELEASE-0.7.0.md)。0.8.0 图片粘贴、原生缩略图、Agent-owned OCR 和人工核对流程见
+[docs/RELEASE-0.8.0.md](docs/RELEASE-0.8.0.md)。0.6.3 多行名单解析、可编辑执行说明与工作台遮挡修复见
 [docs/RELEASE-0.6.3.md](docs/RELEASE-0.6.3.md)。0.6.2 中文导出表头、完整字段选择传递与画像字段补全见
 [docs/RELEASE-0.6.2.md](docs/RELEASE-0.6.2.md)。0.6.1 Agent-owned QCC 工作台、会话隔离、恢复统计及真实闭环验收见
 [docs/RELEASE-0.6.1.md](docs/RELEASE-0.6.1.md)。0.6.0 五步 taskId 工作流、耐久制品、

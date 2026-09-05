@@ -261,14 +261,14 @@ test('apply() 注册顶部入口、composer 下方能力、提示词生成器、
     assert.ok(slots.has('conversation.input.overlay'), '必须注入提示词生成浮层');
     assert.equal(slots.has('conversation.input.left'), false, '能力按钮不得再放在输入框内部工具行');
     assert.ok(slots.has('conversation.session.header.actions'), '必须注入原生会话头动作');
-    assert.ok(slots.has('tool.call.toolview'), '必须注入 tool.call.toolview（M3 三工具富化卡片）');
+    assert.ok(slots.has('tool.call.toolview'), '必须注入 tool.call.toolview（模型工具富化卡片）');
 
     const toolviews = slots.get('tool.call.toolview');
-    assert.equal(toolviews.length, 3, 'tool.call.toolview 必须注册 3 个 keyed 入口');
+    assert.equal(toolviews.length, 4, 'tool.call.toolview 必须注册 4 个 keyed 入口');
     assert.deepEqual(
       toolviews.map((r) => r.options.key).sort(),
-      ['data_clean_rows', 'data_complete_rows', 'data_profile'].sort(),
-      '三个工具 wire 名逐一 keyed'
+      ['data_clean_rows', 'data_complete_rows', 'data_profile', 'data_cleaning_extract_image_companies'].sort(),
+      '四个工具 wire 名逐一 keyed'
     );
     for (const r of toolviews) {
       assert.equal(r.options.name, 'tool.call.toolview');
@@ -560,6 +560,8 @@ test('会话归属为单一显式激活态，点击新会话或其它智能体�
     assert.equal(draft, '', '刷新后必须清理插件向导生成的完整任务描述');
     const executionDraft = '请执行已在「数据清洗补全工作台」确认的企业数据任务。\n\n安全任务凭证：dcq-test\n\n请调用 data_cleaning_qcc_run。';
     assert.equal(isKnownCleaningDraft(executionDraft), true, '未发送的可编辑执行说明也属于插件草稿');
+    const imageDraft = '请识别我刚刚在向导中安全暂存的企业名单图片。\n安全图片凭证：dci-test\n请调用 data_cleaning_extract_image_companies。';
+    assert.equal(isKnownCleaningDraft(imageDraft), true, '未发送的图片识别说明也属于插件草稿');
     assert.equal(isKnownCleaningDraft('用户要求清洗企业名单'), false, '普通用户文案不得被识别为插件草稿');
     const release = installSessionOwnershipBridge(ctx);
 
@@ -725,20 +727,24 @@ test('任务描述生成包含主体、清洗项、补全字段、消歧与客�
   }
 });
 
-test('图片接入 Bridge 仅在能力存在时创建 draft image 并加入当前会话', () => {
+test('图片接入 Bridge 创建 draft image、加入会话并把官方缩略图描述交给向导', () => {
   let loaded;
   try {
     loaded = loadClient();
     const { exports } = loaded;
     let promptReg = null;
-    const calls = { files: null, ids: null };
+    const calls = { files: null, ids: null, removed: null, released: null };
     const conversation = {
       createDraftImages: (files) => {
         calls.files = files;
-        return [{ id: 'draft-image-1' }];
+        return [{ id: 'draft-image-1', previewUrl: 'blob:preview-1' }];
       },
       releaseDraftImages: () => { throw new Error('success path must not release'); },
-      input: { shell: () => ({ addImages: (ids) => { calls.ids = ids; return true; } }) },
+      releaseDraftImage: (id) => { calls.released = id; },
+      input: { shell: () => ({
+        addImages: (ids) => { calls.ids = ids; return true; },
+        removeImage: (id) => { calls.removed = id; return true; },
+      }) },
     };
     const ctx = {
       effect: () => () => {},
@@ -750,12 +756,30 @@ test('图片接入 Bridge 仅在能力存在时创建 draft image 并加入当�
     };
     exports.apply(ctx);
     const file = { name: '名单.png', type: 'image/png' };
-    assert.equal(promptReg.options.inject().attachImages('cleaning-image', [file]), 1);
+    assert.deepEqual(promptReg.options.inject().attachImages('cleaning-image', [file]), [
+      { id: 'draft-image-1', previewUrl: 'blob:preview-1' },
+    ]);
     assert.deepEqual(calls.files, [file]);
     assert.deepEqual(calls.ids, ['draft-image-1']);
+    assert.equal(promptReg.options.inject().removeImage('cleaning-image', { id: 'draft-image-1' }), true);
+    assert.equal(calls.removed, 'draft-image-1');
+    assert.equal(calls.released, 'draft-image-1');
   } finally {
     cleanupGlobals();
   }
+});
+
+test('图片向导支持 Composer 粘贴、拖入、缩略图/放大与 Host 高层识别指令', () => {
+  assert.match(source, /window\.addEventListener\?\.\('paste', handleWindowPaste, true\)/);
+  assert.match(source, /textarea, \[contenteditable="true"\], \[role="textbox"\]/);
+  assert.match(source, /dcAgentPromptImageThumb/);
+  assert.match(source, /dcAgentImageLightbox/);
+  assert.match(source, /data_cleaning_extract_image_companies/);
+  assert.match(source, /\/data-cleaning\/api\/images\/commands/);
+  assert.match(source, /removeImage\(sessionId, imageAttachment\)[\s\S]{0,300}setImageAttachment\(null\)[\s\S]{0,300}setDraft\(imageCommand\.prompt\)/);
+  assert.match(source, /mode === 'image' && !imageCommand/);
+  assert.match(source, /文本模型/);
+  assert.match(source, /可直接在此粘贴图片，或拖入 \/ 选择 PNG、JPEG、WebP/);
 });
 
 test('提示词生成器解析出的完整表格通过事件桥进入 root 工作台且不自动拉开右栏', () => {

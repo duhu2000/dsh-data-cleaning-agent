@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-05
+
+### Added
+- 新增企业名单图片接入：数据清洗补全会话 Composer 可直接粘贴图片，提示词向导支持 PNG/JPEG/WebP 粘贴、拖入与选择。
+- 图片使用 DSH 原生 draft attachment，向导显示 64px 缩略图、文件信息、移除操作和可点击放大的预览。
+- Host 暂存完成后，回填识别说明前自动释放 Composer 图片附件，避免文本模型因不支持图片而拒绝执行。
+- 新增 Agent-owned `data_cleaning_extract_image_companies` 高层工具与 `/data-cleaning/api/images/*` Host 指令/状态契约；运行时探测 `modlens_read_image` 并以 nested execution 识别企业名称和统一社会信用代码。
+- 识别结果自动回传原四步向导供人工核对，然后进入既有 taskId 字段选择、主体匹配、QCC 补全和导出流程。
+
+### Security
+- 图片上限 8 MiB，按 PNG/JPEG/WebP 魔数验证；Host 临时目录为 0700、文件为 0600，成功、失败、取消或 TTL 到期后删除。
+- 原图不进入 `storageDomain`、模型任务 KV 或导出制品；识别指令仅暴露随机 commandId，不包含 Host 文件路径。
+- Provider 未安装时 fail closed；图片识别阶段不调用 QCC，后续匹配补全仍受客户自有 QCC 账号确认门保护。
+
 ## [0.7.0] - 2026-09-05
 
 ### Added

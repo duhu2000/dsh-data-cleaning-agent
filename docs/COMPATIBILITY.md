@@ -38,6 +38,18 @@ MVP 路由、Phase-3 capabilities、estimate 与未确认 enrich 阻断均通过
 后可按原 taskId 下载，XLSX 反向解析工作表为“清洗补全结果”。稳定发布判断仍以 rc.2 为主，
 alpha.2 只作兼容探针。全程未触碰生产 43120，未调用 QCC。
 
+0.8.0 图片名单接入在 DSH `0.1.1-rc.2` 验证了官方
+`conversation.createDraftImages` / `releaseDraftImage(s)` 与
+`conversation.input.shell(sessionId).addImages/removeImage` 能力。视觉识别 Provider 通过
+`ctx.tools.get()` 运行时探测，已验证 `@liustack/modlens@3.25.2` 的
+`modlens_read_image`；本包不将它声明为强依赖。如 Provider 不存在，Host 在写入临时图片前
+返回 `DC_IMAGE_PROVIDER_UNAVAILABLE`，不降级为未验证 API。alpha.2 仅继续作 Host/Client 能力探针，
+不承诺实验性附件 API 稳定。
+
+图片完成 Host 暂存后，Client 会在回填识别指令前调用 `removeImage` 释放 Composer 附件；后续
+Agent-owned 工具通过 `dci-*` 凭证读取 Host 临时副本。因此图片选择与预览沿用 DSH 原生 UI，实际识别轮仍是
+文本模型可接受的纯文本工具调用。
+
 ## 2. Node 运行时
 
 - 本包 `engines.node` 声明 `>=20`。
@@ -57,6 +69,8 @@ alpha.2 只作兼容探针。全程未触碰生产 43120，未调用 QCC。
 | web 路由 | `webServer.register({kind:'prefix', path, handler})` | 最长前缀匹配；前缀需以 `/` 结尾且匹配 `pathname.startsWith(prefix + '/')` |
 | 同源守卫 | `isTrusted(req)` | `sec-fetch-site !== 'cross-site'` 且 origin 为 127.0.0.1/localhost |
 | Agent-owned 动态工具调用 | `ctx.tools.register()` 高层工具 + `ctx.tools.get()` + 带 `parent/agent/rootCallId` 的 `ctx.tools.execute()` | rc.2 Code Mode 实测要求 nested execution；每次调用重新解析，不缓存动态 MCP 工具 |
+| 原生图片附件 | `conversation.createDraftImages/releaseDraftImage(s)` + `input.shell().addImages/removeImage` | rc.2 已验证；Client 运行时探测，缺失时 fail closed |
+| 图片文字 Provider | `ctx.tools.get('modlens_read_image')` + Agent-owned nested `ctx.tools.execute()` | Modlens 3.25.2 已验证；可选运行时能力，不是 npm 强依赖 |
 
 ## 4. 与企查查 MCP OAuth 插件的共存
 
