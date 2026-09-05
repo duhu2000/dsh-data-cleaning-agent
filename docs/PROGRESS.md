@@ -64,7 +64,7 @@ CSV/XLSX 制品、历史恢复和真实 QCC 主体匹配/补全结论保持有�
 | **T10 / 0.6.1** | 市场安装与 Agent-owned QCC 闭环 | ✅ 已发布 | PR #2/#3、174/174、真实 2 次 QCC 调用、四件套与重启恢复；npm OIDC provenance、GitHub Latest 与公共安装全绿 |
 | **0.7.0** | 一企一行字段扩展 | ✅ 已发布 | 8 个来源工具、128 字段；联系方式/上市/税务/进出口与两类风险扫描接入，真实两企业闭环通过 |
 | **0.8.0** | 图片名单接入 | ✅ 已发布 | 原生缩略图、Host 临时图片、Agent-owned OCR 与人工核对闭环 |
-| **0.8.1** | QCC 文档解析与单次任务说明 | ✅ 发布准备完成 | 本地 `qcc-document-mcp`、一次提交/按需轮询、文本模型兼容、远端 URL-only 服务 fail closed |
+| **0.8.1** | QCC 文档解析与单次任务说明 | ✅ 已发布 | 本地 `qcc-document-mcp`、一次提交/按需轮询、文本模型兼容、远端 URL-only 服务 fail closed；npm OIDC provenance、GitHub Latest 与公共安装全绿 |
 
 ---
 
@@ -81,8 +81,8 @@ CSV/XLSX 制品、历史恢复和真实 QCC 主体匹配/补全结论保持有�
 | --- | --- |
 | 代码基线 | 当前分支 `main`；0.8.1 发布提交与 Tag 由发布流程固定 |
 | 当前源码版本 | `0.8.1` |
-| npm `latest` | 发布后应为 `0.8.1`（OIDC Trusted Publishing + provenance） |
-| GitHub Release | 发布后应为 `v0.8.1`（Latest，非 draft / 非 prerelease） |
+| npm `latest` | `0.8.1`（OIDC Trusted Publishing + provenance，Release run `33977279908` 已成功） |
+| GitHub Release | `v0.8.1`（Latest，非 draft / 非 prerelease） |
 | 稳定发布基线 | DSH `0.1.1-rc.2`（冒烟端口 43136 / 43141） |
 | 兼容探针基线 | DSH `0.1.2-alpha.2`（冒烟端口 43137 / 43143，仅探针，非稳定契约） |
 | 生产 GUI | `http://127.0.0.1:43120` —— **严禁触碰** |

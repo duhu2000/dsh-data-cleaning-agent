@@ -73,3 +73,9 @@ dsh web
 ```
 
 回滚会恢复 0.8.0 的 Modlens 两轮图片流程；文本、Excel、主体匹配、字段补全和历史制品不受影响。
+
+## 6. 发布结果
+
+- 发布提交 `4d71308620115acaf78b215552565a1db4199168` 通过 Release workflow run `33977279908` 的标签校验、完整 `npm run check` 门禁、npm 发布和 GitHub Release 创建，全部成功。
+- npm 通过 GitHub Actions OIDC Trusted Publishing 发布并签署 provenance，未使用长期 npm Token；registry 回读确认 `latest` 为 `0.8.1`。
+- GitHub Release：<https://github.com/duhu2000/dsh-data-cleaning-agent/releases/tag/v0.8.1>。
