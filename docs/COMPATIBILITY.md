@@ -50,6 +50,13 @@ alpha.2 只作兼容探针。全程未触碰生产 43120，未调用 QCC。
 Agent-owned 工具通过 `dci-*` 凭证读取 Host 临时副本。因此图片选择与预览沿用 DSH 原生 UI，实际识别轮仍是
 文本模型可接受的纯文本工具调用。
 
+0.8.1 将当前图片 Provider 收敛到企查查官方本地 stdio 服务 `qcc-document-mcp`。本地服务的
+`parse_document` 接受 `file_path`，返回完成结果或 `task_id`；只有状态仍为处理中时才调用
+`get_parse_result(task_id)`。市场远端 `qcc-document` 的 `parse_document` 只接受公网 `file_url`，
+不能读取 Host 临时文件，因此只连接远端服务时返回
+`DC_IMAGE_LOCAL_DOCUMENT_PROVIDER_REQUIRED`。该版本保留 0.8.0 的 DSH 原生附件 API 兼容层，
+但不再依赖 Modlens，也不把图片交给当前聊天模型。
+
 ## 2. Node 运行时
 
 - 本包 `engines.node` 声明 `>=20`。
@@ -70,7 +77,8 @@ Agent-owned 工具通过 `dci-*` 凭证读取 Host 临时副本。因此图片�
 | 同源守卫 | `isTrusted(req)` | `sec-fetch-site !== 'cross-site'` 且 origin 为 127.0.0.1/localhost |
 | Agent-owned 动态工具调用 | `ctx.tools.register()` 高层工具 + `ctx.tools.get()` + 带 `parent/agent/rootCallId` 的 `ctx.tools.execute()` | rc.2 Code Mode 实测要求 nested execution；每次调用重新解析，不缓存动态 MCP 工具 |
 | 原生图片附件 | `conversation.createDraftImages/releaseDraftImage(s)` + `input.shell().addImages/removeImage` | rc.2 已验证；Client 运行时探测，缺失时 fail closed |
-| 图片文字 Provider | `ctx.tools.get('modlens_read_image')` + Agent-owned nested `ctx.tools.execute()` | Modlens 3.25.2 已验证；可选运行时能力，不是 npm 强依赖 |
+| 本地图片文档解析 | `ctx.tools.get()` 探测 `qcc-document-mcp` 的 `parse_document/get_parse_result` + Agent-owned nested `ctx.tools.execute()` | 0.8.1 当前实现；要求 `parse_document` 支持 `file_path`，不是 npm 强依赖 |
+| 远端图片文档解析 | `mcp__qcc-document__parse_document(file_url)` | 只支持公网 URL；不能用于 Host 本地临时图片，当前流程明确 fail closed |
 
 ## 4. 与企查查 MCP OAuth 插件的共存
 

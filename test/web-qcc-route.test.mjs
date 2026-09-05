@@ -8,6 +8,7 @@ import {
   QCC_PHASE2_HISTORY_TOOLS,
 } from '../lib/qcc-phase2.js';
 import { QCC_PHASE3_ALL_CANONICAL_TOOLS } from '../lib/qcc-phase3.js';
+import { QCC_DOCUMENT_LOCAL_TOOL_PAIRS } from '../lib/image-intake.js';
 
 function responseRecorder() {
   return {
@@ -41,11 +42,13 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
   const registeredTools = new Map();
   let retryRegistrationCalls = 0;
   let registrationFaultsRemaining = Math.max(0, Number(registrationFault?.times ?? 0));
+  const [documentTools] = QCC_DOCUMENT_LOCAL_TOOL_PAIRS;
   const definitions = new Set([
     'data_clean_rows',
     'data_complete_rows',
     'data_profile',
-    'modlens_read_image',
+    documentTools.parse,
+    documentTools.result,
     QCC_TOOL_NAMES.oauthConnect,
     QCC_TOOL_NAMES.oauthStatus,
     QCC_TOOL_NAMES.entityLookup,
@@ -57,7 +60,10 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
   ]);
   for (const name of omitDefinitions) definitions.delete(name);
   const tools = {
-    get: (name) => definitions.has(name) ? { name } : undefined,
+    get: (name) => definitions.has(name) ? {
+      name,
+      ...(name === documentTools.parse ? { parameters: { properties: { file_path: { type: 'string' } } } } : {}),
+    } : undefined,
     register(definition) {
       definitions.add(definition.name);
       registeredTools.set(definition.name, definition);
@@ -68,10 +74,14 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
     },
     async execute(exec) {
       calls.push(exec);
-      if (exec.name === 'modlens_read_image') {
+      if (exec.name === documentTools.parse) {
         return {
           isError: false,
-          value: { ocr: { full_text: '示例企业有限公司 91320594088140947F\n星际量子（北京）科技有限公司 91110108MA01LUR06B', lines: [] } },
+          value: { content: [{ type: 'text', text: JSON.stringify({
+            task_id: 'qcc-document-web-task',
+            status: 'success',
+            details: [{ result_md: '示例企业有限公司 91320594088140947F\n星际量子（北京）科技有限公司 91110108MA01LUR06B' }],
+          }) }] },
         };
       }
       if (exec.name === QCC_TOOL_NAMES.entityLookup) {
@@ -244,7 +254,8 @@ test('图片名单路由只暂存原图，Agent-owned 高层工具识别后可�
   );
   assert.equal(capabilities.status, 200);
   assert.equal(capabilities.json().capabilities.ready, true);
-  assert.equal(capabilities.json().qccCalls, false);
+  assert.equal(capabilities.json().qccCalls, true);
+  assert.equal(capabilities.json().billing, 'current-user-qcc-document-account');
 
   const png = Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -263,7 +274,7 @@ test('图片名单路由只暂存原图，Agent-owned 高层工具识别后可�
   const command = prepared.json().command;
   assert.match(command.commandId, /^dci-/);
   assert.match(command.prompt, /data_cleaning_extract_image_companies/);
-  assert.equal(app.calls.length, 0, '暂存图片不得执行视觉或 QCC 调用');
+  assert.equal(app.calls.length, 0, '暂存图片不得执行文档解析调用');
 
   const definition = app.registeredTools.get('data_cleaning_extract_image_companies');
   const agent = { session: { id: 'image-session' } };
@@ -276,8 +287,10 @@ test('图片名单路由只暂存原图，Agent-owned 高层工具识别后可�
     '星际量子（北京）科技有限公司 | 91110108MA01LUR06B',
   ]);
   assert.equal(app.calls.length, 1);
-  assert.equal(app.calls[0].name, 'modlens_read_image');
+  assert.equal(app.calls[0].name, QCC_DOCUMENT_LOCAL_TOOL_PAIRS[0].parse);
   assert.equal(app.calls[0].parent, 'image-parent');
+  assert.match(app.calls[0].arguments.file_path, /dci-.*\.png$/);
+  assert.equal(app.calls[0].arguments.wait, true);
 
   const fetched = responseRecorder();
   await app.routes.get('/data-cleaning/api/images/commands')(

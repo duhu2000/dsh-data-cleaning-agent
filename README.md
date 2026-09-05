@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.8.0**（正式版本）
+> 当前源码版本 / Current source version: **0.8.1**（正式版本）
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -42,12 +42,17 @@ DSH 原生会话：首页标题、产品说明与工作流会替换通用探索�
 字段补全和任务历史五个入口位于输入框下方，右侧工作台承载“上传数据 → 规则确认 → 数据匹配 →
 清洗补全 → 下载数据”五步闭环。完成后可下载结果与异常清单的 CSV/XLSX 四类 Host 耐久制品。
 
-0.8.0 起，在数据清洗补全会话的原生输入框粘贴图片，或在「提示词生成」的图片页
-拖入/选择 PNG、JPEG、WebP，会显示可点击放大的原生缩略图。回填识别指令时，图片已由 Host 安全暂存，
-Client 会先释放 Composer 附件再回填纯文本指令，因此文本模型也能执行。用户发送可读识别指令后，Agent-owned
-高层工具使用运行时已探测的图片文字 Provider，将企业名称/信用代码回传向导供人工核对，
-再进入既有 taskId 匹配补全流程。已验证 Provider 为 `modlens_read_image`；未安装/配置时功能
-fail closed，不会调用 QCC，可改用文本或 Excel。
+0.8.1 起，在数据清洗补全会话的原生输入框粘贴图片，或在「提示词生成」的图片页
+拖入/选择 PNG、JPEG、WebP，会显示可点击放大的原生缩略图。用户可继续完成匹配规则、清洗项与补全字段，
+最后一次性把完整、可编辑的任务说明回填到对话框；不再先发送一轮 OCR 专用指令。发送前 Client 释放
+Composer 图片附件，因此不支持视觉输入的文本模型也能调度 Agent-owned 高层工具。高层工具通过官方
+`qcc-document-mcp` 的 `parse_document(file_path)` 提交本地图片，仅在异步处理中以同一 `task_id`
+调用 `get_parse_result`，再将企业名称/信用代码交回工作台人工核对。
+
+本地图片解析需在 MCP 连接器中另行配置官方 `qcc-document-mcp`；市场中的远端 `qcc-document`
+只支持公网 `file_url`，不能读取本机图片。两者使用当前客户自己的企查查账号与额度，本插件不读取、保存
+或分发凭据。本地服务会把用户明确提交的图片上传到企查查文档解析网关；未连接本地服务时功能会
+fail closed，并明确提示配置要求，文本与 Excel 流程不受影响。
 
 没有 `dsh` CLI 时，也可以用安装脚本：
 
@@ -73,7 +78,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 | 耐久制品 | Host 工作区 `.dsh-data-cleaning-artifacts/v1` | 结果/异常 CSV+XLSX，checksum 校验，跨 Host 重启下载 |
 | 应用内入口 | 侧栏顶部「数据清洗补全」+ 输入框下方五能力按钮 | 中央业务首页与原生对话，右侧按需打开 Mockup 对齐工作台 |
 | 提示词生成 | `conversation.input.overlay` | 文本 / Excel / 图片录入、清洗项与补全维度选择，生成后回填原生输入框供人工修改 |
-| 图片名单 | `data_cleaning_extract_image_companies` + web `/data-cleaning/api/images/*` | 原生缩略图/放大、粘贴/拖入；Host 临时图片 + Agent-owned Provider 识别 + 人工核对，识别阶段不调用 QCC |
+| 图片名单 | `data_cleaning_extract_image_companies` + `qcc-document-mcp` | 原生缩略图/放大、粘贴/拖入；一次性完整任务说明；`parse_document` → 按需 `get_parse_result` → 人工核对 |
 | 工具卡片 | `tool.call.toolview`（清洗/补全/画像/图片名单） | 对话内渲染四类工具结果卡，含运行/已完成/失败状态 |
 | 任务进度 | 工作台头部任务 pill | 轮询 `/data-cleaning/api/mvp/jobs`，展示排队/运行中任务 |
 | Skill | `data-cleaning` | 引导模型按工作流调度上述工具 |
@@ -123,7 +128,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 0.5.3 业务首页、提示词生成和输入框下方流程栏见 [docs/RELEASE-0.5.3.md](docs/RELEASE-0.5.3.md)。
 0.7.0 第一批 40 字段、第二批 58 字段、调用编排和真实两企业验收见
 [docs/RELEASE-0.7.0.md](docs/RELEASE-0.7.0.md)。0.8.0 图片粘贴、原生缩略图、Agent-owned OCR 和人工核对流程见
-[docs/RELEASE-0.8.0.md](docs/RELEASE-0.8.0.md)。0.6.3 多行名单解析、可编辑执行说明与工作台遮挡修复见
+[docs/RELEASE-0.8.0.md](docs/RELEASE-0.8.0.md)。0.8.1 企查查智能文档解析与单次任务说明见
+[docs/RELEASE-0.8.1.md](docs/RELEASE-0.8.1.md)。0.6.3 多行名单解析、可编辑执行说明与工作台遮挡修复见
 [docs/RELEASE-0.6.3.md](docs/RELEASE-0.6.3.md)。0.6.2 中文导出表头、完整字段选择传递与画像字段补全见
 [docs/RELEASE-0.6.2.md](docs/RELEASE-0.6.2.md)。0.6.1 Agent-owned QCC 工作台、会话隔离、恢复统计及真实闭环验收见
 [docs/RELEASE-0.6.1.md](docs/RELEASE-0.6.1.md)。0.6.0 五步 taskId 工作流、耐久制品、

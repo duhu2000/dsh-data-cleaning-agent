@@ -722,6 +722,20 @@ test('任务描述生成包含主体、清洗项、补全字段、消歧与客�
     assert.match(prompt, /统一社会信用代码、法定代表人、企查查行业/);
     assert.match(prompt, /存在多个候选必须暂停/);
     assert.match(prompt, /当前用户自己的账号承担/);
+    const imagePrompt = buildTaskPrompt({
+      mode: 'image',
+      fileName: '企业名单.png',
+      imageCommandId: 'dci-one-turn',
+      imageState: 'prepared',
+      cleaningKeys: ['clean_name'],
+      enrichmentKeys: ['credit_no', 'legal_rep'],
+      anchorKeys: ['company_name', 'credit_no'],
+    });
+    assert.match(imagePrompt, /企查查智能文档解析/);
+    assert.match(imagePrompt, /安全图片凭证：dci-one-turn/);
+    assert.match(imagePrompt, /统一社会信用代码、法定代表人/);
+    assert.match(imagePrompt, /只调用一次 data_cleaning_extract_image_companies/);
+    assert.doesNotMatch(imagePrompt, /```json|schemaVersion/);
   } finally {
     cleanupGlobals();
   }
@@ -769,16 +783,18 @@ test('图片接入 Bridge 创建 draft image、加入会话并把官方缩略图
   }
 });
 
-test('图片向导支持 Composer 粘贴、拖入、缩略图/放大与 Host 高层识别指令', () => {
+test('图片向导支持 Composer 粘贴、拖入、缩略图/放大与一次性完整任务指令', () => {
   assert.match(source, /window\.addEventListener\?\.\('paste', handleWindowPaste, true\)/);
   assert.match(source, /textarea, \[contenteditable="true"\], \[role="textbox"\]/);
   assert.match(source, /dcAgentPromptImageThumb/);
   assert.match(source, /dcAgentImageLightbox/);
   assert.match(source, /data_cleaning_extract_image_companies/);
   assert.match(source, /\/data-cleaning\/api\/images\/commands/);
-  assert.match(source, /removeImage\(sessionId, imageAttachment\)[\s\S]{0,300}setImageAttachment\(null\)[\s\S]{0,300}setDraft\(imageCommand\.prompt\)/);
+  assert.match(source, /imageCommand\?\.state === 'prepared'[\s\S]{0,300}removeImage\(sessionId, imageAttachment\)[\s\S]{0,300}setImageAttachment\(null\)/);
+  assert.match(source, /imageCommandId: imageCommand\?\.commandId/);
+  assert.doesNotMatch(source, /setDraft\(imageCommand\.prompt\)/);
   assert.match(source, /mode === 'image' && !imageCommand/);
-  assert.match(source, /文本模型/);
+  assert.match(source, /qcc-document-mcp/);
   assert.match(source, /可直接在此粘贴图片，或拖入 \/ 选择 PNG、JPEG、WebP/);
 });
 

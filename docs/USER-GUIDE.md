@@ -43,12 +43,34 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
 - **上传图片**：支持 PNG/JPEG/WebP（单张不超过 8 MiB）；可在向导中粘贴、拖入或选择，也可直接在数据清洗补全会话的原生输入框粘贴。输入框使用 DSH 原生图片附件，向导同时显示 64px 缩略图，点击可放大。
 
 随后可选择名称规范、信用代码校验、去重、模糊候选复核等清洗动作，以及工商字段或已支持的维度组。
-图片流程分为两轮可见交互：
+0.8.1 起，图片流程只需发送一次完整任务说明：
 
-1. 选择图片后，点击「回填图片识别指令」。此时 Host 已安全暂存原图，Client 会释放 Composer 图片附件并把可读的纯文本说明放入原生对话框；用户检查后发送。该步骤不会把图片交给当前聊天模型，因此兼容不支持视觉输入的文本模型。
-2. Agent 只调用一次 `data_cleaning_extract_image_companies`，Host 在当前父执行中调用已探测的图片文字 Provider；识别到的企业名称/统一社会信用代码会回到向导，由用户逐条核对后选择匹配规则和补全字段。
+1. 选择图片后继续完成匹配规则、清洗动作与补全字段选择；最后一步生成一段包含图片识别要求和后续任务要求的可读中文说明，可在原生对话框中继续修改。
+2. 回填前 Client 释放 Composer 图片附件，因此不支持视觉输入的聊天模型也不会收到图片；Agent 只调用一次 `data_cleaning_extract_image_companies` 高层工具。
+3. Host 通过本地 `qcc-document-mcp` 准确调用一次 `parse_document(file_path)`；仅当任务仍在处理中时，才使用同一 `task_id` 查询 `get_parse_result`。
+4. 识别到的企业名称/统一社会信用代码进入同一 taskId 工作台供人工核对，然后继续主体匹配、字段补全和导出。
 
-当前已验证 Provider 是 Modlens `modlens_read_image`。插件不引入对 Modlens 的强依赖；运行时未安装或未配置时会 fail closed，请改用文本/Excel。图片仅作为 0600 权限的 Host 临时文件，成功、失败、取消或 15 分钟超时后删除；不进入任务 KV 或导出制品。识别阶段不调用 QCC、不消耗 QCC MCP 额度；人工核对后的匹配/补全仍受既有 BYO QCC 确认门保护。
+本地图片解析需在 DSH 的 MCP 连接器中配置官方 `qcc-document-mcp`。示例（Key 仅保存在用户自己的环境中）：
+
+```json
+{
+  "mcpServers": {
+    "qcc-document-mcp": {
+      "command": "npx",
+      "args": ["-y", "qcc-document-mcp"],
+      "env": {
+        "QCC_DOCUMENT_AUTHORIZATION": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+市场中的远端 `qcc-document` 只接受公网 `file_url`，不能读取 Host 本地临时文件；只连接远端服务时，
+插件会 fail closed 并提示配置本地服务。图片仅作为 0600 权限的 Host 临时文件，成功、失败、取消或
+15 分钟超时后删除，不进入任务 KV、模型上下文或导出制品。`qcc-document-mcp` 会读取该临时文件并
+上传到企查查文档解析网关；用户应只提交有权处理且允许上传的数据。文档解析与后续企业补全均使用
+当前用户自己连接的企查查账号和额度；本插件不读取或保存凭据。
 
 模型在对话中调用 `data_clean_rows` / `data_complete_rows` / `data_profile` 时，
 对话内会渲染对应的工具结果卡片（含运行中 / 已完成 / 失败状态）；工作台头部用任务 pill

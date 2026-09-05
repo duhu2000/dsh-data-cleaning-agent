@@ -2,7 +2,7 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.8.0** (stable release)
+> Current source version / 当前源码版本: **0.8.1** (stable release)
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)
@@ -49,14 +49,18 @@ task brief back to the native composer. Five workflow actions (upload, profile, 
 sit below the composer and open the five-step workbench (upload, rules, match, enrich, download)
 on demand. Completed tasks expose four durable Host artifacts: result and exception-list CSV/XLSX.
 
-Since 0.8.0, pasting an image into the native composer of a data-cleaning session, or dropping/selecting
-a PNG, JPEG, or WebP in the prompt builder, opens the image-list workflow with a clickable native
-thumbnail. After Host staging, the client releases the native composer attachment so text-only chat
-models can accept the readable recognition turn. An Agent-owned high-level tool then uses a runtime-detected
-image-text provider, returns company names/credit codes for human review, and
-then enters the existing taskId workflow. `modlens_read_image` is the verified provider. If it is not
-installed/configured, the feature fails closed and users can switch to text or Excel; recognition makes
-no QCC call.
+Since 0.8.1, users can paste, drop, or select a PNG/JPEG/WebP image, finish match rules and enrichment
+field selection, and write one complete editable task brief to the native composer; the separate OCR-only
+turn has been removed. Before send, the client releases the native image attachment so text-only models can
+still dispatch the Agent-owned high-level tool. That tool calls the official local `qcc-document-mcp`
+`parse_document(file_path)` exactly once and polls `get_parse_result` with the returned `task_id` only while
+processing, then returns company names/credit codes to the workbench for human review.
+
+Local image parsing requires the official `qcc-document-mcp` stdio server to be configured in the MCP
+connector. The remote `qcc-document` connector accepts public `file_url` values only and cannot read Host
+temporary files. The local server uploads the explicitly submitted file to the QCC document parsing gateway.
+Both use the current customer's own QCC account and quota. Without the local connector,
+image intake fails closed with actionable guidance; text and spreadsheet paths remain available.
 
 Without the `dsh` CLI, use the install script:
 
@@ -131,6 +135,8 @@ See [the 0.7.0 release record](docs/RELEASE-0.7.0.md) for the first 40 and secon
 one-company-one-row fields, deduplicated QCC tool dispatch, and real two-company acceptance.
 See [the 0.8.0 release record](docs/RELEASE-0.8.0.md) for image paste/drop, native previews,
 Agent-owned OCR, and the human-review handoff.
+See [the 0.8.1 release record](docs/RELEASE-0.8.1.md) for QCC intelligent document parsing
+and the single editable task brief.
 See [the 0.6.3 release record](docs/RELEASE-0.6.3.md) for multiline entity-list parsing,
 editable execution summaries, and workbench/composer layout fixes.
 See [the 0.6.2 release record](docs/RELEASE-0.6.2.md) for Chinese export headers,
