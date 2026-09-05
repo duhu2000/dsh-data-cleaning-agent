@@ -6,14 +6,30 @@ import {
   QccHostBridge,
   classifyEntityMatch,
   decodeQccToolValue,
+  estimateQccCalls,
+  inspectRelatedRiskCatalog,
+  inspectSelfRiskCatalog,
+  mapCompanyRelatedRiskScanFields,
+  mapCompanyRiskScanFields,
+  mapContactFields,
+  mapImportExportCreditFields,
+  mapListingFields,
   mapProfileFields,
   mapRegistrationFields,
   mapRiskTags,
+  mapTaxInvoiceFields,
+  sourceToolsForFieldSelection,
 } from '../lib/qcc.js';
 
 import {
   QCC_PHASE3_ALL_CANONICAL_TOOLS,
 } from '../lib/qcc-phase3.js';
+import {
+  RELATED_RISK_FACTORS,
+  RELATED_RISK_KEY_FACTORS,
+  RISK_FACTOR_CATALOG_VERSION,
+  SELF_RISK_FACTORS,
+} from '../lib/qcc-field-catalog.js';
 
 function success(value) {
   return { isError: false, value, content: [] };
@@ -296,7 +312,7 @@ test('实体匹配严格区分唯一、多候选和未匹配', () => {
   assert.deepEqual(classifyEntityMatch({ 匹配结果: '未匹配' }), { status: 'unresolved' });
 });
 
-test('工商字段与风险标签按 QCC 返回原文映射，不自行计算', () => {
+test('工商、画像字段与风险标签按 QCC 返回原文映射，不推导不存在的层级或行政区', () => {
   const fields = mapRegistrationFields({
     企业名称: '企查查科技股份有限公司',
     统一社会信用代码: '9132MOCK',
@@ -306,26 +322,30 @@ test('工商字段与风险标签按 QCC 返回原文映射，不自行计算', 
     登记状态: '存续',
     注册地址: '江苏省苏州市工业园区月亮湾路 10 号',
     所属地区: '江苏省苏州市工业园区',
+    通信地址: '江苏省苏州市工业园区通信路 1 号',
     经营范围: '软件开发',
     国标行业: '信息技术服务业',
     营业期限: '2020-01-02至长期',
     人员规模: '1000-1999人',
+    参保人数: '1234',
+    分支机构参保人数: '12',
   });
   assert.equal(fields.credit_no, '9132MOCK');
   assert.equal(fields.legal_rep, '张三');
   assert.equal(fields.reg_capital, '1,000万元人民币');
   assert.equal(fields.registered_address, '江苏省苏州市工业园区月亮湾路 10 号');
-  assert.equal(fields.province, '江苏省');
-  assert.equal(fields.city, '苏州市');
-  assert.equal(fields.district, '工业园区');
+  assert.equal(fields.region, '江苏省苏州市工业园区');
+  assert.equal(fields.mailing_address, '江苏省苏州市工业园区通信路 1 号');
   assert.equal(fields.business_scope, '软件开发');
   assert.equal(fields.industry_category, '信息技术服务业');
   assert.equal(fields.operating_period, '2020-01-02至长期');
   assert.equal(fields.company_size, '1000-1999人');
-  assert.deepEqual(mapProfileFields({ 简介: '企业简介原文', 企查查行业: 'IT技术服务' }), {
-    industry_large: '',
-    industry_middle: '',
+  assert.equal(fields.insured_count, '1234');
+  assert.equal(fields.branch_insured_count, '12');
+  assert.deepEqual(mapProfileFields({ 简介: '企业简介原文', 企查查行业: 'IT技术服务', 产业链概览: '产业链原文' }), {
+    qcc_industry: 'IT技术服务',
     company_profile: '企业简介原文',
+    industry_chain_overview: '产业链原文',
   });
   assert.equal(mapRiskTags({
     风险因子扫描: [
@@ -336,7 +356,161 @@ test('工商字段与风险标签按 QCC 返回原文映射，不自行计算', 
   }), '行政处罚:2；裁判文书:3');
 });
 
-test('所选工商和画像字段全部落列，企查查行业未声明层级时不冒充一/二级', async () => {
+test('第一批 40 字段按固定一对一规则投影，不泄漏明细数组', () => {
+  assert.deepEqual(mapContactFields({
+    联系方式信息: {
+      电话: [
+        { 电话号码: '010-12345678', 是否无效: '是', 标签: ['总机', '客服'] },
+        { 电话号码: '010-87654321', 标签: ['历史'] },
+      ],
+      邮箱: [{ 邮箱: 'main@example.com' }, { 邮箱: 'other@example.com' }],
+      网址: [
+        { 网址: 'https://not-official.example', 是否是官网: '否', ICP备案: '否' },
+        { 网址: 'https://official.example', 是否是官网: '是', ICP备案: '是' },
+      ],
+    },
+  }), {
+    contact_preferred_phone: '010-12345678',
+    contact_phone_invalid_flag: '是',
+    contact_phone_tags: '总机；客服',
+    contact_preferred_email: 'main@example.com',
+    contact_official_website: 'https://official.example',
+    contact_official_website_icp: '是',
+  });
+  assert.equal(mapListingFields({ 股票代码: '000001', 总市值: '123.4', 是否注册制: '否' }).listing_stock_code, '000001');
+  assert.deepEqual(mapTaxInvoiceFields({ 企业名称: '示例公司', 纳税人识别号: '00123', 地址: '开票地址', 开户行账号: '0000123' }), {
+    tax_company_name: '示例公司', tax_identification_no: '00123', tax_company_type: '', tax_business_status: '',
+    invoice_address: '开票地址', invoice_phone: '', invoice_bank: '', invoice_bank_account: '0000123',
+  });
+  const importExport = mapImportExportCreditFields({
+    统一社会信用代码: '9132EXAMPLE', 所在地海关: '苏州海关', 信用等级: 'A', 海关资质: [{ 备案编码: 'array-must-not-leak' }],
+  });
+  assert.equal(importExport.import_export_credit_no, '9132EXAMPLE');
+  assert.equal(importExport.import_export_customs, '苏州海关');
+  assert.equal(importExport.import_export_credit_grade, 'A');
+  assert.equal(JSON.stringify(importExport).includes('array-must-not-leak'), false);
+});
+
+test('第二批 58 风险字段稳定透视计数并检测目录漂移', () => {
+  const selfValue = {
+    有记录因子数: 2,
+    无记录因子数: SELF_RISK_FACTORS.length - 2,
+    风险因子扫描: SELF_RISK_FACTORS.map(([, label], index) => ({ 风险因子: label, 条目数: index < 2 ? index + 1 : 0, 明细工具: 'ignored' })),
+  };
+  const self = mapCompanyRiskScanFields(selfValue);
+  assert.equal(Object.keys(self).length, 38);
+  assert.equal(self.risk_dishonest_count, 1);
+  assert.equal(self.risk_judgment_debtor_count, 2);
+  assert.equal(self.risk_hit_summary, '失信信息(1)；被执行人(2)');
+  assert.deepEqual(inspectSelfRiskCatalog(selfValue).missing, []);
+  assert.deepEqual(inspectSelfRiskCatalog(selfValue).unknown, []);
+  assert.deepEqual(inspectSelfRiskCatalog({ 风险因子扫描: [{ 风险因子: '新增因子', 条目数: 1 }] }).unknown, ['新增因子']);
+
+  const relatedValue = {
+    有风险关联方数: '3',
+    维度计数汇总: {
+      重要风险: Object.fromEntries(RELATED_RISK_FACTORS.map(([, label], index) => [label, index === 0 ? '4' : '0'])),
+      司法案件: [{ 类型: '数组不得输出', 条目数: '9' }],
+      其他关联风险: [{ 类型: '数组不得输出', 条目数: '8' }],
+    },
+    重点维度关联方定位: RELATED_RISK_KEY_FACTORS.map(([, label], index) => ({
+      维度: label, 本维度条目数: index === 0 ? '4' : '0', 命中关联方数: index === 0 ? '2' : '0',
+      关联方: [{ 名称: '数组不得输出' }],
+    })),
+  };
+  const related = mapCompanyRelatedRiskScanFields(relatedValue);
+  assert.equal(Object.keys(related).length, 20);
+  assert.equal(related.related_risk_party_count, 3);
+  assert.equal(related.related_risk_dishonest_count, 4);
+  assert.equal(related.related_risk_dishonest_party_count, 2);
+  assert.equal(JSON.stringify(related).includes('数组不得输出'), false);
+  assert.deepEqual(inspectRelatedRiskCatalog(relatedValue).missing, []);
+  assert.deepEqual(inspectRelatedRiskCatalog(relatedValue).unknown, []);
+});
+
+test('风险目录漂移审计保留版本及缺失/新增标签，不包含工具原始响应', async () => {
+  const expectedImportant = Object.fromEntries(RELATED_RISK_FACTORS.map(([, label]) => [label, '0']));
+  delete expectedImportant.欠税公告;
+  expectedImportant.生产新增风险 = '1';
+  const audit = [];
+  const tools = fakeTools({
+    [QCC_TOOL_NAMES.entityLookup]: async () => success(mcpValue({
+      匹配结果: '唯一精确匹配', 企业信息: { 企业名称: '示例企业', 统一社会信用代码: '9132AUDIT' },
+    })),
+    [QCC_TOOL_NAMES.relatedRiskScan]: async () => success(mcpValue({
+      有风险关联方数: '1',
+      维度计数汇总: { 重要风险: expectedImportant },
+      重点维度关联方定位: RELATED_RISK_KEY_FACTORS.map(([, label]) => ({ 维度: label, 命中关联方数: '0' })),
+      原始明细: '不得进入审计',
+    })),
+  });
+  await new QccHostBridge({ tools, toolWaitMs: 0 }).enrichRows([{ name: '示例企业' }], {
+    fieldSelection: ['related_risk_party_count'],
+    onAudit: (event) => audit.push(event),
+  });
+  const drift = audit.find((event) => event.outcome === 'catalog-drift');
+  assert.equal(drift.catalogVersion, RISK_FACTOR_CATALOG_VERSION);
+  assert.deepEqual(drift.missing, ['重要风险:欠税公告']);
+  assert.deepEqual(drift.unknown, ['重要风险:生产新增风险']);
+  assert.equal(JSON.stringify(drift).includes('不得进入审计'), false);
+});
+
+test('字段选择精确计算来源工具，同一工具多个字段只调用一次', () => {
+  assert.deepEqual(sourceToolsForFieldSelection([
+    'contact_preferred_phone', 'contact_preferred_email', 'listing_stock_code',
+    'invoice_bank', 'import_export_credit_grade', 'risk_dishonest_count',
+    'related_risk_party_count',
+  ]), [
+    'get_contact_info', 'get_listing_info', 'get_tax_invoice_info', 'get_import_export_credit',
+    'get_company_risk_scan', 'get_company_related_risk_scan',
+  ]);
+  assert.deepEqual(estimateQccCalls(2, [
+    'contact_preferred_phone', 'contact_preferred_email', 'risk_dishonest_count',
+  ]), {
+    uniqueCompanies: 2,
+    sourceTools: ['get_contact_info', 'get_company_risk_scan'],
+    callsPerCompany: 3,
+    estimatedCalls: 6,
+  });
+});
+
+test('Bridge 跨第一、二批字段只调用所选 6 个来源工具且输出全为标量', async () => {
+  const selfRows = SELF_RISK_FACTORS.map(([, label]) => ({ 风险因子: label, 条目数: label === '行政处罚' ? 2 : 0 }));
+  const relatedImportant = Object.fromEntries(RELATED_RISK_FACTORS.map(([, label]) => [label, label === '经营异常' ? '1' : '0']));
+  const relatedLocating = RELATED_RISK_KEY_FACTORS.map(([, label]) => ({ 维度: label, 命中关联方数: '0', 关联方: [] }));
+  const tools = fakeTools({
+    [QCC_TOOL_NAMES.entityLookup]: async () => success(mcpValue({
+      匹配结果: '唯一精确匹配', 企业信息: { 企业名称: '示例企业', 统一社会信用代码: '9132SELECTED' },
+    })),
+    [QCC_TOOL_NAMES.contact]: async (exec) => success(mcpValue({ 联系方式信息: { 电话: [{ 电话号码: '010-1', 标签: [] }], 邮箱: [], 网址: [] } })),
+    [QCC_TOOL_NAMES.listing]: async () => success(mcpValue({ 股票代码: '000001' })),
+    [QCC_TOOL_NAMES.taxInvoice]: async () => success(mcpValue({ 开户行: '示例银行' })),
+    [QCC_TOOL_NAMES.importExportCredit]: async () => success(mcpValue({ 信用等级: 'A' })),
+    [QCC_TOOL_NAMES.riskScan]: async () => success(mcpValue({ 有记录因子数: 1, 无记录因子数: 34, 风险因子扫描: selfRows })),
+    [QCC_TOOL_NAMES.relatedRiskScan]: async () => success(mcpValue({
+      有风险关联方数: '1', 维度计数汇总: { 重要风险: relatedImportant }, 重点维度关联方定位: relatedLocating,
+    })),
+  });
+  const fieldSelection = [
+    'contact_preferred_phone', 'listing_stock_code', 'invoice_bank', 'import_export_credit_grade',
+    'risk_administrative_penalty_count', 'related_risk_operating_exception_count',
+  ];
+  const result = await new QccHostBridge({ tools, toolWaitMs: 0 }).enrichRows([{ name: '示例企业' }], { fieldSelection });
+  assert.deepEqual(tools.calls.map((call) => call.name), [
+    QCC_TOOL_NAMES.entityLookup, QCC_TOOL_NAMES.contact, QCC_TOOL_NAMES.listing, QCC_TOOL_NAMES.taxInvoice,
+    QCC_TOOL_NAMES.importExportCredit, QCC_TOOL_NAMES.riskScan, QCC_TOOL_NAMES.relatedRiskScan,
+  ]);
+  assert.equal(tools.calls[1].arguments.excludeInvalidPhone, false);
+  assert.equal(result.rows[0].contact_preferred_phone, '010-1');
+  assert.equal(result.rows[0].listing_stock_code, '000001');
+  assert.equal(result.rows[0].invoice_bank, '示例银行');
+  assert.equal(result.rows[0].import_export_credit_grade, 'A');
+  assert.equal(result.rows[0].risk_administrative_penalty_count, 2);
+  assert.equal(result.rows[0].related_risk_operating_exception_count, 1);
+  for (const value of Object.values(result.rows[0])) assert.equal(typeof value === 'object' && value !== null, false);
+});
+
+test('所选工商和画像字段全部落列，国标行业与企查查行业分别映射', async () => {
   const tools = fakeTools({
     [QCC_TOOL_NAMES.entityLookup]: async () => success(mcpValue({
       匹配结果: '唯一精确匹配',
@@ -346,24 +520,26 @@ test('所选工商和画像字段全部落列，企查查行业未声明层级�
       企业名称: '示例企业', 统一社会信用代码: '9132FULL', 登记状态: '存续',
       法定代表人: '李某', 注册资本: '500万元', 成立日期: '2020-01-01',
       注册地址: '北京市朝阳区示例路', 所属地区: '北京市朝阳区', 经营范围: '软件开发',
-      营业期限: '2020-01-01至长期', 人员规模: '100-499人',
+      营业期限: '2020-01-01至长期', 人员规模: '100-499人', 国标行业: '软件和信息技术服务业',
     })),
-    [QCC_TOOL_NAMES.profile]: async () => success(mcpValue({ 简介: '一家软件企业', 企查查行业: 'IT技术服务' })),
+    [QCC_TOOL_NAMES.profile]: async () => success(mcpValue({ 简介: '一家软件企业', 企查查行业: 'IT技术服务', 产业链概览: '软件服务产业链' })),
   });
   const fieldSelection = [
     'credit_no', 'reg_status', 'legal_rep', 'reg_capital', 'establish_date', 'registered_address',
-    'province', 'city', 'business_scope', 'industry_large', 'industry_middle', 'operating_period',
-    'company_size', 'company_profile',
+    'region', 'business_scope', 'industry_category', 'qcc_industry', 'operating_period',
+    'company_size', 'company_profile', 'industry_chain_overview',
   ];
   const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
   const result = await bridge.enrichRows([{ name: '示例企业' }], { fieldSelection });
   assert.deepEqual(Object.keys(result.rows[0]).filter((key) => fieldSelection.includes(key)), fieldSelection);
   assert.equal(result.rows[0].registered_address, '北京市朝阳区示例路');
-  assert.equal(result.rows[0].province, '北京市');
-  assert.equal(result.rows[0].city, '北京市');
+  assert.equal(result.rows[0].region, '北京市朝阳区');
+  assert.equal(result.rows[0].industry_category, '软件和信息技术服务业');
+  assert.equal(result.rows[0].qcc_industry, 'IT技术服务');
   assert.equal(result.rows[0].company_profile, '一家软件企业');
-  assert.equal(result.rows[0].industry_large, '');
-  assert.equal(result.rows[0].industry_middle, '');
+  assert.equal(result.rows[0].industry_chain_overview, '软件服务产业链');
+  assert.equal(Object.hasOwn(result.rows[0], 'industry_large'), false);
+  assert.equal(Object.hasOwn(result.rows[0], 'industry_middle'), false);
   assert.equal(Object.hasOwn(result.rows[0], 'risk_tags'), false);
   assert.equal(tools.calls.filter((call) => call.name === QCC_TOOL_NAMES.profile).length, 1);
 });
@@ -490,6 +666,19 @@ test('批量上限在调用前强制执行', async () => {
   await assert.rejects(
     bridge.enrichRows([{ name: 'A' }, { name: 'B' }], { maxRows: 1 }),
     (error) => error.code === 'QCC_BATCH_TOO_LARGE',
+  );
+  assert.equal(tools.calls.length, 0);
+});
+
+test('调用量上限在任何 QCC 调用前强制执行', async () => {
+  const tools = fakeTools();
+  const bridge = new QccHostBridge({ tools, toolWaitMs: 0 });
+  await assert.rejects(
+    bridge.enrichRows([{ name: 'A' }, { name: 'B' }], {
+      fieldSelection: ['contact_preferred_phone', 'listing_stock_code'],
+      maxCalls: 5,
+    }),
+    (error) => error.code === 'QCC_CALL_BUDGET_EXCEEDED' && error.details.estimatedCalls === 6,
   );
   assert.equal(tools.calls.length, 0);
 });

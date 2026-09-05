@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import XLSX from 'xlsx';
 import { ARTIFACT_STORAGE, WorkflowArtifactStore, deriveExceptionRows } from '../lib/artifacts.js';
+import { FIELD_CATALOG } from '../lib/workflow-contract.js';
 
 function memoryFs() {
   const files = new Map();
@@ -64,8 +65,8 @@ test('补全结果使用中文表头并保留所有已选字段空列', async ()
   });
   const fieldSelection = [
     'credit_no', 'reg_status', 'legal_rep', 'reg_capital', 'establish_date',
-    'registered_address', 'province', 'city', 'business_scope', 'industry_large',
-    'industry_middle', 'operating_period', 'company_size', 'company_profile',
+    'registered_address', 'region', 'business_scope', 'industry_category', 'qcc_industry',
+    'operating_period', 'company_size', 'company_profile', 'industry_chain_overview',
   ];
   const artifacts = await store.createBundle('dcw-cnheader-0001', {
     headers: ['原始企业名称'],
@@ -82,11 +83,36 @@ test('补全结果使用中文表头并保留所有已选字段空列', async ()
   const matrix = XLSX.utils.sheet_to_json(workbook.Sheets['清洗补全结果'], { header: 1, defval: '' });
   assert.deepEqual(matrix[0].slice(0, 15), [
     '原始企业名称', '统一社会信用代码', '登记状态', '法定代表人', '注册资本', '成立日期',
-    '注册地址', '省份地区', '城市', '经营范围', '一级行业', '二级行业', '营业期限', '企业规模', '企业简介',
+    '注册地址', '所属地区', '经营范围', '国标行业', '企查查行业', '营业期限', '人员规模', '企业简介', '产业链概览',
   ]);
   assert.equal(matrix[1][1], '91320594088140947F');
-  assert.equal(matrix[1][10], '');
+  assert.equal(matrix[1][9], '');
   assert.ok(!matrix[0].some((header) => /^(credit_no|legal_rep|reg_capital|establish_date|reg_status)$/.test(header)));
+});
+
+test('第一、二批 98 字段全部使用业务表头并保留标识符文本', async () => {
+  const fs = memoryFs();
+  const store = new WorkflowArtifactStore({
+    fs,
+    idFactory: (() => { let id = 0; return () => `dca-batch-test-${++id}`; })(),
+  });
+  const groups = FIELD_CATALOG.filter((group) => ['batch-1', 'batch-2'].includes(group.releaseBatch));
+  const fieldSelection = groups.flatMap((group) => group.fields.map((field) => field.id));
+  const expectedLabels = groups.flatMap((group) => group.fields.map((field) => field.label));
+  assert.equal(fieldSelection.length, 98);
+  assert.equal(new Set(expectedLabels).size, 98, '导出中文表头不得碰撞');
+  const artifacts = await store.createBundle('dcw-batch-test-0001', {
+    headers: ['原始企业名称'],
+    fieldSelection,
+    rows: [{ 原始企业名称: '示例企业', listing_stock_code: '000001', invoice_bank_account: '0000123' }],
+  });
+  const bytes = await store.read('dcw-batch-test-0001', artifacts.find((item) => item.kind === 'complete' && item.format === 'xlsx'));
+  const workbook = XLSX.read(bytes, { type: 'buffer' });
+  const matrix = XLSX.utils.sheet_to_json(workbook.Sheets['清洗补全结果'], { header: 1, defval: '', raw: true });
+  assert.deepEqual(matrix[0], ['原始企业名称', ...expectedLabels]);
+  assert.equal(matrix[1][matrix[0].indexOf('股票代码')], '000001');
+  assert.equal(matrix[1][matrix[0].indexOf('开户行账号')], '0000123');
+  assert.equal(matrix[0].some((header) => fieldSelection.includes(header)), false);
 });
 
 test('异常判定覆盖候选、未匹配、失败和显式错误', () => {

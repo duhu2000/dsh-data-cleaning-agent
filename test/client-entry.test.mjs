@@ -711,13 +711,13 @@ test('任务描述生成包含主体、清洗项、补全字段、消歧与客�
       fileName: '企业名单.xlsx',
       entries: ['示例科技有限公司 | 91320000TEST'],
       cleaningKeys: ['clean_name', 'deduplicate'],
-      enrichmentKeys: ['credit_no', 'legal_rep', 'risk_summary'],
+      enrichmentKeys: ['credit_no', 'legal_rep', 'qcc_industry'],
       anchorKeys: ['company_name', 'credit_no'],
     });
     assert.match(prompt, /企业名单\.xlsx/);
     assert.match(prompt, /示例科技有限公司/);
     assert.match(prompt, /名称补全与规范、重复企业去重/);
-    assert.match(prompt, /统一社会信用代码、法定代表人、风险摘要/);
+    assert.match(prompt, /统一社会信用代码、法定代表人、企查查行业/);
     assert.match(prompt, /存在多个候选必须暂停/);
     assert.match(prompt, /当前用户自己的账号承担/);
   } finally {
@@ -1165,7 +1165,7 @@ test('T3 匹配核验页使用基础企业 G5 Bridge、调用估算和用户自�
     instance.actions.setStep('match');
     let panel = flattenElement(render(overlayReg.component, {}, instance));
 
-    assert.ok(findNode(panel, (n) => n.children && n.children.includes('企查查基础企业能力')));
+    assert.ok(findNode(panel, (n) => n.children && n.children.includes('企查查一企一行补全能力')));
     assert.ok(findNode(panel, (n) => n.children && n.children.includes('估算调用量')), '必须先估算调用量');
 
     instance.actions.setQccEstimate({ uniqueCompanies: 1, tools: ['a'], estimatedCalls: 2, maxCalls: 500, withinLimit: true });
@@ -1182,6 +1182,36 @@ test('T3 匹配核验页使用基础企业 G5 Bridge、调用估算和用户自�
     assert.doesNotMatch(source, /const runQcc[\s\S]{0,1800}\/data-cleaning\/api\/g5\/enrich/, '工作台不得在 Code Mode 下直接调用动态 MCP');
     assert.doesNotMatch(source.slice(source.indexOf("step === 'match'"), source.indexOf("step === 'enrich'")), /风险信息 · 38/);
     assert.doesNotMatch(source, /确认企查查付费调用/, '不得使用可能暗示插件开发者代付的旧文案');
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('规则页展示 40/58 两批字段并支持按工具维度全选与清空', () => {
+  let loaded;
+  try {
+    loaded = loadClient();
+    let overlayReg = null;
+    const ctx = {
+      effect: () => () => {},
+      slots: {
+        inject: (name, cb) => { if (name === 'shell.overlay') overlayReg = cb(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    loaded.exports.apply(ctx);
+    const instance = overlayReg.options.store.create();
+    instance.actions.open();
+    instance.actions.setStep('rules');
+    const panel = flattenElement(render(overlayReg.component, {}, instance));
+    assert.ok(findNode(panel, (n) => n.children && n.children.includes('第一批 40')));
+    assert.ok(findNode(panel, (n) => n.children && n.children.includes('第二批 58')));
+    const selectAllButtons = [];
+    collectNodes(panel, (n) => n.type === 'button' && n.children?.includes('全选'), selectAllButtons);
+    const clearButtons = [];
+    collectNodes(panel, (n) => n.type === 'button' && n.children?.includes('清空'), clearButtons);
+    assert.equal(selectAllButtons.length, 8);
+    assert.equal(clearButtons.length, 8);
   } finally {
     cleanupGlobals();
   }

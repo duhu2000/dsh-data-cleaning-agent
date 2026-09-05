@@ -40,10 +40,16 @@ test('安全审计事件严格限制字段', () => {
     code: 'QCC_RATE_LIMITED',
     upstreamCode: '429',
     durationMs: 12,
+    catalogVersion: '2026-09-05',
+    missing: ['重要风险:欠税公告'],
+    unknown: ['重点维度:新增维度', '91320100MA1234567X'],
     arguments: { searchKey: '不得出现' },
     data: { raw: '不得出现' },
   });
   assert.equal(JSON.stringify(event).includes('不得出现'), false);
   assert.equal(event.durationMs, 12);
   assert.equal(event.code, 'QCC_RATE_LIMITED');
+  assert.equal(event.catalogVersion, '2026-09-05');
+  assert.deepEqual(event.missing, ['重要风险:欠税公告']);
+  assert.deepEqual(event.unknown, ['重点维度:新增维度', '[CREDIT_NO_REDACTED]']);
 });

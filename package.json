@@ -1,6 +1,6 @@
 {
   "name": "dsh-data-cleaning-agent",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "Clean, complete, and profile enterprise name lists in DeepSeek Harness — a data cleaning & completion agent plugin with local CSV/XLSX/JSON engine and optional Qichacha (QCC) MCP enrichment. Maintained by Qichacha/QCC.",
   "type": "module",
   "main": "lib/index.js",
@@ -35,6 +35,7 @@
     "docs/RELEASE-0.6.1.md",
     "docs/RELEASE-0.6.2.md",
     "docs/RELEASE-0.6.3.md",
+    "docs/RELEASE-0.7.0.md",
     "docs/UI-WORKFLOW-V2.md",
     "docs/UI-WORKFLOW-V2-MIGRATION.md",
     "docs/UI-WORKFLOW-V2-ACCEPTANCE.md",
@@ -43,7 +44,7 @@
   ],
   "scripts": {
     "test": "node --test",
-    "lint": "node --check lib/index.js && node --check lib/engine.js && node --check lib/artifacts.js && node --check lib/tools.js && node --check lib/skill.js && node --check lib/qcc-phase2.js && node --check lib/qcc-phase3.js && node --check lib/qcc-phase3-batch.js && node --check lib/qcc-phase2-acceptance.js && node --check lib/skill-enrich.js && node --check lib/jobs.js && node --check lib/workflow-contract.js && node --check lib/workflow.js && node --check lib/qcc-safety.js && node --check lib/qcc.js && node --check lib/qcc-command.js && node --check lib/qcc-runs.js && node --check lib/web.js && node --check lib/client.js && node --check scripts/check-readme-version.mjs && node --check scripts/check-market-registration.mjs && node --check scripts/g5-e2e.mjs && node --check scripts/phase3-e2e.mjs && node --check scripts/phase2-acceptance.mjs",
+    "lint": "node --check lib/index.js && node --check lib/engine.js && node --check lib/artifacts.js && node --check lib/tools.js && node --check lib/skill.js && node --check lib/qcc-field-catalog.js && node --check lib/qcc-phase2.js && node --check lib/qcc-phase3.js && node --check lib/qcc-phase3-batch.js && node --check lib/qcc-phase2-acceptance.js && node --check lib/skill-enrich.js && node --check lib/jobs.js && node --check lib/workflow-contract.js && node --check lib/workflow.js && node --check lib/qcc-safety.js && node --check lib/qcc.js && node --check lib/qcc-command.js && node --check lib/qcc-runs.js && node --check lib/web.js && node --check lib/client.js && node --check scripts/check-readme-version.mjs && node --check scripts/check-market-registration.mjs && node --check scripts/g5-e2e.mjs && node --check scripts/phase3-e2e.mjs && node --check scripts/phase2-acceptance.mjs",
     "docs:check": "node scripts/check-readme-version.mjs",
     "marketing:check": "node scripts/check-marketing.mjs",
     "verify-pack": "node scripts/verify-pack.mjs",
