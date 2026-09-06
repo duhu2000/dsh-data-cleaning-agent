@@ -23,8 +23,28 @@ try {
     const page = await browser.newPage({ viewport: { width, height }, colorScheme });
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    await page.route('**/data-cleaning/**', (route) => route.fulfill({ json: { tasks: [], jobs: [], contract: {} } }));
-    await page.goto('about:blank');
+    // Real origin for relative fetch; all traffic fulfilled locally, no live DSH/QCC.
+    let fixtureTask = null;
+    const unexpectedRequests = [];
+    await page.route('**/*', async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (url.hostname !== 'dcq-ui.test') { unexpectedRequests.push(request.url()); return route.abort(); }
+      if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' });
+      const base = '/data-cleaning/api/workflow/tasks';
+      if (url.pathname === base && request.method() === 'GET') return route.fulfill({ json: { tasks: fixtureTask ? [fixtureTask] : [] } });
+      if (url.pathname.startsWith(base) && ['POST', 'PATCH'].includes(request.method())) {
+        const data = request.postDataJSON() || {};
+        fixtureTask = { id: 'dcw-ui-fixture', state: 'draft', stage: 'upload', artifacts: [], ...fixtureTask, ...data, revision: (fixtureTask?.revision || 0) + 1 };
+        if (url.pathname.endsWith('/actions/upload')) fixtureTask.state = 'uploaded';
+        return route.fulfill({ json: { task: fixtureTask } });
+      }
+      if (url.pathname === '/data-cleaning/api/workflow/contract') return route.fulfill({ json: { contract: {} } });
+      if (url.pathname === '/data-cleaning/api/mvp/jobs') return route.fulfill({ json: { jobs: [] } });
+      unexpectedRequests.push(request.url());
+      return route.abort();
+    });
+    await page.goto('http://dcq-ui.test/');
     await page.setContent(`<html style="color-scheme:${colorScheme}"><head><style>
       body { margin:0; font:14px system-ui; background:light-dark(#fff,#161b23); color:light-dark(#172033,#edf2fa) }
       #app { min-height:100vh } [data-conversation-scroll] { box-sizing:border-box; padding:24px 12px; min-height:100vh }
@@ -33,6 +53,10 @@ try {
       [data-composer-card] { position:relative; box-sizing:border-box; border:1px solid #8886; border-radius:20px; padding:16px; background:light-dark(#fff,#161b23) }
       #native { width:100%; height:100px; box-sizing:border-box; border:0; resize:none; background:transparent; color:inherit }
       .nativeActions { display:flex; justify-content:space-between } h1 { text-align:center; font-size:24px }
+      .fixture_headline { display:grid; grid-template-columns:34px auto auto; justify-content:center; align-items:center; gap:10px; margin:24px 0 }
+      .fixture_fishHitbox { grid-area:1/1; display:inline-flex }
+      .fixture_headlineText { grid-area:1/2; font-size:26px; font-weight:600 }
+      .fixture_previewBadge { grid-area:1/3 }
     </style></head><body><div id="app"></div></body></html>`);
     await page.addScriptTag({ content: bundled.outputFiles[0].text });
     await page.evaluate(() => { window.__ModuleLoader__ = { load: (registration) => { window.registration = registration; } }; });
@@ -68,7 +92,10 @@ try {
         return h('div', { 'data-conversation-scroll': '' },
           h('div', { 'data-composer-seat': '', 'data-phase': phase === 'blank' ? 'hero' : 'active' },
             h('div', { className: 'fixture_composerStack' },
-              h('h1', null, sessionId === 'fixture' ? '数据清洗补全智能体' : '普通会话'),
+              h('div', { className: 'fixture_headline' },
+                h('span', { className: 'fixture_fishHitbox' }, h('svg', { width: 34, height: 34, 'data-native-logo': true })),
+                h('span', { className: 'fixture_headlineText' }, '探索未至之境'),
+                h('span', { className: 'fixture_previewBadge' }, '预览版')),
               h('div', { 'data-slot': 'conversation.input.dock' },
                 h('div', null, h(Experience, { sessionId, session: { composerPhase: phase } })),
                 h('div', { id: 'foreign' }, '其他插件槽位')),
@@ -88,11 +115,32 @@ try {
     const menu = await page.locator('.dcAgentCapabilityMount').boundingBox();
     assert.ok(menu.y >= card.y + card.height, 'menu must sit below native composer');
     assert.equal(await page.locator('.dcAgentProductHome').count(), 0);
+    await page.locator('.dcAgentHeroLogo').waitFor();
+    const logo = await page.locator('.dcAgentHeroLogo').boundingBox();
+    const title = await page.locator('[data-dc-agent-hero-title]').boundingBox();
+    assert.ok(logo.x + logo.width <= title.x, 'database logo is left of title');
+    assert.ok(Math.abs(logo.y + logo.height / 2 - title.y - title.height / 2) < 2, 'logo and name vertically centered in one row');
+    assert.equal(await page.locator('.fixture_fishHitbox').isVisible(), false);
     await page.screenshot({ path: join(out, `landing-${colorScheme}-${width}x${height}.png`) });
     await page.getByRole('button', { name: '打开提示词生成' }).click();
     const dialog = page.getByRole('dialog', { name: '数据清洗补全任务生成器' });
     await dialog.waitFor();
     await dialog.getByRole('button', { name: '3 清洗与补全' }).click();
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input[type="checkbox"]').count(), 128);
+    const credit = dialog.getByRole('checkbox', { name: '统一社会信用代码', exact: true });
+    await credit.uncheck();
+    assert.equal(await credit.isChecked(), false);
+    await credit.check();
+    assert.equal(await credit.isChecked(), true);
+    const selectedCount = await dialog.locator('.dcAgentPromptFieldGrid input:checked').count();
+    await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill('行业');
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 3);
+    assert.equal(await dialog.getByRole('checkbox', { name: '进出口行业种类', exact: true }).count(), 1);
+    await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill('不存在的字段');
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 0);
+    await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill('');
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input:checked').count(), selectedCount, 'search preserves all selections');
+    assert.equal(await dialog.locator('.dcAgentPromptAction.is-primary').evaluate(el => getComputedStyle(el).backgroundColor), colorScheme === 'light' ? 'rgb(8, 117, 209)' : 'rgb(130, 195, 255)');
     const box = await dialog.boundingBox();
     assert.ok(box.y >= 0 && box.x >= 0 && box.y + box.height <= height + 1 && box.x + box.width <= width + 1);
     const next = await dialog.getByRole('button', { name: '下一步', exact: true }).boundingBox();
@@ -115,14 +163,30 @@ try {
     await page.waitForFunction(() => document.activeElement.id === 'native');
     assert.ok((await page.locator('#native').inputValue()).includes('示例企业乙有限公司'));
     assert.equal(await page.getByRole('button', { name: '发送', exact: true }).isEnabled(), true);
+    const nativeSendStyle = await page.getByRole('button', { name: '发送', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor);
     await page.getByRole('button', { name: '任务历史', exact: true }).click();
     const drawer = page.getByRole('dialog', { name: '数据清洗补全工作台' });
     assert.equal(await drawer.getByRole('navigation', { name: '清洗流程' }).count(), 0);
     await drawer.getByRole('button', { name: '当前任务', exact: true }).click();
     assert.equal(await drawer.getByRole('navigation', { name: '清洗流程' }).getByRole('button').count(), 5);
+    await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'uploaded');
+    assert.equal(await drawer.locator('.dcAgentError').count(), 0, 'fixture Host metadata successfully loaded');
+    assert.equal(await drawer.locator('.dcAgentTable th').first().evaluate(el => getComputedStyle(el).backgroundColor), colorScheme === 'light' ? 'rgb(242, 249, 252)' : 'rgb(23, 44, 59)');
+    await drawer.getByRole('button', { name: '规则与体检', exact: true }).click();
+    const fieldSearch = drawer.getByRole('searchbox', { name: '查找补全字段' });
+    await fieldSearch.fill('行业');
+    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 3);
+    await fieldSearch.fill('');
+    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 128);
+    await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
     if (width > 760) {
       for (const expanded of [false, true]) {
         if (expanded) await drawer.getByRole('button', { name: '展开工作台' }).click();
+        const menuClippedLeft = await page.locator('.dcAgentCapabilities').evaluate(el => {
+          el.scrollLeft = 0;
+          return el.firstElementChild.getBoundingClientRect().left < el.getBoundingClientRect().left - 1;
+        });
+        assert.equal(menuClippedLeft, false, 'narrow desktop menu must scroll from first item, not clip centered overflow');
         const nativeBox = await page.locator('[data-composer-card]').boundingBox();
         const drawerBox = await drawer.boundingBox();
         assert.ok(nativeBox.x + nativeBox.width <= drawerBox.x + 1, JSON.stringify({ reason: 'drawer overlap', width, height, expanded, nativeBox, drawerBox }));
@@ -133,6 +197,9 @@ try {
     await page.screenshot({ path: join(out, `home-${colorScheme}-${width}x${height}.png`) });
     await page.evaluate(() => window.show('fixture', 'active'));
     await page.waitForFunction(() => document.querySelector('.dcAgentCapabilityMount'));
+    await page.locator('.dcAgentHeroLogo').waitFor({ state: 'detached' });
+    assert.equal(await page.locator('.fixture_headlineText').textContent(), '探索未至之境');
+    assert.equal(await page.locator('.fixture_fishHitbox').isVisible(), true);
     assert.equal(await page.locator('.dcAgentCapabilityMount').count(), 1);
     await page.getByRole('button', { name: '打开提示词生成' }).click();
     await dialog.waitFor();
@@ -141,7 +208,11 @@ try {
     assert.equal(await page.locator('.dcAgentPromptTrigger').count(), 0);
     assert.equal(await page.locator('.dcAgentPromptBackdrop').count(), 0);
     assert.equal(await page.locator('#foreign').count(), 1);
+    assert.equal(await page.locator('[data-dc-agent-hero-row]').count(), 0);
+    assert.equal(await page.locator('.fixture_previewBadge').isVisible(), true);
+    assert.equal(await page.getByRole('button', { name: '发送', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor), nativeSendStyle);
     assert.deepEqual(errors, []);
+    assert.deepEqual(unexpectedRequests, [], 'all requests stay inside isolated fixture contract');
     results.push({ colorScheme, width, height, pass: true });
     await page.close();
   }

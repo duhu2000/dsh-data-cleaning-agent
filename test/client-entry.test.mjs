@@ -261,6 +261,7 @@ test('apply() 注册顶部入口、composer 下方能力、提示词生成器、
     assert.ok(slots.has('conversation.input.overlay'), '必须注入提示词生成浮层');
     assert.equal(slots.has('conversation.input.left'), false, '能力按钮不得再放在输入框内部工具行');
     assert.ok(slots.has('conversation.session.header.actions'), '必须注入原生会话头动作');
+    assert.equal(slots.has('conversation.hero.brand.mark'), false, '业务 LOGO 不得占用全局单例品牌槽位');
     assert.ok(slots.has('tool.call.toolview'), '必须注入 tool.call.toolview（模型工具富化卡片）');
 
     const toolviews = slots.get('tool.call.toolview');
@@ -310,7 +311,7 @@ test('apply() 注册顶部入口、composer 下方能力、提示词生成器、
   }
 });
 
-test('入口按钮：wide 显示「🧹 数据清洗补全」，点击只启动中央业务会话', async () => {
+test('入口按钮：数据库图标与业务名称同排，点击只启动中央业务会话', async () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -342,7 +343,9 @@ test('入口按钮：wide 显示「🧹 数据清洗补全」，点击只启动�
     assert.equal(wideEl.props['aria-label'], '数据清洗补全');
     assert.equal(wideEl.props['aria-haspopup'], undefined);
     assert.equal(wideEl.props['aria-expanded'], undefined);
-    assert.deepEqual(wideEl.children, ['🧹 数据清洗补全']);
+    const wideTree = expandElementTree(wideEl);
+    assert.ok(findNode(wideTree, (n) => n.type === 'svg' && n.props.className === 'dcAgentDatabaseLogo'));
+    assert.ok(findNode(wideTree, (n) => n.type === 'span' && n.children?.includes('数据清洗补全')));
 
     await wideEl.props.onClick();
     assert.equal(instance.getSnapshot().open, false, '初始业务页不应强制展开右侧工作台');
@@ -351,7 +354,9 @@ test('入口按钮：wide 显示「🧹 数据清洗补全」，点击只启动�
     assert.equal(started, 1);
 
     const narrowEl = flattenElement(render(component, { wide: false }, instance));
-    assert.deepEqual(narrowEl.children, ['🧹']);
+    const narrowTree = expandElementTree(narrowEl);
+    assert.ok(findNode(narrowTree, (n) => n.type === 'svg'));
+    assert.equal(findNode(narrowTree, (n) => n.type === 'span' && n.children?.includes('数据清洗补全')), null);
     assert.equal(narrowEl.props['aria-expanded'], undefined);
   } finally {
     cleanupGlobals();
@@ -1510,6 +1515,26 @@ test('清洗 hero 在第三方全局标题与尽调 dock 存在时仍保持会�
   } finally {
     cleanupGlobals();
   }
+});
+
+test('字段搜索支持维度、中文字段及工具名，不改变原始目录', () => {
+  try {
+    const { visibleCatalogFields, DatabaseLogo } = loadClient().exports.__testing;
+    const fields = Object.freeze([Object.freeze(['credit_no', '统一社会信用代码']), Object.freeze(['national_industry', '国标行业'])]);
+    const group = Object.freeze(['registration', '企业工商信息', fields, 'get_company_registration_info']);
+    assert.equal(visibleCatalogFields(group, ''), fields);
+    assert.equal(visibleCatalogFields(group, ' 工商 '), fields);
+    assert.equal(visibleCatalogFields(group, 'GET_COMPANY_REGISTRATION'), fields);
+    assert.deepEqual(visibleCatalogFields(group, '行业'), [fields[1]]);
+    assert.deepEqual(visibleCatalogFields(group, 'CREDIT_NO'), [fields[0]]);
+    assert.deepEqual(visibleCatalogFields(group, '不存在'), []);
+    assert.equal(fields.length, 2);
+    const logo = DatabaseLogo({ size: 26 });
+    assert.equal(logo.type, 'svg');
+    assert.equal(logo.props.width, 26);
+    assert.equal(logo.props['aria-hidden'], true);
+    assert.equal(logo.props.stroke, 'currentColor');
+  } finally { cleanupGlobals(); }
 });
 
 test('同一会话并发创建只产生一个 Host taskId，后续写操作保持串行', async () => {
