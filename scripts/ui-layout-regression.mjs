@@ -19,7 +19,7 @@ await mkdir(out, { recursive: true });
 const browser = await chromium.launch({ headless: true, ...(process.env.DCQ_CHROME ? { executablePath: process.env.DCQ_CHROME } : {}) });
 const results = [];
 try {
-  for (const colorScheme of ['light', 'dark']) for (const [width, height] of [[1440, 900], [1024, 768], [390, 700], [900, 500]]) {
+  for (const colorScheme of ['light', 'dark']) for (const [width, height] of [[1440, 900], [1024, 768], [390, 700], [320, 700], [900, 500]]) {
     const page = await browser.newPage({ viewport: { width, height }, colorScheme });
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -169,6 +169,53 @@ try {
     assert.equal(await drawer.getByRole('navigation', { name: '清洗流程' }).count(), 0);
     await drawer.getByRole('button', { name: '当前任务', exact: true }).click();
     assert.equal(await drawer.getByRole('navigation', { name: '清洗流程' }).getByRole('button').count(), 5);
+    const stageNav = drawer.getByRole('navigation', { name: '清洗流程' });
+    async function assertStageNavigation(mode) {
+      const layout = await stageNav.evaluate(nav => {
+        const rect = el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+        return { nav: rect(nav), scrollWidth: nav.scrollWidth, clientWidth: nav.clientWidth,
+          buttons: Array.from(nav.children, button => {
+            const icon = button.querySelector('.dcAgentStepIcon');
+            const label = button.querySelector('.dcAgentStepLabel');
+            return { ...rect(button), icon: rect(icon), label: rect(label),
+              text: button.textContent, name: button.getAttribute('aria-label'),
+              children: button.children.length, svgCount: icon.querySelectorAll('svg').length,
+              separator: getComputedStyle(button).borderRightWidth,
+              active: button.getAttribute('aria-current') === 'step',
+              underline: getComputedStyle(button, '::after').backgroundColor,
+              underlineHeight: getComputedStyle(button, '::after').height };
+          }) };
+      });
+      assert.ok(layout.scrollWidth <= layout.clientWidth, `phase menu must not scroll: ${mode}`);
+      assert.equal(layout.buttons.filter(b => b.active).length, 1);
+      for (const [index, button] of layout.buttons.entries()) {
+        assert.ok(Math.abs(button.width - layout.nav.width / 5) <= 1);
+        assert.ok(Math.abs(button.y - layout.buttons[0].y) <= 1, 'single row');
+        assert.ok(button.x >= layout.nav.x - 1 && button.x + button.width <= layout.nav.x + layout.nav.width + 1);
+        assert.ok(button.icon.y + button.icon.height <= button.label.y, 'icon above label');
+        assert.equal(button.text, button.name, 'no descriptions or numeric prefixes');
+        assert.equal(button.children, 2);
+        assert.equal(button.svgCount, 1);
+        assert.equal(button.separator, index === 4 ? '0px' : '1px');
+        if (button.active) {
+          assert.equal(button.underlineHeight, '3px');
+          assert.equal(button.underline, colorScheme === 'light' ? 'rgb(8, 117, 209)' : 'rgb(130, 195, 255)');
+        }
+      }
+      // Long future labels truncate inside their cell instead of stretching the grid.
+      const stress = await stageNav.evaluate(nav => {
+        const label = nav.querySelector('.dcAgentStepLabel');
+        const original = label.textContent;
+        label.textContent = '超长阶段标题'.repeat(8);
+        const result = { ellipsis: getComputedStyle(label).textOverflow,
+          fits: nav.scrollWidth <= nav.clientWidth, truncated: label.scrollWidth > label.clientWidth };
+        label.textContent = original;
+        return result;
+      });
+      assert.deepEqual(stress, { ellipsis: 'ellipsis', fits: true, truncated: true });
+      await stageNav.screenshot({ path: join(out, `stage-menu-${colorScheme}-${width}x${height}-${mode}.png`) });
+    }
+    await assertStageNavigation('normal');
     await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'uploaded');
     assert.equal(await drawer.locator('.dcAgentError').count(), 0, 'fixture Host metadata successfully loaded');
     assert.equal(await drawer.locator('.dcAgentTable th').first().evaluate(el => getComputedStyle(el).backgroundColor), colorScheme === 'light' ? 'rgb(242, 249, 252)' : 'rgb(23, 44, 59)');
@@ -179,9 +226,16 @@ try {
     await fieldSearch.fill('');
     assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 128);
     await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
+    const beforeNavigation = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
+    for (const name of ['主体匹配', '字段补全', '结果下载', '导入与核验']) {
+      await stageNav.getByRole('button', { name, exact: true }).click();
+      assert.equal(await stageNav.getByRole('button', { name, exact: true }).getAttribute('aria-current'), 'step');
+    }
+    assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask)), beforeNavigation, 'navigation does not mutate or execute Host task');
     if (width > 760) {
       for (const expanded of [false, true]) {
         if (expanded) await drawer.getByRole('button', { name: '展开工作台' }).click();
+        if (expanded) await assertStageNavigation('expanded');
         const menuClippedLeft = await page.locator('.dcAgentCapabilities').evaluate(el => {
           el.scrollLeft = 0;
           return el.firstElementChild.getBoundingClientRect().left < el.getBoundingClientRect().left - 1;

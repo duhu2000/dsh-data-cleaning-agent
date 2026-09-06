@@ -1427,6 +1427,19 @@ test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安�
     const stepButtons = [];
     collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['导入与核验', '规则与体检', '主体匹配', '字段补全', '结果下载'].includes(n.props['aria-label']), stepButtons);
     assert.equal(stepButtons.length, 5, '必须渲染五步 stepper');
+    assert.equal(stepButtons.filter(button => button.props['aria-current'] === 'step').length, 1);
+    for (const button of stepButtons) {
+      const children = button.children.flat(Infinity);
+      assert.equal(children.length, 2, '阶段仅展示图标和短标题，无序号、描述或状态');
+      assert.equal(children[0].props.className, 'dcAgentStepIcon');
+      assert.equal(children[1].props.className, 'dcAgentStepLabel');
+      assert.equal(children[1].children[0], button.props['aria-label']);
+      assert.equal(button.props.title, button.props['aria-label'], '截断时仍能读取完整标题');
+      const icon = findNode(expandElementTree(children[0]), n => n.type === 'svg');
+      assert.ok(icon, '每个阶段都有线性 SVG 图标');
+      assert.equal(icon.props['aria-hidden'], true);
+      assert.ok(findNode(icon, n => n.type === 'path').props.d);
+    }
 
     // 未确认计费前只显示待检测，不触发调用。
     const qccBadge = findNode(panel, (n) => n.props && n.props.title === '仅在当前用户确认使用自己的企查查账号后调用');
