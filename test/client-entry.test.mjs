@@ -10,7 +10,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -386,8 +386,8 @@ test('入口注入使用 sessions.create 显式创建带前缀的独立会话并
     exports.apply(ctx);
     const { startSession } = footerReg.options.inject();
     const sessionId = await startSession();
-    assert.equal(calls.create.cwd, '/synthetic/customer');
-    assert.equal(Object.hasOwn(calls.create, 'workspaceId'), false);
+    assert.equal(calls.create.workspaceId, 'ws-1');
+    assert.equal(Object.hasOwn(calls.create, 'cwd'), false);
     assert.match(sessionId, /^session-dsh-data-cleaning-agent-[0-9a-f-]{36}$/);
     assert.equal(calls.opened, sessionId);
     assert.equal(calls.draft.sessionId, sessionId);
@@ -426,14 +426,116 @@ test('不再依赖 workspaces/uiWorkspace.connectWorkspace，直接创建独立�
     };
     exports.apply(ctx);
     const sessionId = await footerReg.options.inject().startSession();
-    assert.equal(calls.create.cwd, '/synthetic/supplier');
-    assert.equal(Object.hasOwn(calls.create, 'workspaceId'), false);
+    assert.equal(calls.create.workspaceId, 'ws-alpha');
+    assert.equal(Object.hasOwn(calls.create, 'cwd'), false);
     assert.match(sessionId, /^session-dsh-data-cleaning-agent-/);
     assert.equal(calls.opened, sessionId);
     assert.equal(calls.draft.sessionId, sessionId);
   } finally {
     cleanupGlobals();
   }
+});
+
+test('原生 DSH Hero 工作区门：cwd-only 被禁用，workspaceId 创建解除工作区禁用条件', async () => {
+  try {
+    const loaded = loadClient();
+    let entry;
+    const workspace = { workspaceId: 'ws-live', path: '/synthetic/live', title: '工作区', sessionIds: [] };
+    let current;
+    let draft = '';
+    const ctx = {
+      effect: () => () => {},
+      workspaces: { list: { getSnapshot: () => ({ phase: 'ready', items: [workspace] }) } },
+      sessions: {
+        list: { getSnapshot: () => ({ current }) },
+        create: async (opts) => {
+          if (opts.workspaceId === workspace.workspaceId) workspace.sessionIds.push(opts.sessionId);
+          return opts.sessionId;
+        },
+        open: (id) => { current = id; },
+      },
+      get: () => ({ input: { shell: () => ({ setDraft: (text) => { draft = text; } }) } }),
+      slots: {
+        inject: (name, cb) => { if (name === 'sidebar.footer.action') entry = cb(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    };
+    loaded.exports.apply(ctx);
+    // 直接取本机 DSH 真实禁用表达式；CI 使用经源码核对的同一表达式。
+    const dshPath = '/opt/homebrew/lib/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js';
+    const fallback = 'sessionId === void 0 || hero && chipTitle === void 0';
+    const expression = existsSync(dshPath)
+      ? readFileSync(dshPath, 'utf8').match(/const inert = (sessionId === void 0[^;]+);/)[1] : fallback;
+    const inert = new Function('sessionId', 'hero', 'chipTitle', 'return ' + expression);
+    assert.equal(inert('cwd-only-session', true, undefined), true, '复现0.8.4禁用发送');
+    const id = await entry.options.inject().startSession();
+    const chipTitle = workspace.sessionIds.includes(id) ? workspace.title : undefined;
+    assert.equal(inert(id, true, chipTitle), false);
+    assert.ok(draft.trim().length > 0);
+    assert.equal(current, id);
+  } finally { cleanupGlobals(); }
+});
+
+test('新会话 Bridge：不复用空白清洗会话，失败/并发/卸载及其它入口保持隔离', async () => {
+  try {
+    const loaded = loadClient();
+    const { markCleaningSession, isCleaningSession, installSessionOwnershipBridge } = loaded.exports.__testing;
+    let current = 'cleaning-session';
+    let notify;
+    let draft = '用户编辑过的清洗草稿';
+    let creates = 0;
+    let originalCalls = 0;
+    let rejectCreate = false;
+    let resolveCreate;
+    const original = function () { originalCalls++; };
+    const ctx = {
+      workspaces: {
+        startSession: original,
+        list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws', sessionIds: ['cleaning-session'] }] }) },
+      },
+      sessions: {
+        list: { getSnapshot: () => ({ current }), subscribe: (fn) => { notify = fn; return () => {}; } },
+        create: (opts) => {
+          creates++;
+          assert.equal(opts.workspaceId, 'ws');
+          assert.equal(Object.hasOwn(opts, 'sessionId'), false, '普通会话由Host分配ID');
+          if (rejectCreate) return Promise.reject(new Error('synthetic create failure'));
+          return new Promise((resolve) => { resolveCreate = resolve; });
+        },
+        open: (id) => { current = id; notify(); },
+      },
+      get: () => ({ input: { shell: () => ({ snapshot: { draft }, setDraft: (text) => { draft = text; } }) } }),
+    };
+    markCleaningSession(current);
+    const release = installSessionOwnershipBridge(ctx);
+    rejectCreate = true;
+    ctx.workspaces.startSession();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(current, 'cleaning-session');
+    assert.equal(isCleaningSession(current), true);
+    assert.equal(draft, '用户编辑过的清洗草稿');
+    rejectCreate = false;
+    ctx.workspaces.startSession();
+    ctx.workspaces.startSession();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(creates, 2, '连续点击合并同一次创建');
+    resolveCreate('ordinary-session');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(current, 'ordinary-session');
+    assert.equal(isCleaningSession(current), false);
+    ctx.workspaces.startSession();
+    assert.equal(originalCalls, 1, '普通会话仍走原生动作');
+    current = 'cleaning-session';
+    markCleaningSession(current);
+    ctx.workspaces.startSession();
+    await new Promise((resolve) => setImmediate(resolve));
+    ctx.sessions.open('other-agent-session');
+    resolveCreate('late-ordinary-session');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(current, 'other-agent-session', '晚到的创建结果不抢其它智能体页面');
+    release();
+    assert.equal(ctx.workspaces.startSession, original);
+  } finally { cleanupGlobals(); }
 });
 
 test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工作台步骤', () => {

@@ -2,6 +2,16 @@
 
 本文件记录 `dsh-data-cleaning-agent` 的版本变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.8.5] - 2026-09-06
+
+### Fixed
+- 清洗入口恢复使用 workspaceId 创建独立会话，修复仅 cwd 导致 DSH 首页缺少工作区、图片任务回填后发送按钮和模型控件持续禁用的问题。
+- 增加可卸载的新会话兼容 Bridge：仅在清洗业务激活期间通过原生 create/open 创建普通会话，避免复用空白清洗会话；普通会话仍使用原生动作。
+- 创建失败保留原会话和草稿，连续点击合并；等待期间切换其它智能体不被迟到的创建结果抢回页面。
+
+### Tests
+- 增加 DSH 原生 Hero 工作区禁用表达式回归、工作区关联和新会话生命周期测试；这些为代码/契约测试，不等于真实 QCC OCR 已通过。
+
 ## [0.8.4] - 2026-09-06
 
 ### Fixed
