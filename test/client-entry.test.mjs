@@ -621,7 +621,7 @@ test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工�
       session: { composerPhase: 'blank', openState: 'open' },
     }, instance));
     const buttons = [];
-    collectNodes(bar, (n) => n.props && ['上传清洗', '质量体检', '匹配核验', '字段补全', '任务历史'].includes(n.props['aria-label']), buttons);
+    collectNodes(bar, (n) => n.props && ['导入名单', '质量体检', '匹配核验', '字段补全', '任务历史'].includes(n.props['aria-label']), buttons);
     assert.equal(buttons.length, 5);
     const review = buttons.find((button) => button.props['aria-label'] === '匹配核验');
     review.props.onClick();
@@ -663,12 +663,10 @@ test('blank 清洗会话渲染业务首页，普通会话不注入业务内容',
       sessionId: 'cleaning-home',
       session: { composerPhase: 'blank', openState: 'open' },
     }, store));
-    assert.ok(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全产品介绍'));
-    assert.ok(findNode(home, (n) => n.children?.includes('把企业名单变成可核验、可回写的标准数据')));
-    assert.ok(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全工作流'));
-    for (const label of ['任务设置', '上传数据', '规则确认', '质量体检', '数据匹配', '清洗补全', '下载数据']) {
-      assert.ok(findNode(home, (n) => n.children?.includes(label)), `中央业务首页缺少流程：${label}`);
-    }
+    assert.ok(findNode(home, (n) => n.props?.className === 'dcAgentHomeSummary'));
+    assert.equal(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全产品介绍'), null);
+    assert.equal(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全工作流'), null);
+    assert.equal(findNode(home, (n) => n.children?.includes('最近任务')), null);
   } finally {
     cleanupGlobals();
   }
@@ -1197,13 +1195,78 @@ test('提示词生成器解析出的完整表格通过事件桥进入 root 工�
   }
 });
 
-test('UI 位置契约：能力使用 input.dock 并只移动自身 cell，提示词使用官方 overlay', () => {
+test('UI 位置契约：菜单挂载在输入框后，向导触发器仍用官方 overlay', () => {
   assert.match(source, /ctx\.slots\.inject\('conversation\.input\.dock'/);
   assert.match(source, /ctx\.slots\.inject\('conversation\.input\.overlay'/);
   assert.doesNotMatch(source, /ctx\.slots\.inject\('conversation\.input\.left'/);
-  assert.match(source, /\[data-slot="conversation\.input\.dock"\]:has\(\.dcAgentExperience\)/);
+  assert.match(source, /parent.insertBefore\(mount, branch.nextSibling\)/);
+  assert.doesNotMatch(source, /order: 20;/);
   assert.match(source, /\[data-composer-card\]:has\(\.dcAgentPromptTrigger\)/);
   assert.match(source, /rewriteHeroChrome/);
+});
+
+test('菜单 DOM Bridge：嵌套槽位只追加自身容器，幂等且卸载恢复', () => {
+  const previousObserver = globalThis.MutationObserver;
+  try {
+    const { exports } = loadClient();
+    class Element {
+      children = [];
+      parentElement = null;
+      append(node) { node.remove(); node.parentElement = this; this.children.push(node); }
+      remove() {
+        if (this.parentElement) this.parentElement.children = this.parentElement.children.filter((node) => node !== this);
+        this.parentElement = null;
+      }
+      contains(node) { return this === node || this.children.some((child) => child.contains(node)); }
+      get nextSibling() { return this.parentElement?.children[this.parentElement.children.indexOf(this) + 1] || null; }
+      insertBefore(node, before) {
+        node.remove(); node.parentElement = this;
+        const index = this.children.indexOf(before);
+        this.children.splice(index < 0 ? this.children.length : index, 0, node);
+      }
+    }
+    const seat = new Element(), stack = new Element(), shared = new Element(), wrapper = new Element();
+    const marker = new Element(), foreign = new Element(), input = new Element(), card = new Element();
+    seat.append(stack); stack.append(shared); shared.append(wrapper); wrapper.append(marker); shared.append(foreign);
+    stack.append(input); input.append(card);
+    seat.querySelector = () => card;
+    marker.closest = () => seat;
+    document.createElement = () => new Element();
+    let sync, disconnected = false, mount;
+    globalThis.MutationObserver = class {
+      constructor(callback) { sync = callback; }
+      observe() {}
+      disconnect() { disconnected = true; }
+    };
+    const dispose = exports.__testing.installCapabilityMount(marker, (value) => { mount = value; });
+    assert.deepEqual(stack.children, [shared, input, mount]);
+    sync(); sync();
+    assert.equal(stack.children.length, 3);
+    assert.deepEqual(shared.children, [wrapper, foreign]);
+    dispose();
+    assert.ok(disconnected);
+    assert.deepEqual(stack.children, [shared, input]);
+    assert.ok(shared.contains(marker));
+  } finally { globalThis.MutationObserver = previousObserver; cleanupGlobals(); }
+});
+
+test('流程导航拒绝跳过导入、规则与匹配，历史制品无需重新上传即可下载', () => {
+  try {
+    const { exports } = loadClient();
+    const issue = exports.__testing.workflowNavigationIssue;
+    assert.equal(issue('history', null, false), null);
+    assert.match(issue('match', null, false), /载入并核对/);
+    assert.match(issue('match', { state: 'uploaded' }, true), /确认字段映射/);
+    assert.match(issue('match', { state: 'rules_confirmed' }, true), /生成质量体检/);
+    assert.equal(issue('match', { state: 'diagnosed' }, true), null);
+    assert.match(issue('enrich', { state: 'diagnosed', fieldSelection: ['credit_no'] }, true), /确认企业/);
+    assert.equal(issue('enrich', { state: 'diagnosed', fieldSelection: [] }, true), null);
+    assert.equal(issue('enrich', { state: 'diagnosed', objectives: ['deduplicate'], fieldSelection: ['credit_no'] }, true), null, '本地清洗不能因保留默认字段选择被错误阻断');
+    assert.match(issue('enrich', { state: 'diagnosed', objectives: ['validate_identity'], fieldSelection: [] }, true), /确认企业/);
+    assert.equal(issue('download', { artifacts: [{ id: 'saved' }] }, false), null);
+    assert.match(issue('download', { state: 'matched' }, true), /先完成/);
+    assert.equal(issue('download', { state: 'export_ready' }, true), null);
+  } finally { cleanupGlobals(); }
 });
 
 test('顶部入口实现只依赖 sidebar.workspaces data-slot Portal，并保留 footer 降级', () => {
@@ -1357,7 +1420,7 @@ test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安�
 
     // 五步核心工作流；质量体检和历史是横向能力。
     const stepButtons = [];
-    collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['上传数据', '规则确认', '数据匹配', '清洗补全', '下载数据'].includes(n.props['aria-label']), stepButtons);
+    collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['导入与核验', '规则与体检', '主体匹配', '字段补全', '结果下载'].includes(n.props['aria-label']), stepButtons);
     assert.equal(stepButtons.length, 5, '必须渲染五步 stepper');
 
     // 未确认计费前只显示待检测，不触发调用。
@@ -1563,6 +1626,8 @@ test('T3 匹配核验页使用基础企业 G5 Bridge、调用估算和用户自�
     const instance = overlayReg.options.store.create();
     instance.actions.open();
     instance.actions.setStep('match');
+    instance.actions.setDataset({ rowCount: 1, headers: ['name'], preview: [] });
+    instance.actions.setWorkflowTask({ id: 'dcw-match-test', state: 'diagnosed' });
     let panel = flattenElement(render(overlayReg.component, {}, instance));
 
     assert.ok(findNode(panel, (n) => n.children && n.children.includes('企查查一企一行补全能力')));
@@ -1603,6 +1668,7 @@ test('规则页展示 40/58 两批字段并支持按工具维度全选与清空'
     const instance = overlayReg.options.store.create();
     instance.actions.open();
     instance.actions.setStep('rules');
+    instance.actions.setDataset({ rowCount: 1, headers: ['name'], preview: [] });
     const panel = flattenElement(render(overlayReg.component, {}, instance));
     assert.ok(findNode(panel, (n) => n.children && n.children.includes('第一批 40')));
     assert.ok(findNode(panel, (n) => n.children && n.children.includes('第二批 58')));
@@ -1653,7 +1719,7 @@ test('T8 下载页使用 Host 耐久 CSV/XLSX 制品并支持最近任务 taskId
       && findNode(node, (child) => child.children?.includes('待核验')));
     assert.ok(findNode(recoveredEnriched, (node) => node.type === 'b' && node.children?.includes(2)), '重启恢复后应显示 Host 持久化补全计数');
     assert.ok(findNode(recoveredReview, (node) => node.type === 'b' && node.children?.includes(1)), '重启恢复后应显示 Host 持久化待核验计数');
-    assert.match(source, /requestWorkbenchOpen\(task\.stage \|\| 'upload', sessionId, task\)/);
+    assert.match(source, /resumeWorkflowTask\(task\)/);
     assert.match(source, /detail\.task\?\.id/);
     assert.match(source, /\/artifacts\/\$\{encodeURIComponent\(artifact\.id\)\}/);
     assert.doesNotMatch(source, /browser-download:/, '不得继续登记不可恢复的浏览器伪制品引用');

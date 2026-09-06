@@ -31,10 +31,31 @@ jobs:
       - run: npm install --legacy-peer-deps --ignore-scripts --no-audit --no-fund
       - run: npm run check
 
+  ui-layout:
+    name: UI layout (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install --prefix _scratch/ui-deps --ignore-scripts --no-audit --no-fund react@19.2.8 react-dom@19.2.8 esbuild@0.25.12 playwright@1.62.1
+      - run: node _scratch/ui-deps/node_modules/playwright/cli.js install --with-deps chromium
+      - run: npm run test:ui
+        env:
+          DCQ_UI_DEPS: _scratch/ui-deps/node_modules
+          DCQ_PLAYWRIGHT: _scratch/ui-deps/node_modules/playwright
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-layout
+          path: _scratch/ui-layout/
+          retention-days: 7
+
   pr-package:
     name: PR test package
     if: github.event_name == 'pull_request'
-    needs: [test, windows]
+    needs: [test, windows, ui-layout]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
