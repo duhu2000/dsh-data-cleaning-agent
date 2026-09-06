@@ -829,7 +829,7 @@ test('图片向导支持 Composer 粘贴、拖入、缩略图/放大与一次性
   assert.match(source, /可直接在此粘贴图片，或拖入 \/ 选择 PNG、JPEG、WebP/);
 });
 
-for (const intake of ['file', 'clipboard-items']) test(`图片向导 ${intake} 未连 OCR 时保留预览并可完成四步回填`, async () => {
+for (const intake of ['file', 'clipboard-items', 'wizard-text-paste', 'workbench-image']) test(`图片向导 ${intake} 未连 OCR 时保留预览并可完成四步回填`, async () => {
   const previousFetch = globalThis.fetch;
   const effects = [];
   try {
@@ -862,20 +862,33 @@ for (const intake of ['file', 'clipboard-items']) test(`图片向导 ${intake} �
     };
     const removed = [];
     let draft = '';
+    let inputPhase = 'idle';
     const props = {
       sessionId: 'image-feedback', inputActions: { setDraft: (value) => { draft = value; } },
+      getInputSnapshot: () => ({ phase: inputPhase, draft }),
       attachImages: async () => [{ id: 'preview-test', previewUrl: 'blob:preview-test' }],
       removeImage: (_session, image) => { removed.push(image.id); },
     };
     const renderPrompt = () => { cursor = 0; effects.length = 0; return prompt.component(props); };
     let tree = renderPrompt();
     const file = { name: '截图.png', type: 'image/png', size: 8, arrayBuffer: async () => new Uint8Array([137,80,78,71,13,10,26,10]).buffer };
-    if (intake === 'clipboard-items') {
+    if (intake === 'wizard-text-paste') {
+      findNode(tree, (n) => n.props?.['aria-label'] === '打开提示词生成').props.onClick();
+      tree = renderPrompt();
+    }
+    if (intake === 'workbench-image') {
+      const cleanup = effects.map((effect) => effect());
+      try {
+        assert.equal(loaded.exports.__testing.requestPromptImage('other-session', file), false);
+        assert.equal(loaded.exports.__testing.requestPromptImage('image-feedback', file), true);
+        await new Promise((resolve) => setImmediate(resolve));
+      } finally { for (const stop of cleanup) if (typeof stop === 'function') stop(); }
+    } else if (intake === 'clipboard-items' || intake === 'wizard-text-paste') {
       const cleanup = effects.map((effect) => effect());
       let prevented = false;
       try {
         window.dispatchEvent({ type: 'paste', clipboardData: { files: [], items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }] },
-          target: { closest: () => ({}) }, preventDefault: () => { prevented = true; }, stopImmediatePropagation() {} });
+          target: { closest: (selector) => selector === '.dcAgentWorkbench' ? null : ({}) }, preventDefault: () => { prevented = true; }, stopImmediatePropagation() {} });
         await new Promise((resolve) => setImmediate(resolve));
         assert.equal(prevented, true);
       } finally { for (const stop of cleanup) if (typeof stop === 'function') stop(); }
@@ -895,11 +908,90 @@ for (const intake of ['file', 'clipboard-items']) test(`图片向导 ${intake} �
       tree = renderPrompt();
       assert.ok(findNode(tree, (n) => n.props?.['aria-current'] === 'step' && n.props?.key === String(step + 1)));
     }
+    inputPhase = 'submitting';
+    findNode(tree, (n) => n.type === 'button' && n.children?.includes('回填到对话框')).props.onClick();
+    assert.equal(draft, '', '输入机提交中不得回填或释放附件');
+    assert.deepEqual(removed, []);
+    tree = renderPrompt();
+    assert.ok(findNode(tree, (n) => n.children?.some((child) => typeof child === 'string' && child.includes('当前对话正在提交'))));
+    inputPhase = 'idle';
     findNode(tree, (n) => n.type === 'button' && n.children?.includes('回填到对话框')).props.onClick();
     assert.match(draft, /dci-test/);
     assert.match(draft, /补全/);
     assert.deepEqual(removed, ['preview-test'], '只在回填时释放模型附件');
     assert.equal(requests.length, 1, '选图与回填只暂存一次，不执行 OCR');
+  } finally { globalThis.fetch = previousFetch; cleanupGlobals(); }
+});
+
+test('图片路径不能作为企业名单回填，正常公司名称不受影响', () => {
+  try {
+    const loaded = loadClient();
+    const { isImagePathEntry } = loaded.exports.__testing;
+    for (const path of ['/private/var/tmp/modlens-dsh-paste/p-123/paste.png', '/Users/qcc/Downloads/截图.jpeg',
+      'file:///Users/qcc/Downloads/image.webp', 'C:\\Users\\qcc\\image.png']) assert.equal(isImagePathEntry(path), true, path);
+    assert.equal(isImagePathEntry('深圳奥雅设计股份有限公司'), false);
+    assert.equal(isImagePathEntry('91110108MA01LUR06B'), false);
+    const react = loaded.requireShim('react');
+    const states = [];
+    let cursor = 0;
+    react.useState = (initial) => {
+      const index = cursor++;
+      if (!(index in states)) states[index] = initial;
+      return [states[index], (value) => { states[index] = typeof value === 'function' ? value(states[index]) : value; }];
+    };
+    let prompt;
+    loaded.exports.apply({ effect: () => () => {}, slots: {
+      inject: (name, cb) => { if (name === 'conversation.input.overlay') prompt = cb(); return () => {}; },
+      register: (options, component) => ({ options, component }),
+    } });
+    loaded.exports.__testing.markCleaningSession('path-guard');
+    const draw = () => {
+      cursor = 0;
+      return prompt.component({ sessionId: 'path-guard', inputActions: { setDraft: () => assert.fail('路径不得回填') } });
+    };
+    let tree = draw();
+    findNode(tree, (n) => n.props?.['aria-label'] === '打开提示词生成').props.onClick();
+    tree = draw();
+    findNode(tree, (n) => n.type === 'textarea').props.onChange({ target: { value: '/private/tmp/paste.png' } });
+    tree = draw();
+    findNode(tree, (n) => n.children?.includes('下一步')).props.onClick();
+    tree = draw();
+    assert.ok(findNode(tree, (n) => n.children?.some((child) => typeof child === 'string' && child.includes('检测到图片文件路径'))));
+    assert.ok(findNode(tree, (n) => n.props?.['aria-current'] === 'step' && n.props?.key === '1'));
+  } finally { cleanupGlobals(); }
+});
+
+test('工作台图片文件转交同会话向导，接收失败保留工作台', async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    const loaded = loadClient();
+    let overlay;
+    loaded.exports.apply({ effect: () => () => {}, slots: {
+      inject: (name, cb) => { if (name === 'shell.overlay') overlay = cb(); return () => {}; },
+      register: (options, component) => ({ options, component }),
+    } });
+    const store = overlay.options.store.create();
+    store.actions.setActiveSession('drawer-image');
+    store.actions.open();
+    globalThis.fetch = () => assert.fail('图片不能进入表格 API');
+    const draw = () => flattenElement(render(overlay.component, {}, store));
+    let tree = draw();
+    let picker = findNode(tree, (n) => n.props?.['aria-label'] === '选择数据文件');
+    assert.match(picker.props.accept, /image\/png/);
+    const file = { name: '名单.png', type: 'image/png' };
+    await picker.props.onChange({ target: { files: [file], value: '' } });
+    assert.equal(store.getSnapshot().open, true, '没有同会话向导时不能静默关闭');
+    let received;
+    document.addEventListener('dsh:data-cleaning-prompt-image', (event) => {
+      received = event.detail;
+      event.preventDefault();
+    });
+    tree = draw();
+    picker = findNode(tree, (n) => n.props?.['aria-label'] === '选择数据文件');
+    await picker.props.onChange({ target: { files: [file], value: '' } });
+    assert.equal(received.sessionId, 'drawer-image');
+    assert.equal(received.file, file);
+    assert.equal(store.getSnapshot().open, false);
   } finally { globalThis.fetch = previousFetch; cleanupGlobals(); }
 });
 
