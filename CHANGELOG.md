@@ -2,6 +2,11 @@
 
 本文件记录 `dsh-data-cleaning-agent` 的版本变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.8.3] - 2026-09-06
+
+### Fixed
+- 「新会话」不再复用数据清洗入口的空白会话：入口从 `sessions.create({ workspaceId, sessionId })` 改为 `sessions.create({ cwd, sessionId })`，仅以工作区路径创建、不再挂进工作区 `sessionIds`，DSH「新会话」的空白会话复用因此跳过它，恢复默认 DSH 标准页；只有点击「数据清洗补全」才进入带标题的工作台初始页。
+
 ## [0.8.2] - 2026-09-06
 
 ### Fixed

@@ -368,7 +368,7 @@ test('入口注入使用 sessions.create 显式创建带前缀的独立会话并
     const ctx = {
       effect: () => () => {},
       workspaces: {
-        list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-1', sessionIds: ['old'] }], recentWorkspaceId: 'ws-1' }) },
+        list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-1', path: '/synthetic/customer', sessionIds: ['old'] }], recentWorkspaceId: 'ws-1' }) },
       },
       sessions: {
         list: { getSnapshot: () => ({ current: 'old' }) },
@@ -386,7 +386,8 @@ test('入口注入使用 sessions.create 显式创建带前缀的独立会话并
     exports.apply(ctx);
     const { startSession } = footerReg.options.inject();
     const sessionId = await startSession();
-    assert.equal(calls.create.workspaceId, 'ws-1');
+    assert.equal(calls.create.cwd, '/synthetic/customer');
+    assert.equal(Object.hasOwn(calls.create, 'workspaceId'), false);
     assert.match(sessionId, /^session-dsh-data-cleaning-agent-[0-9a-f-]{36}$/);
     assert.equal(calls.opened, sessionId);
     assert.equal(calls.draft.sessionId, sessionId);
@@ -410,7 +411,7 @@ test('不再依赖 workspaces/uiWorkspace.connectWorkspace，直接创建独立�
       effect: () => () => {},
       workspaces: {
         // 刻意不提供 connectWorkspace，验证独立会话创建不再依赖它
-        list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-alpha', sessionIds: [] }] }) },
+        list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-alpha', path: '/synthetic/supplier', sessionIds: [] }] }) },
       },
       sessions: {
         list: { getSnapshot: () => ({ current: undefined }) },
@@ -425,7 +426,8 @@ test('不再依赖 workspaces/uiWorkspace.connectWorkspace，直接创建独立�
     };
     exports.apply(ctx);
     const sessionId = await footerReg.options.inject().startSession();
-    assert.equal(calls.create.workspaceId, 'ws-alpha');
+    assert.equal(calls.create.cwd, '/synthetic/supplier');
+    assert.equal(Object.hasOwn(calls.create, 'workspaceId'), false);
     assert.match(sessionId, /^session-dsh-data-cleaning-agent-/);
     assert.equal(calls.opened, sessionId);
     assert.equal(calls.draft.sessionId, sessionId);

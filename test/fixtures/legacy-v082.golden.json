@@ -1,0 +1,576 @@
+{
+  "baseline": "ee8dafb / v0.8.2; cwd user patch preserved",
+  "cases": [
+    {
+      "id": "csv-1",
+      "input": "",
+      "expected": {
+        "headers": [],
+        "rows": []
+      }
+    },
+    {
+      "id": "csv-2",
+      "input": "﻿企业名称,备注\n合成企业甲,",
+      "expected": {
+        "headers": [
+          "企业名称",
+          "备注"
+        ],
+        "rows": [
+          {
+            "企业名称": "合成企业甲",
+            "备注": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-3",
+      "input": "A,B\r\n1,2\r\n",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "1",
+            "B": "2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-4",
+      "input": "A,B\r1,2",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "1",
+            "B": "2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-5",
+      "input": "A,B\n\"x,y\",\"a\"\"b\"",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "x,y",
+            "B": "a\"b"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-6",
+      "input": "A,B\n\"x\ny\",z",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "x\ny",
+            "B": "z"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-7",
+      "input": "A,B\n1",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "1",
+            "B": ""
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-8",
+      "input": "A,B\n1,2,3",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "1",
+            "B": "2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-9",
+      "input": ",B\nx,y",
+      "expected": {
+        "headers": [
+          "col_1",
+          "B"
+        ],
+        "rows": [
+          {
+            "col_1": "x",
+            "B": "y"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-10",
+      "input": "A,A\nx,y",
+      "expected": {
+        "headers": [
+          "A",
+          "A"
+        ],
+        "rows": [
+          {
+            "A": "y"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-11",
+      "input": " A , B \n x , y ",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": " x ",
+            "B": " y "
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-12",
+      "input": "A,B\n,\n1,2",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "1",
+            "B": "2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-13",
+      "input": "A\n\"unterminated",
+      "expected": {
+        "headers": [
+          "A"
+        ],
+        "rows": [
+          {
+            "A": "unterminated"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-14",
+      "input": "A,B\n=1+1,@sample",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "=1+1",
+            "B": "@sample"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-15",
+      "input": "A\n00123",
+      "expected": {
+        "headers": [
+          "A"
+        ],
+        "rows": [
+          {
+            "A": "00123"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-16",
+      "input": "A\n😀",
+      "expected": {
+        "headers": [
+          "A"
+        ],
+        "rows": [
+          {
+            "A": "😀"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-17",
+      "input": "A\n0",
+      "expected": {
+        "headers": [
+          "A"
+        ],
+        "rows": [
+          {
+            "A": "0"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-18",
+      "input": "A\nfalse",
+      "expected": {
+        "headers": [
+          "A"
+        ],
+        "rows": [
+          {
+            "A": "false"
+          }
+        ]
+      }
+    },
+    {
+      "id": "csv-19",
+      "input": "A\n\t",
+      "expected": {
+        "headers": [
+          "A"
+        ],
+        "rows": []
+      }
+    },
+    {
+      "id": "csv-20",
+      "input": "A,B\n\"\",x",
+      "expected": {
+        "headers": [
+          "A",
+          "B"
+        ],
+        "rows": [
+          {
+            "A": "",
+            "B": "x"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mapping",
+      "expected": [
+        {
+          "sourceField": "企业名称",
+          "targetField": "company_name"
+        }
+      ]
+    },
+    {
+      "id": "qcc-plan",
+      "expected": {
+        "uniqueCompanies": 2,
+        "sourceTools": [
+          "get_company_registration_info"
+        ],
+        "callsPerCompany": 2,
+        "estimatedCalls": 4
+      }
+    },
+    {
+      "id": "qcc-safety",
+      "expected": {
+        "code": "QCC_TOOL_NOT_ALLOWED",
+        "calls": 0
+      }
+    },
+    {
+      "id": "artifacts",
+      "expected": [
+        {
+          "kind": "complete",
+          "format": "csv",
+          "fileName": "合成客户台账.csv",
+          "content": "﻿企业名称,法定代表人,匹配状态\r\n合成企业甲,,exact\r\n合成企业乙,合成人员乙,candidate"
+        },
+        {
+          "kind": "complete",
+          "format": "xlsx",
+          "fileName": "合成客户台账.xlsx",
+          "content": [
+            {
+              "企业名称": "合成企业甲",
+              "法定代表人": "",
+              "匹配状态": "exact"
+            },
+            {
+              "企业名称": "合成企业乙",
+              "法定代表人": "合成人员乙",
+              "匹配状态": "candidate"
+            }
+          ]
+        },
+        {
+          "kind": "review",
+          "format": "csv",
+          "fileName": "合成客户台账-异常清单.csv",
+          "content": "﻿企业名称,法定代表人,匹配状态,异常原因\r\n合成企业乙,合成人员乙,candidate,存在多个候选主体，需人工核验"
+        },
+        {
+          "kind": "review",
+          "format": "xlsx",
+          "fileName": "合成客户台账-异常清单.xlsx",
+          "content": [
+            {
+              "企业名称": "合成企业乙",
+              "法定代表人": "合成人员乙",
+              "匹配状态": "candidate",
+              "异常原因": "存在多个候选主体，需人工核验"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "contract": {
+    "tools": {
+      "oauthConnect": "qcc_oauth_connect",
+      "oauthStatus": "qcc_oauth_status",
+      "entityLookup": "mcp__qcc-company__get_company_by_query",
+      "registration": "mcp__qcc-company__get_company_registration_info",
+      "profile": "mcp__qcc-company__get_company_profile",
+      "contact": "mcp__qcc-company__get_contact_info",
+      "listing": "mcp__qcc-company__get_listing_info",
+      "taxInvoice": "mcp__qcc-company__get_tax_invoice_info",
+      "importExportCredit": "mcp__qcc-operation__get_import_export_credit",
+      "riskScan": "mcp__qcc-risk__get_company_risk_scan",
+      "relatedRiskScan": "mcp__qcc-risk__get_company_related_risk_scan"
+    },
+    "fields": {
+      "company_name": "企业名称",
+      "credit_no": "统一社会信用代码",
+      "reg_no": "注册号",
+      "org_no": "组织机构代码",
+      "tax_no": "纳税人识别号",
+      "reg_status": "登记状态",
+      "legal_rep": "法定代表人",
+      "reg_capital": "注册资本",
+      "paid_capital": "实缴资本",
+      "establish_date": "成立日期",
+      "company_type": "企业类型",
+      "approval_date": "核准日期",
+      "registration_authority": "登记机关",
+      "taxpayer_qualification": "纳税人资质",
+      "payment_line_no": "支付系统行号",
+      "import_export_company_code": "进出口企业代码",
+      "short_name": "企业简称",
+      "english_name": "英文名",
+      "registered_address": "注册地址",
+      "mailing_address": "通信地址",
+      "region": "所属地区",
+      "business_scope": "经营范围",
+      "industry_category": "国标行业",
+      "operating_period": "营业期限",
+      "company_size": "人员规模",
+      "insured_count": "参保人数",
+      "branch_insured_count": "分支机构参保人数",
+      "qcc_industry": "企查查行业",
+      "company_profile": "企业简介",
+      "industry_chain_overview": "产业链概览",
+      "contact_preferred_phone": "首选联系电话",
+      "contact_phone_invalid_flag": "首选电话无效标记",
+      "contact_phone_tags": "首选电话标签",
+      "contact_preferred_email": "首选邮箱",
+      "contact_official_website": "官方网站",
+      "contact_official_website_icp": "官网 ICP 备案",
+      "listing_date": "上市日期",
+      "listing_short_name": "股票简称",
+      "listing_stock_code": "股票代码",
+      "listing_exchange": "上市交易所",
+      "listing_board": "上市板块",
+      "listing_former_short_name": "上市曾用名",
+      "listing_total_market_value": "总市值",
+      "listing_total_shares": "总股本",
+      "listing_predicted_pe": "预测市盈率",
+      "listing_float_market_value": "流通值",
+      "listing_float_shares": "流通股",
+      "listing_pb_ratio": "市净率",
+      "listing_eps": "EPS",
+      "listing_voting_rights_difference": "表决权差异",
+      "listing_registration_based": "是否注册制",
+      "tax_company_name": "税务主体名称",
+      "tax_identification_no": "税务纳税人识别号",
+      "tax_company_type": "税务企业类型",
+      "tax_business_status": "税务经营状态",
+      "invoice_address": "开票地址",
+      "invoice_phone": "开票联系电话",
+      "invoice_bank": "开户行",
+      "invoice_bank_account": "开户行账号",
+      "import_export_credit_no": "进出口统一社会信用代码",
+      "import_export_customs": "所在地海关",
+      "import_export_admin_division": "进出口行政区划",
+      "import_export_address": "进出口备案地址",
+      "import_export_economic_area": "经济区划",
+      "import_export_trade_type": "经营类别",
+      "import_export_statistical_economic_area": "统计经济区划",
+      "import_export_industry": "进出口行业种类",
+      "import_export_ecommerce_type": "跨境贸易电子商务类型",
+      "import_export_credit_grade": "海关信用等级",
+      "import_export_filing_date": "进出口备案日期",
+      "risk_recorded_factor_count": "风险有记录因子数",
+      "risk_no_record_factor_count": "风险无记录因子数",
+      "risk_hit_summary": "企业自身风险命中摘要",
+      "risk_dishonest_count": "失信信息条目数",
+      "risk_judgment_debtor_count": "被执行人条目数",
+      "risk_consumption_restriction_count": "限制高消费条目数",
+      "risk_terminated_case_count": "终本案件条目数",
+      "risk_judicial_document_count": "裁判文书条目数",
+      "risk_case_filing_count": "立案信息条目数",
+      "risk_hearing_announcement_count": "开庭公告条目数",
+      "risk_court_announcement_count": "法院公告条目数",
+      "risk_service_notice_count": "送达公告条目数",
+      "risk_bankruptcy_reorganization_count": "破产重整条目数",
+      "risk_equity_freeze_count": "股权冻结条目数",
+      "risk_judicial_auction_count": "司法拍卖条目数",
+      "risk_valuation_inquiry_count": "询价评估条目数",
+      "risk_pre_litigation_mediation_count": "诉前调解条目数",
+      "risk_exit_restriction_count": "限制出境条目数",
+      "risk_administrative_penalty_count": "行政处罚条目数",
+      "risk_operating_exception_count": "经营异常条目数",
+      "risk_serious_violation_count": "严重违法条目数",
+      "risk_environmental_penalty_count": "环保处罚条目数",
+      "risk_abnormal_taxpayer_count": "税务非正常户条目数",
+      "risk_tax_arrears_count": "欠税公告条目数",
+      "risk_tax_violation_count": "税收违法条目数",
+      "risk_disciplinary_list_count": "惩戒名单条目数",
+      "risk_default_matter_count": "违约事项条目数",
+      "risk_guarantee_count": "担保信息条目数",
+      "risk_equity_pledge_registration_count": "股权出质条目数",
+      "risk_stock_pledge_count": "股权质押条目数",
+      "risk_chattel_mortgage_count": "动产抵押条目数",
+      "risk_land_mortgage_count": "土地抵押条目数",
+      "risk_simple_cancellation_count": "简易注销条目数",
+      "risk_cancellation_filing_count": "注销备案条目数",
+      "risk_liquidation_count": "清算信息条目数",
+      "risk_labor_arbitration_count": "劳动仲裁条目数",
+      "risk_public_notice_count": "公示催告条目数",
+      "risk_property_reward_notice_count": "财产悬赏公告条目数",
+      "related_risk_party_count": "有风险关联方数",
+      "related_risk_summary": "企业关联风险摘要",
+      "related_risk_dishonest_count": "关联风险-失信被执行人条目数",
+      "related_risk_judgment_debtor_count": "关联风险-被执行人条目数",
+      "related_risk_consumption_restriction_count": "关联风险-限制高消费条目数",
+      "related_risk_serious_violation_count": "关联风险-严重违法条目数",
+      "related_risk_tax_violation_count": "关联风险-税收违法条目数",
+      "related_risk_administrative_penalty_count": "关联风险-行政处罚条目数",
+      "related_risk_bankruptcy_reorganization_count": "关联风险-破产重整条目数",
+      "related_risk_terminated_case_count": "关联风险-终本案件条目数",
+      "related_risk_equity_freeze_count": "关联风险-股权冻结条目数",
+      "related_risk_tax_arrears_count": "关联风险-欠税公告条目数",
+      "related_risk_operating_exception_count": "关联风险-经营异常条目数",
+      "related_risk_dishonest_party_count": "关联风险-失信被执行人命中关联方数",
+      "related_risk_serious_violation_party_count": "关联风险-严重违法命中关联方数",
+      "related_risk_bankruptcy_reorganization_party_count": "关联风险-破产重整命中关联方数",
+      "related_risk_tax_violation_party_count": "关联风险-税收违法命中关联方数",
+      "related_risk_judgment_debtor_party_count": "关联风险-被执行人命中关联方数",
+      "related_risk_terminated_case_party_count": "关联风险-终本案件命中关联方数",
+      "related_risk_equity_freeze_party_count": "关联风险-股权冻结命中关联方数"
+    },
+    "stages": [
+      {
+        "id": "upload",
+        "label": "上传数据",
+        "order": 1
+      },
+      {
+        "id": "rules",
+        "label": "规则确认",
+        "order": 2
+      },
+      {
+        "id": "match",
+        "label": "数据匹配",
+        "order": 3
+      },
+      {
+        "id": "enrich",
+        "label": "清洗补全",
+        "order": 4
+      },
+      {
+        "id": "download",
+        "label": "下载数据",
+        "order": 5
+      }
+    ],
+    "states": [
+      "draft",
+      "uploaded",
+      "rules_confirmed",
+      "diagnosed",
+      "matching",
+      "review_required",
+      "matched",
+      "enriching",
+      "export_ready",
+      "completed",
+      "parse_failed",
+      "authorization_required",
+      "partial",
+      "failed",
+      "cancelled"
+    ],
+    "unchanged": {
+      "lib/tools.js": "b85f7946b4bef881b987ee0fb625c94e7bfdfbbe5498e36f09aeddfea2f1d4bb",
+      "lib/skill.js": "508608f1fdecd29bb80f2698c3e40f613bb5af4fa83b9893bb0faef1730b83f8",
+      "lib/skill-enrich.js": "c5f64963d9b50846f2e09c519c125ba68ed61187161adc7263a5f3e36176aea9",
+      "lib/web.js": "d24cddf46aaf41661e9708a968add61c5c51fb92c7cea0d08c9086cceb746e6a",
+      "lib/workflow.js": "9fc532efb6ee611c8b7ff873c26ac3d894e7761bd59c354a934d8712f7ad8a93",
+      "lib/workflow-contract.js": "f2df875c44717aa2c2882e95a3e729ffa7eea87db4fc5d9bc7829b11bce247a4",
+      "lib/artifacts.js": "45e54bacacd03ce1c05c1c378b321e1687c68916d35df182b0fc8b52f5069126",
+      "lib/qcc.js": "be6e984eb640b4f8239e9550837d76ba564f9f6d8cd91f1bf9821fa528b51ad4",
+      "lib/qcc-safety.js": "08699143be7e18a5b81060b083b70d980560a6687450788ecff92e5656494f90",
+      "lib/qcc-field-catalog.js": "1016a08b509c013c499e8bf73304a0d5dd836579a480fed96af94d82e881f2d7",
+      "cordis.patch.yml": "c61bc81f1c4196a8b127853cfbb350680f3f51bbbb4bc2fc267a23961ecbe3b6"
+    }
+  }
+}
