@@ -302,6 +302,30 @@ test('图片名单路由只暂存原图，Agent-owned 高层工具识别后可�
   app.dispose();
 });
 
+test('图片路由未连接 OCR 仍返回可用暂存任务与连接提示，取消清理且零调用', async () => {
+  const app = harness({ omitDefinitions: QCC_DOCUMENT_LOCAL_TOOL_PAIRS.map((pair) => pair.parse) });
+  try {
+    const route = app.routes.get('/data-cleaning/api/images/commands');
+    const prepared = responseRecorder();
+    await route(request({ method: 'POST', url: '/data-cleaning/api/images/commands', body: {
+      fileName: '截图.png', content: Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), Buffer.alloc(24)]).toString('base64'),
+    } }), prepared);
+    assert.equal(prepared.status, 201);
+    const command = prepared.json().command;
+    assert.equal(command.state, 'prepared');
+    assert.equal(command.providerReady, false);
+    assert.match(command.providerIssue.message, /qcc-document-mcp/);
+    assert.match(command.prompt, new RegExp(command.commandId));
+    const deleted = responseRecorder();
+    await route(request({ method: 'DELETE', url: `/data-cleaning/api/images/commands/${command.commandId}` }), deleted);
+    assert.equal(deleted.status, 200);
+    const missing = responseRecorder();
+    await route(request({ url: `/data-cleaning/api/images/commands/${command.commandId}` }), missing);
+    assert.equal(missing.status, 404);
+    assert.equal(app.calls.length, 0);
+  } finally { app.dispose(); }
+});
+
 test('G5 Agent command 只在 Host 暂存名单，Agent-owned 工具执行时才调用 QCC', async () => {
   const app = harness();
   const blocked = responseRecorder();

@@ -2,7 +2,13 @@
 
 本文件记录 `dsh-data-cleaning-agent` 的版本变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [0.8.2] - 2026-09-06
+
+### Fixed
+- 单一会话所有权：入口改用 `sessions.create({ workspaceId, sessionId })` 显式创建带 `session-dsh-data-cleaning-agent-` 前缀的独立原生会话，不再复用空白会话（否则会与「招投标」「访前尽调」共享同一会话，导致标题与右侧工作台面板归属冲突）。
+- 图片暂存与 OCR 连接检查解耦：尚未连接本地文档解析时仍显示缩略图，允许继续选规则、字段并生成完整说明；执行 OCR 时仍严格检查连接，不调用远端 URL 接口读取本地文件。
+- 图片连接状态随轮询更新；15 分钟暂存期内补齐连接后可直接使用原图片任务。
+- Composer 和向导图片粘贴同时兼容剪贴板 `files` 与 `items`，拖入共用相同取图逻辑。
 
 ## [0.8.1] - 2026-09-05
 

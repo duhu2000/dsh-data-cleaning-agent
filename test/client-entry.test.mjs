@@ -358,21 +358,21 @@ test('入口按钮：wide 显示「🧹 数据清洗补全」，点击只启动�
   }
 });
 
-test('入口注入使用 DSH 工作区/会话/输入机打开中央原生会话并预填提示词', async () => {
+test('入口注入使用 sessions.create 显式创建带前缀的独立会话并预填提示词', async () => {
   let loaded;
   try {
     loaded = loadClient();
     const { exports } = loaded;
     let footerReg = null;
-    const calls = { workspace: null, draft: null, opened: null };
+    const calls = { create: null, draft: null, opened: null };
     const ctx = {
       effect: () => () => {},
       workspaces: {
         list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-1', sessionIds: ['old'] }], recentWorkspaceId: 'ws-1' }) },
-        connectWorkspace: async (workspaceId) => { calls.workspace = workspaceId; return 'session-cleaning-2'; },
       },
       sessions: {
         list: { getSnapshot: () => ({ current: 'old' }) },
+        create: async (opts) => { calls.create = opts; return opts.sessionId; },
         open: (sessionId) => { calls.opened = sessionId; },
       },
       get: (name) => name === 'conversation' ? {
@@ -386,43 +386,38 @@ test('入口注入使用 DSH 工作区/会话/输入机打开中央原生会话�
     exports.apply(ctx);
     const { startSession } = footerReg.options.inject();
     const sessionId = await startSession();
-    assert.equal(sessionId, 'session-cleaning-2');
-    assert.equal(calls.workspace, 'ws-1');
-    assert.equal(calls.opened, 'session-cleaning-2');
-    assert.equal(calls.draft.sessionId, 'session-cleaning-2');
+    assert.equal(calls.create.workspaceId, 'ws-1');
+    assert.match(sessionId, /^session-dsh-data-cleaning-agent-[0-9a-f-]{36}$/);
+    assert.equal(calls.opened, sessionId);
+    assert.equal(calls.draft.sessionId, sessionId);
     assert.match(calls.draft.text, /提示词生成/);
   } finally {
     cleanupGlobals();
   }
 });
 
-test('alpha.2 兼容 Bridge 使用 uiWorkspace.connectWorkspace，不依赖纯 workspaces controller', async () => {
+test('不再依赖 workspaces/uiWorkspace.connectWorkspace，直接创建独立会话', async () => {
   let loaded;
   try {
     loaded = loadClient();
     const { exports } = loaded;
     let footerReg = null;
-    const calls = { workspace: null, fallbackCreates: 0, draft: null, opened: null };
+    const calls = { create: null, draft: null, opened: null };
     const conversation = {
       input: { shell: (sessionId) => ({ setDraft: (text) => { calls.draft = { sessionId, text }; } }) },
-    };
-    const uiWorkspace = {
-      connectWorkspace: async (workspaceId) => {
-        calls.workspace = workspaceId;
-        return 'session-alpha-2';
-      },
     };
     const ctx = {
       effect: () => () => {},
       workspaces: {
+        // 刻意不提供 connectWorkspace，验证独立会话创建不再依赖它
         list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws-alpha', sessionIds: [] }] }) },
       },
       sessions: {
         list: { getSnapshot: () => ({ current: undefined }) },
-        create: async () => { calls.fallbackCreates += 1; return 'unexpected'; },
+        create: async (opts) => { calls.create = opts; return opts.sessionId; },
         open: (sessionId) => { calls.opened = sessionId; },
       },
-      get: (name) => ({ uiWorkspace, conversation })[name],
+      get: (name) => ({ conversation })[name],
       slots: {
         inject: (name, cb) => { if (name === 'sidebar.footer.action') footerReg = cb(); return () => {}; },
         register: (options, component) => ({ options, component }),
@@ -430,11 +425,10 @@ test('alpha.2 兼容 Bridge 使用 uiWorkspace.connectWorkspace，不依赖纯 w
     };
     exports.apply(ctx);
     const sessionId = await footerReg.options.inject().startSession();
-    assert.equal(sessionId, 'session-alpha-2');
-    assert.equal(calls.workspace, 'ws-alpha');
-    assert.equal(calls.fallbackCreates, 0);
-    assert.equal(calls.opened, 'session-alpha-2');
-    assert.equal(calls.draft.sessionId, 'session-alpha-2');
+    assert.equal(calls.create.workspaceId, 'ws-alpha');
+    assert.match(sessionId, /^session-dsh-data-cleaning-agent-/);
+    assert.equal(calls.opened, sessionId);
+    assert.equal(calls.draft.sessionId, sessionId);
   } finally {
     cleanupGlobals();
   }
@@ -783,6 +777,21 @@ test('图片接入 Bridge 创建 draft image、加入会话并把官方缩略图
   }
 });
 
+test('图片剪贴板兼容 files 与仅 items，忽略文本和空文件且不重复取图', () => {
+  try {
+    const { imageFilesFromTransfer } = loadClient().exports.__testing;
+    const image = { name: '截图.png', type: 'image/png' };
+    const items = [{ kind: 'file', type: 'image/png', getAsFile: () => image }];
+    assert.deepEqual(imageFilesFromTransfer({ files: [], items }), [image]);
+    assert.deepEqual(imageFilesFromTransfer({ files: [image], items }), [image]);
+    assert.deepEqual(imageFilesFromTransfer({ items: [
+      { kind: 'string', type: 'text/plain', getAsFile: () => { throw Error('must not read'); } },
+      { kind: 'file', type: 'image/png', getAsFile: () => null },
+    ] }), []);
+    assert.deepEqual(imageFilesFromTransfer(null), []);
+  } finally { cleanupGlobals(); }
+});
+
 test('图片向导支持 Composer 粘贴、拖入、缩略图/放大与一次性完整任务指令', () => {
   assert.match(source, /window\.addEventListener\?\.\('paste', handleWindowPaste, true\)/);
   assert.match(source, /textarea, \[contenteditable="true"\], \[role="textbox"\]/);
@@ -796,6 +805,80 @@ test('图片向导支持 Composer 粘贴、拖入、缩略图/放大与一次性
   assert.match(source, /mode === 'image' && !imageCommand/);
   assert.match(source, /qcc-document-mcp/);
   assert.match(source, /可直接在此粘贴图片，或拖入 \/ 选择 PNG、JPEG、WebP/);
+});
+
+for (const intake of ['file', 'clipboard-items']) test(`图片向导 ${intake} 未连 OCR 时保留预览并可完成四步回填`, async () => {
+  const previousFetch = globalThis.fetch;
+  const effects = [];
+  try {
+    const loaded = loadClient();
+    const react = loaded.requireShim('react');
+    const states = [];
+    let cursor = 0;
+    react.useState = (initial) => {
+      const index = cursor++;
+      if (!(index in states)) states[index] = initial;
+      return [states[index], (value) => { states[index] = typeof value === 'function' ? value(states[index]) : value; }];
+    };
+    react.useEffect = (effect) => { effects.push(effect); };
+    let prompt;
+    loaded.exports.apply({
+      effect: () => () => {},
+      slots: {
+        inject: (name, callback) => { if (name === 'conversation.input.overlay') prompt = callback(); return () => {}; },
+        register: (options, component) => ({ options, component }),
+      },
+    });
+    loaded.exports.__testing.markCleaningSession('image-feedback');
+    const requests = [];
+    globalThis.fetch = async (path, options) => {
+      requests.push({ path, options });
+      return { ok: true, json: async () => ({ ok: true, command: {
+        commandId: 'dci-test', state: 'prepared', providerReady: false,
+        providerIssue: { code: 'DC_IMAGE_LOCAL_DOCUMENT_PROVIDER_REQUIRED', message: '请配置本地 qcc-document-mcp。' },
+      } }) };
+    };
+    const removed = [];
+    let draft = '';
+    const props = {
+      sessionId: 'image-feedback', inputActions: { setDraft: (value) => { draft = value; } },
+      attachImages: async () => [{ id: 'preview-test', previewUrl: 'blob:preview-test' }],
+      removeImage: (_session, image) => { removed.push(image.id); },
+    };
+    const renderPrompt = () => { cursor = 0; effects.length = 0; return prompt.component(props); };
+    let tree = renderPrompt();
+    const file = { name: '截图.png', type: 'image/png', size: 8, arrayBuffer: async () => new Uint8Array([137,80,78,71,13,10,26,10]).buffer };
+    if (intake === 'clipboard-items') {
+      const cleanup = effects.map((effect) => effect());
+      let prevented = false;
+      try {
+        window.dispatchEvent({ type: 'paste', clipboardData: { files: [], items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }] },
+          target: { closest: () => ({}) }, preventDefault: () => { prevented = true; }, stopImmediatePropagation() {} });
+        await new Promise((resolve) => setImmediate(resolve));
+        assert.equal(prevented, true);
+      } finally { for (const stop of cleanup) if (typeof stop === 'function') stop(); }
+    } else {
+      findNode(tree, (n) => n.props?.['aria-label'] === '打开提示词生成').props.onClick();
+      tree = renderPrompt();
+      findNode(tree, (n) => n.props?.role === 'tab' && n.children?.includes('上传图片识别')).props.onClick();
+      tree = renderPrompt();
+      await findNode(tree, (n) => n.type === 'input' && n.props?.type === 'file').props.onChange({ target: { files: [file], value: '' } });
+    }
+    tree = renderPrompt();
+    assert.ok(findNode(tree, (n) => n.type === 'img' && n.props?.src === 'blob:preview-test'));
+    assert.ok(findNode(tree, (n) => n.props?.role === 'status' && n.children?.some((child) => String(child).includes('图片已载入'))));
+    assert.deepEqual(removed, [], '连接缺失不能移除缩略图');
+    for (let step = 1; step <= 3; step++) {
+      findNode(tree, (n) => n.type === 'button' && n.children?.includes('下一步')).props.onClick();
+      tree = renderPrompt();
+      assert.ok(findNode(tree, (n) => n.props?.['aria-current'] === 'step' && n.props?.key === String(step + 1)));
+    }
+    findNode(tree, (n) => n.type === 'button' && n.children?.includes('回填到对话框')).props.onClick();
+    assert.match(draft, /dci-test/);
+    assert.match(draft, /补全/);
+    assert.deepEqual(removed, ['preview-test'], '只在回填时释放模型附件');
+    assert.equal(requests.length, 1, '选图与回填只暂存一次，不执行 OCR');
+  } finally { globalThis.fetch = previousFetch; cleanupGlobals(); }
 });
 
 test('提示词生成器解析出的完整表格通过事件桥进入 root 工作台且不自动拉开右栏', () => {

@@ -108,24 +108,50 @@ test('Agent-owned 图片工具通过 qcc-document-mcp 提交一次并轮询结�
   await store.dispose();
 });
 
-test('没有企查查本地文档解析 Provider 时 fail closed，不写入临时任务', async () => {
-  const store = new ImageIntakeStore({ tools: { get: () => undefined, execute: async () => ({}) } });
-  await assert.rejects(
-    store.prepare({ fileName: '企业名单.png', content: PNG.toString('base64') }),
-    (error) => error?.code === 'DC_IMAGE_PROVIDER_UNAVAILABLE' && error?.status === 503,
-  );
-  assert.equal(store.records.size, 0);
+test('未连接时先暂存图片，执行仍 fail closed；连接后无需重新选图即可识别', async () => {
+  let connected = false;
+  let calls = 0;
+  const [pair] = QCC_DOCUMENT_LOCAL_TOOL_PAIRS;
+  const store = new ImageIntakeStore({ tools: {
+    get: (name) => !connected ? undefined : name === pair.parse
+      ? { name, parameters: { properties: { file_path: { type: 'string' } } } }
+      : name === pair.result ? { name } : undefined,
+    execute: async () => { calls++; return { value: { status: 'success', details: [{ result_md: '深圳奥雅设计股份有限公司\n星际量子（北京）科技有限公司' }] } }; },
+  } });
+  try {
+    const command = await store.prepare({ fileName: '企业名单.png', content: PNG.toString('base64') });
+    assert.equal(command.state, 'prepared');
+    assert.equal(command.providerReady, false);
+    assert.equal(command.providerIssue.code, 'DC_IMAGE_PROVIDER_UNAVAILABLE');
+    const exec = { agent: { id: 'test' }, token: { id: 'test' } };
+    await assert.rejects(store.run(command.commandId, exec), (error) => error.code === 'DC_IMAGE_PROVIDER_UNAVAILABLE' && error.status === 503);
+    assert.equal(calls, 0);
+    await access(store.records.get(command.commandId).path);
+    assert.equal(store.status(command.commandId).state, 'prepared');
+    connected = true;
+    assert.equal(store.status(command.commandId).providerReady, true);
+    assert.equal(store.status(command.commandId).providerIssue, null);
+    const result = await store.run(command.commandId, exec);
+    assert.equal(result.entryCount, 2);
+    assert.equal(calls, 1);
+    assert.equal(store.status(command.commandId).parseTool, pair.parse);
+  } finally { await store.dispose(); }
 });
 
 test('只有远端 qcc-document 时明确提示本地连接要求', async () => {
   const store = new ImageIntakeStore({
     tools: { get: (name) => name === QCC_DOCUMENT_REMOTE_PARSE ? { name } : undefined, execute: async () => ({}) },
   });
-  await assert.rejects(
-    store.prepare({ fileName: '名单.png', content: PNG.toString('base64') }),
-    (error) => error?.code === 'DC_IMAGE_LOCAL_DOCUMENT_PROVIDER_REQUIRED' && /qcc-document-mcp/.test(error.message),
-  );
-  assert.equal(store.records.size, 0);
+  try {
+    const command = await store.prepare({ fileName: '名单.png', content: PNG.toString('base64') });
+    assert.equal(command.state, 'prepared');
+    assert.equal(command.providerIssue.code, 'DC_IMAGE_LOCAL_DOCUMENT_PROVIDER_REQUIRED');
+    await assert.rejects(
+      store.run(command.commandId, { agent: {}, token: {} }),
+      (error) => error?.code === 'DC_IMAGE_LOCAL_DOCUMENT_PROVIDER_REQUIRED' && /qcc-document-mcp/.test(error.message),
+    );
+    assert.equal(store.records.size, 1);
+  } finally { await store.dispose(); }
 });
 
 test('同名 document 工具仅有 file_url 时不得误判为本地 Provider', async () => {
@@ -140,10 +166,11 @@ test('同名 document 工具仅有 file_url 时不得误判为本地 Provider', 
   });
   assert.equal(store.capabilities().ready, false);
   assert.equal(store.capabilities().remoteUrlOnlyConnected, true);
-  await assert.rejects(
-    store.prepare({ fileName: '名单.png', content: PNG.toString('base64') }),
-    (error) => error?.code === 'DC_IMAGE_LOCAL_DOCUMENT_PROVIDER_REQUIRED',
-  );
+  try {
+    const command = await store.prepare({ fileName: '名单.png', content: PNG.toString('base64') });
+    assert.equal(command.providerReady, false);
+    assert.equal(command.providerIssue.code, 'DC_IMAGE_LOCAL_DOCUMENT_PROVIDER_REQUIRED');
+  } finally { await store.dispose(); }
 });
 
 test('企查查文档 Provider 运行失败时返回脱敏且可操作的状态', async () => {
