@@ -538,6 +538,62 @@ test('新会话 Bridge：不复用空白清洗会话，失败/并发/卸载及�
   } finally { cleanupGlobals(); }
 });
 
+test('完整清单显示13行、跨页可达最后一行，下载不受页码限制且中文表头安全', async () => {
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  try {
+    const loaded = loadClient();
+    const { DatasetReview, reviewColumns, reviewCsv } = loaded.exports.__testing;
+    const react = loaded.requireShim('react');
+    let page = 0;
+    react.useState = () => [page, (value) => { page = value; }];
+    const rows = Array.from({ length: 45 }, (_, index) => ({ 企业名称: `测试企业${index + 1}`, credit_no: String(910000000000000000n + BigInt(index)) }));
+    rows[44].额外字段 = '最后一行的字段';
+    const draw = (values, expectedCount = values.length) => DatasetReview({
+      rows: values, headers: ['企业名称', 'credit_no'], title: '图片识别原始名单', expectedCount,
+      onError: (error) => assert.fail(error),
+    });
+    let tree = draw(rows.slice(0, 13));
+    let body = findNode(tree, (n) => n.type === 'tbody');
+    const displayed = [];
+    collectNodes(body, (n) => n.type === 'tr', displayed);
+    assert.equal(displayed.length, 13, '13条必须全部显示，不能只显示5条');
+    tree = draw(rows);
+    findNode(tree, (n) => n.children?.includes('下一页')).props.onClick();
+    tree = draw(rows);
+    findNode(tree, (n) => n.children?.includes('下一页')).props.onClick();
+    tree = draw(rows);
+    assert.ok(findNode(tree, (n) => n.children?.includes('测试企业45')));
+    assert.ok(findNode(tree, (n) => n.type === 'th' && n.children?.includes('额外字段')));
+    assert.equal(findNode(tree, (n) => n.children?.includes('下一页')).props.disabled, true);
+    let exported;
+    let clicked = false;
+    URL.createObjectURL = (blob) => { exported = blob; return 'blob:review-test'; };
+    URL.revokeObjectURL = () => {};
+    document.createElement = () => ({ click: () => { clicked = true; } });
+    findNode(tree, (n) => n.children?.includes('下载全部 45 条 CSV')).props.onClick();
+    assert.equal(clicked, true);
+    const csv = await exported.text();
+    assert.match(csv, /统一社会信用代码/);
+    assert.match(csv, /测试企业1"/);
+    assert.match(csv, /测试企业45/);
+    assert.match(csv, /'910000000000000000/);
+    findNode(tree, (n) => n.children?.includes('下载原值 JSON')).props.onClick();
+    assert.deepEqual(JSON.parse(await exported.text()), rows);
+    const safe = reviewCsv([{ 企业名称: '=1+1', credit_no: '00123' }], ['企业名称', 'credit_no']);
+    assert.match(safe, /'=1\+1/);
+    assert.match(safe, /'00123/);
+    assert.deepEqual(reviewColumns(rows, ['企业名称']), ['企业名称', 'credit_no', '额外字段']);
+    tree = draw(rows.slice(0, 5), 13);
+    assert.equal(findNode(tree, (n) => n.children?.includes('下载全部 5 条 CSV')).props.disabled, true);
+    assert.ok(findNode(tree, (n) => n.children?.some((text) => typeof text === 'string' && text.includes('完整清单尚未就绪'))));
+  } finally {
+    URL.createObjectURL = originalCreate;
+    URL.revokeObjectURL = originalRevoke;
+    cleanupGlobals();
+  }
+});
+
 test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工作台步骤', () => {
   let loaded;
   try {
@@ -1131,6 +1187,11 @@ test('提示词生成器解析出的完整表格通过事件桥进入 root 工�
     assert.equal(store.getSnapshot().nameField, '企业名称');
     assert.equal(store.getSnapshot().activeSessionId, 'cleaning-excel');
     assert.equal(store.getSnapshot().open, false);
+    store.actions.open();
+    const panel = render(overlayReg.component, {}, store);
+    const review = findNode(panel, (n) => n.type === exports.__testing.DatasetReview);
+    assert.equal(review.props.rows.length, 2, '工作台传入完整runtime而非展示摘要');
+    assert.equal(review.props.expectedCount, 2);
   } finally {
     cleanupGlobals();
   }
