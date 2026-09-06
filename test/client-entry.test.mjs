@@ -516,7 +516,7 @@ test('blank 清洗会话渲染业务首页，普通会话不注入业务内容',
   }
 });
 
-test('会话归属为单一显式激活态，点击新会话或其它智能体入口后可立即撤销', () => {
+test('会话归属只在实际切换成功后撤销，失败点击保留清洗界面与草稿', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -529,7 +529,13 @@ test('会话归属为单一显式激活态，点击新会话或其它智能体�
       markCleaningSession,
     } = loaded.exports.__testing;
     let draft = '请帮我清洗并补全企业名单。可点击输入框左上角「提示词生成」录入名单、上传 Excel 或图片，也可直接修改本段任务说明后开始。';
+    let current = 'cleaning-owned';
+    let selected;
     const ctx = {
+      sessions: { list: {
+        getSnapshot: () => ({ current }),
+        subscribe: (listener) => { selected = listener; return () => { selected = null; }; },
+      } },
       get: (name) => name === 'conversation' ? {
         input: { shell: () => ({ snapshot: { draft }, setDraft: (value) => { draft = value; } }) },
       } : undefined,
@@ -568,15 +574,29 @@ test('会话归属为单一显式激活态，点击新会话或其它智能体�
     document.dispatchEvent({ type: 'click', target: ownButton });
     assert.equal(isCleaningSession('cleaning-owned'), true, '点击自身入口不得撤销清洗子系统');
     document.dispatchEvent({ type: 'click', target: genericButton });
+    assert.equal(isCleaningSession('cleaning-owned'), true, '点击不代表切换成功');
+    assert.equal(draft, '清洗子系统草稿', '失败导航不应丢失用户草稿');
+    selected();
+    assert.equal(isCleaningSession('cleaning-owned'), true, '同会话列表刷新不代表切换');
+    current = 'ordinary-session';
+    selected();
     assert.equal(isCleaningSession('cleaning-owned'), false, '新会话必须恢复为无清洗内容的默认首页');
-    assert.equal(draft, '', '退出子系统必须清空复用空白会话中的清洗草稿');
+    assert.equal(draft, '清洗子系统草稿', '退出后也保留用户自写草稿');
 
     markCleaningSession('cleaning-second');
     assert.equal(deactivateCleaningSession('another-session'), false);
     assert.equal(isCleaningSession('cleaning-second'), true);
     assert.equal(deactivateCleaningSession(), true);
     assert.equal(isCleaningSession('cleaning-second'), false);
+    current = 'cleaning-third';
+    markCleaningSession(current);
+    draft = generatedDraft;
+    current = undefined;
+    selected();
+    assert.equal(isCleaningSession('cleaning-third'), false, '清除选中会话时也应退出');
+    assert.equal(draft, '', '成功退出只清理插件默认草稿');
     release();
+    assert.equal(selected, null);
   } finally {
     cleanupGlobals();
   }
