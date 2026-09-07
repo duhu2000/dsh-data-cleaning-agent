@@ -15,9 +15,11 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
   // Audited source changes: pass confirmed mappings, project empty-cell backfill,
   // preserve nonempty canonical input keys. Other source hashes remain frozen.
   Object.assign(golden.contract.unchanged, {
-    'lib/web.js': '072f3384592ffbae8492531d3ddab2f182f0876a8681262d12645337f11aab2d',
+    // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
+    'lib/web.js': '3a771e39b401d0ef68de4a364c946a4ccf4c98db2606a53f49cdfe215f06dfc8',
     'lib/artifacts.js': '6d51d3735f01c50c4af3493d9ba08b5109915bca244c59ef1449f98242425088',
-    'lib/qcc.js': '172a38b8acff0794a4797a740382dc898dd46b3912ae0979724e253f8e2c6e74',
+    // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
+    'lib/qcc.js': '1b6e35e7bbaf07c3344bd0669beb794b57506195a0eca1ee5399f65513cd9e28',
     'lib/qcc-field-catalog.js': 'e255ea1500cf064ae92a4cd6a2fe4e6da257a74d0910e8ae02afbf3d91a89e28',
   });
   // Audited additive controller contract; all pre-existing labels/tools/cases remain frozen.

@@ -2,7 +2,7 @@
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.8.13**（正式版本）
+> 当前源码版本 / Current source version: **0.8.14**（正式版本）
 
 本版修复文件上传成功后的导入状态误报：文件选择后自动解析，当前来源、文件名和行数持续显示；文本解析仅处理新粘贴内容。支持重新选择同一文件，解析失败保留现有数据，新粘贴内容解析或清空后再进入下一步。保留 128 字段智能映射、原列补空、企查查蓝菜单、可调宽工作台及 DSH 原生发送机制。历史下载文件不自动改写。
 
@@ -102,8 +102,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-a
   Host，并只把不含企业名单的 commandId 类型化意图发送到原生会话；Agent 随后准确调用一次
   `data_cleaning_qcc_run`，Bridge 使用该父执行的 token/Session 以 nested execution 调度动态 QCC 工具。
   该路径实现批量补全、请求幂等、多候选人工确认续跑、retryable 失败人工重试与安全审计。
-  暂存命令前要求 `confirmPaidCalls:true`；该字段表示当前用户确认
-  使用自己的 QCC 账号额度，不代表插件开发者代客户付款；多候选绝不自动选择。
+  0.8.14 起初始草稿无需额度勾选：Host 自动检查工具与调用范围，用户阅读并发送说明后才查询。
+  候选确认、失败重试及旧版直接执行接口仍要求 `confirmPaidCalls:true`；使用用户自有账号额度，多候选绝不自动选择。
   默认关闭的本机 E2E Runner 已就绪；2026-09-01 已在隔离 rc.2 Host 完成真实 OAuth、跨重启恢复和
   20 家公开企业的 400 次 QCC 调用；自然过期 token 的真实刷新、动态工具恢复及 1 行续期后调用也已通过。
   401 / 429 / 配额耗尽使用 Web→Bridge→ToolRuntime 故障注入验证，不额外消耗真实付费批次。

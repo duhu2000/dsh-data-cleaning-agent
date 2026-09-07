@@ -2,7 +2,7 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.8.13** (stable release)
+> Current source version / 当前源码版本: **0.8.14** (stable release)
 
 This release fixes misleading import errors after a successful upload. Files are parsed automatically, with persistent source, filename, and row-count status; text parsing handles only newly pasted content. The same file can be selected again, failed parsing preserves existing data, and pending pasted content must be parsed or cleared before continuing. Automatic mapping for 128 fields, blank-cell enrichment in original columns, QCC-blue menus, the resizable workbench, and native DSH sending remain unchanged. Existing download artifacts are not rewritten.
 
@@ -110,8 +110,8 @@ Besides local deterministic completion, the plugin supports Qichacha MCP enterpr
   conversation. The Agent calls `data_cleaning_qcc_run` exactly once; the bridge then dispatches
   dynamic QCC tools as nested executions using the parent execution token and Session. This path
   supports batch enrichment, idempotency, candidate-resolution resume, manual retry of retryable
-  failures, and metadata-only auditing. Command staging requires `confirmPaidCalls:true`. The flag means the current user
-  confirms use of their own QCC account quota; it does not transfer the charge to the plugin maintainer.
+  failures, and metadata-only auditing. Since 0.8.14, initial draft staging automatically preflights tools and scope without a billing checkbox; only sending the readable draft starts queries.
+  Candidate resolution, retry and legacy direct-execution APIs still require `confirmPaidCalls:true` for the user's own QCC account quota.
   Ambiguous candidates are never auto-selected. A loopback-only, fail-closed E2E runner is ready. On 2026-09-01 an isolated rc.2
   Host passed real OAuth, restart recovery, and 400 QCC calls across 20 public companies. Natural-expiry
   token refresh, dynamic-tool recovery, a post-refresh real call, and 401/429/quota fault injection also passed.

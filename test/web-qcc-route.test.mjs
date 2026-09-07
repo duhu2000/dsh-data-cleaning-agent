@@ -326,9 +326,24 @@ test('图片路由未连接 OCR 仍返回可用暂存任务与连接提示，取
   } finally { app.dispose(); }
 });
 
+test('G5 候选和重试仍需显式确认，初始草稿不需要额度确认', async () => {
+  const app = harness();
+  try {
+    for (const kind of ['resolve', 'retry']) {
+      const response = responseRecorder();
+      await app.routes.get('/data-cleaning/api/g5/commands')(request({
+        method: 'POST', url: '/data-cleaning/api/g5/commands', body: { kind, taskId: 'dcw-confirm' },
+      }), response);
+      assert.equal(response.status, 409);
+      assert.equal(response.json().code, 'QCC_CONFIRM_REQUIRED');
+    }
+    assert.equal(app.calls.length, 0);
+  } finally { app.dispose(); }
+});
+
 test('G5 Agent command 只在 Host 暂存名单，Agent-owned 工具执行时才调用 QCC', async () => {
   const app = harness();
-  const blocked = responseRecorder();
+  const prepared = responseRecorder();
   const input = {
     kind: 'enrich',
     taskId: 'dcw-agent-owned-1',
@@ -339,20 +354,14 @@ test('G5 Agent command 只在 Host 暂存名单，Agent-owned 工具执行时才
   };
   await app.routes.get('/data-cleaning/api/g5/commands')(
     request({ method: 'POST', url: '/data-cleaning/api/g5/commands', body: input }),
-    blocked,
-  );
-  assert.equal(blocked.status, 409);
-  assert.equal(blocked.json().code, 'QCC_CONFIRM_REQUIRED');
-  assert.equal(app.calls.length, 0);
-
-  const prepared = responseRecorder();
-  await app.routes.get('/data-cleaning/api/g5/commands')(
-    request({ method: 'POST', url: '/data-cleaning/api/g5/commands', body: { ...input, confirmPaidCalls: true } }),
     prepared,
   );
   const command = prepared.json().command;
   assert.equal(prepared.status, 201);
   assert.equal(prepared.json().paidCalls, false);
+  assert.equal(command.estimate.uniqueCompanies, 1);
+  assert.equal(command.estimate.estimatedCalls, 2);
+  assert.match(command.prompt, /生成说明不会查询；发送本说明即确认/);
   assert.match(command.commandId, /^dcq-/);
   assert.doesNotMatch(command.prompt, /敏感企业名称/);
   assert.doesNotMatch(command.prompt, /```json|schemaVersion/, '用户可见草稿不应暴露内部 JSON 意图');

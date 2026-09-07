@@ -53,8 +53,9 @@
 
 ### Agent-owned 命令（正式工作台路径）
 
-- `POST /data-cleaning/api/g5/commands`：要求 `confirmPaidCalls:true`，把 enrich/resolve/retry 输入暂存
-  在 Host；返回 commandId 与不含企业名单的可见会话提示，本步骤 `paidCalls:false`。
+- `POST /data-cleaning/api/g5/commands`：0.8.14 起 enrich 暂存不要求额度勾选，Host 自动检查所选工具、行数和调用上界；
+  resolve/retry 暂存仍要求 `confirmPaidCalls:true`。返回 commandId、Host estimate 与不含企业名单的可编辑提示，本步骤 `paidCalls:false`。
+  生成说明不代表已执行，用户发送可见说明后才由 Agent-owned 工具执行。执行阶段重新检查工具和上限，草稿不伪造“已确认额度”状态。
 - `data_cleaning_qcc_run({commandId})`：只能在 Agent tool execution 内运行，缺少父执行 token/Session
   时返回 `QCC_AGENT_EXECUTION_REQUIRED`。
 - `GET /data-cleaning/api/g5/commands/<commandId>`：同源读取 prepared/running/completed/failed 和完成后的

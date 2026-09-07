@@ -1529,7 +1529,7 @@ test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安�
     // 未确认计费前只显示待检测，不触发调用。
     const qccBadge = findNode(panel, (n) => n.props && n.props.title === '仅在当前用户确认使用自己的企查查账号后调用');
     assert.ok(qccBadge, '必须显示 QCC 安全状态位');
-    assert.equal(qccBadge.children[0], 'QCC · 待检测');
+    assert.equal(qccBadge.children[0], 'QCC · 自动校验');
 
     const expandButton = findNode(panel, (n) => n.props && n.props['aria-label'] === '展开工作台');
     assert.ok(expandButton, '必须支持按 Mockup 展开工作台');
@@ -1745,7 +1745,7 @@ test('上传解析进入 taskId runtime，字段映射在规则确认页完成',
   assert.doesNotMatch(source, /let session = \{ rows:/, '不得继续使用跨任务的模块级原始数据 session');
 });
 
-test('T3 匹配核验页使用基础企业 G5 Bridge、调用估算和用户自有 QCC 账号确认门', () => {
+test('T3 匹配核验页直接生成说明，不依赖手动检测估算或额度勾选', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -1766,14 +1766,17 @@ test('T3 匹配核验页使用基础企业 G5 Bridge、调用估算和用户自�
     instance.actions.setWorkflowTask({ id: 'dcw-match-test', state: 'diagnosed' });
     let panel = flattenElement(render(overlayReg.component, {}, instance));
 
-    assert.ok(findNode(panel, (n) => n.children && n.children.includes('企查查一企一行补全能力')));
-    assert.ok(findNode(panel, (n) => n.children && n.children.includes('估算调用量')), '必须先估算调用量');
+    assert.ok(findNode(panel, (n) => n.children && n.children.includes('准备任务说明')));
+    assert.equal(findNode(panel, (n) => n.children && n.children.includes('估算调用量')), null);
+    assert.equal(findNode(panel, (n) => n.children && n.children.includes('检测企查查连接')), null);
+    const generate = findNode(panel, (n) => n.children && n.children.includes('生成可编辑任务说明'));
+    assert.ok(generate);
+    assert.equal(Boolean(generate.props.disabled), false, '不需要先生成估算或勾选即可生成草稿');
 
     instance.actions.setQccEstimate({ uniqueCompanies: 1, tools: ['a'], estimatedCalls: 2, maxCalls: 500, withinLimit: true });
     panel = flattenElement(render(overlayReg.component, {}, instance));
     const confirm = findNode(panel, (n) => n.props && n.props['aria-label'] === '确认使用当前用户的企查查账号额度');
-    assert.ok(confirm, '估算后必须显示用户自有 QCC 账号确认复选框');
-    assert.equal(confirm.props.checked, false);
+    assert.equal(confirm, null, '草稿阶段不要求确认实际查询');
     assert.match(source, /额度或费用由该账号自行承担/, '必须明确费用由当前用户连接的 QCC 账号承担');
     assert.match(source, /\/data-cleaning\/api\/g5\/commands/);
     assert.match(source, /sessionConversation\.send\(prompt\)/, '候选确认与显式重试仍必须通过 Agent-owned 工具');

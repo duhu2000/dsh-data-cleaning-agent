@@ -418,6 +418,20 @@ try {
     assert.ok(await drawer.locator('.dcAgentMappingRow').evaluateAll(rows => rows.every(row => row.scrollWidth <= row.clientWidth + 1)), 'mapping picker fits narrow panel');
     await page.screenshot({ path: join(out, `mapping-${colorScheme}-${width}x${height}.png`) });
     await page.screenshot({ path: join(out, `workbench-${colorScheme}-${width}x${height}.png`) });
+    await page.evaluate(() => {
+      const snapshot = window.store.getSnapshot();
+      document.dispatchEvent(new CustomEvent('dsh:data-cleaning-workbench-open', { detail: {
+        sessionId: snapshot.activeSessionId, step: 'match',
+        task: { ...snapshot.workflowTask, id: 'dcw-ui-fixture', state: 'diagnosed', fieldSelection: snapshot.fieldSelection, mappings: snapshot.mappings },
+      } }));
+    });
+    const generateDescription = drawer.getByRole('button', { name: '生成可编辑任务说明', exact: true });
+    assert.equal(await generateDescription.isEnabled(), true);
+    assert.equal(await drawer.getByRole('button', { name: '检测企查查连接', exact: true }).count(), 0);
+    assert.equal(await drawer.getByRole('button', { name: '估算调用量', exact: true }).count(), 0);
+    assert.equal(await drawer.getByRole('checkbox').count(), 0);
+    await generateDescription.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: join(out, `match-${colorScheme}-${width}x${height}.png`) });
     await drawer.getByRole('button', { name: '关闭', exact: true }).click();
     await page.screenshot({ path: join(out, `home-${colorScheme}-${width}x${height}.png`) });
     await page.evaluate(() => window.show('fixture', 'active'));
