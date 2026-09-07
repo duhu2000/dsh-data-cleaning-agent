@@ -135,13 +135,16 @@ try {
     const dialog = page.getByRole('dialog', { name: '数据清洗补全任务生成器' });
     await dialog.waitFor();
     await dialog.getByRole('button', { name: '3 清洗与补全' }).click();
-    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input[type="checkbox"]').count(), 128);
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input[type="checkbox"]').count(), 132);
     const credit = dialog.getByRole('checkbox', { name: '统一社会信用代码', exact: true });
     await credit.uncheck();
     assert.equal(await credit.isChecked(), false);
     await credit.check();
     assert.equal(await credit.isChecked(), true);
     const selectedCount = await dialog.locator('.dcAgentPromptFieldGrid input:checked').count();
+    await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill('实控人');
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 4);
+    assert.equal(await dialog.getByRole('checkbox', { name: '实际控制人名称', exact: true }).count(), 1);
     await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill('行业');
     assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 3);
     assert.equal(await dialog.getByRole('checkbox', { name: '进出口行业种类', exact: true }).count(), 1);
@@ -260,10 +263,12 @@ try {
     await page.screenshot({ path: join(out, `imported-${colorScheme}-${width}x${height}.png`) });
     await drawer.getByRole('button', { name: '规则与体检', exact: true }).click();
     const fieldSearch = drawer.getByRole('searchbox', { name: '查找补全字段' });
+    await fieldSearch.fill('实控人');
+    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 4);
     await fieldSearch.fill('行业');
     assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 3);
     await fieldSearch.fill('');
-    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 128);
+    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 132);
     await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
     const beforeNavigation = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
     for (const name of ['主体匹配', '字段补全', '结果下载', '导入与核验']) {

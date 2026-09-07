@@ -58,7 +58,7 @@ test('当前字段目录不混入延期的历史、人员和招投标三域', ()
 test('补全目录开放 30 个基础字段、第一批 40 字段与第二批 58 字段', () => {
   const fields = FIELD_CATALOG.flatMap((group) => group.fields);
   const ids = fields.map((field) => field.id);
-  assert.equal(ids.length, 128);
+  assert.equal(ids.length, 132);
   assert.deepEqual(INPUT_ONLY_MAPPING_FIELDS, [{ id: 'phone', label: '联系电话' }]);
   assert.equal(ids.includes('phone'), false);
   assert.equal(ids.includes('industry_large'), false);
@@ -85,13 +85,14 @@ test('补全目录开放 30 个基础字段、第一批 40 字段与第二批 58
     ['进出口信用', 'get_import_export_credit', 11],
     ['企业自身风险扫描', 'get_company_risk_scan', 38],
     ['企业关联风险扫描', 'get_company_related_risk_scan', 20],
+    ['实际控制人', 'get_actual_controller', 4],
   ]);
 
   const draft = normalizeWorkflowDraft({
     fieldSelection: ['credit_no', 'phone', 'industry_large', 'qcc_industry', 'contact_preferred_phone', 'risk_dishonest_count'],
   });
   assert.deepEqual(draft.fieldSelection, ['credit_no', 'qcc_industry', 'contact_preferred_phone', 'risk_dishonest_count']);
-  assert.equal(normalizeWorkflowDraft({ fieldSelection: ids }).fieldSelection.length, 128);
+  assert.equal(normalizeWorkflowDraft({ fieldSelection: ids }).fieldSelection.length, 132);
 });
 
 test('匹配契约不暴露虚构置信度字段', () => {

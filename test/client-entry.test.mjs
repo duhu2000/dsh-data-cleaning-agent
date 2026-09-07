@@ -9,6 +9,22 @@
  * 表、`ctx.slots.inject/register`、`defineStore`），不依赖构建产物。
  */
 import { test } from 'node:test';
+test('共享实控人字段在浏览器目录、别名推荐与原列回填中保持一致', async () => {
+  try {
+    const { ACTUAL_CONTROLLER_GROUP } = await import('qcc-field-contracts');
+    const api = loadClient().exports.__testing;
+    for (const f of ACTUAL_CONTROLLER_GROUP.fields) {
+      for (const alias of [f.id,f.label,...f.aliases]) {
+        assert.deepEqual(api.guessMappings([alias]),[{sourceField:alias,targetField:f.id}]);
+      }
+    }
+    const headers=['企业名称','企业实控人名称（自然人请填写姓名）'];
+    const result=api.projectCompletionResult({headers,mappings:api.guessMappings(headers),
+      fieldSelection:['actual_controller_name'],rows:[{企业名称:'合成测试有限公司',[headers[1]]:'',actual_controller_name:'合成甲',qcc_match_status:'enriched'}]});
+    assert.equal(result.rows[0][headers[1]],'合成甲');
+    assert.equal(result.headers.includes('actual_controller_name'),false);
+  } finally {cleanupGlobals();}
+});
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -1796,8 +1812,8 @@ test('规则页展示 40/58 两批字段并支持按工具维度全选与清空'
     collectNodes(panel, (n) => n.type === 'button' && n.children?.includes('全选'), selectAllButtons);
     const clearButtons = [];
     collectNodes(panel, (n) => n.type === 'button' && n.children?.includes('清空'), clearButtons);
-    assert.equal(selectAllButtons.length, 8);
-    assert.equal(clearButtons.length, 8);
+    assert.equal(selectAllButtons.length, 9);
+    assert.equal(clearButtons.length, 9);
   } finally {
     cleanupGlobals();
   }

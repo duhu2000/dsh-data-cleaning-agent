@@ -192,7 +192,7 @@
 | `get_financial_data` | C | 最近三期；仅可做最新报告期快照 |
 | `get_company_by_query` | W | 主体锚定与多候选人工选择 |
 | `verify_company_accuracy` | W | 企业名 + 信用代码二要素核验 |
-| `get_actual_controller` | X | 可能多个最终控制人 |
+| `get_actual_controller` | B（本地已适配，待发布） | 4 字段；仅完整且唯一控制人自动补全，多名/分页/异常留空待核验。契约见 ACTUAL-CONTROLLER-SHARED-CONTRACT.md |
 | `get_beneficial_owners` | X | 多个受益所有人 |
 | `get_branches` | X | 多个分支机构 |
 | `get_change_records` | X | 多条工商变更事件 |
