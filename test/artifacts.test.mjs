@@ -3,6 +3,59 @@ import assert from 'node:assert/strict';
 import XLSX from 'xlsx';
 import { ARTIFACT_STORAGE, WorkflowArtifactStore, deriveExceptionRows } from '../lib/artifacts.js';
 import { FIELD_CATALOG } from '../lib/workflow-contract.js';
+import { projectCompletionResult } from '../lib/engine.js';
+
+test('补全回填已映射原列，仅补空，CSV/XLSX/异常清单一致且原始结果不变', async () => {
+  const input = {
+    headers: ['企业名称', '法定代表人', '法定代表人（重复列 2）', '统一社会信用代码', '地址', '网址', '注册资本', '开业时间'],
+    mappings: [
+      ['企业名称', 'company_name'], ['法定代表人', 'legal_rep'], ['统一社会信用代码', 'credit_no'],
+      ['地址', 'registered_address'], ['网址', 'contact_official_website'], ['注册资本', 'reg_capital'], ['开业时间', 'establish_date'],
+    ].map(([sourceField, targetField]) => ({ sourceField, targetField })),
+    fieldSelection: ['company_name', 'legal_rep', 'credit_no', 'registered_address', 'contact_official_website', 'reg_capital', 'establish_date', 'reg_status', 'risk_recorded_factor_count'],
+    rows: [
+      { 企业名称: '原名称', 法定代表人: ' ', '法定代表人（重复列 2）': '', 统一社会信用代码: '', 地址: '原地址', 网址: '', 注册资本: 0, 开业时间: '',
+        company_name: '标准名称', legal_rep: '张三', credit_no: '001234567890123456', registered_address: '新地址', contact_official_website: 'https://example.test',
+        reg_capital: '500万元', establish_date: '2001-02-03', reg_status: '存续', risk_recorded_factor_count: 0, qcc_match_status: 'enriched' },
+      { 企业名称: '待核验企业', 法定代表人: '', 统一社会信用代码: '', legal_rep: '禁止自动写入的候选值', qcc_match_status: 'ambiguous' },
+    ],
+  };
+  const original = structuredClone(input);
+  const projected = projectCompletionResult(input);
+  assert.deepEqual(projected.headers.slice(0, 8), input.headers);
+  assert.equal(projected.rows[0].法定代表人, '张三');
+  assert.equal(projected.rows[0]['法定代表人（重复列 2）'], '');
+  assert.equal(projected.rows[0].统一社会信用代码, '001234567890123456');
+  assert.equal(projected.rows[0].企业名称, '原名称');
+  assert.equal(projected.rows[0].地址, '原地址');
+  assert.equal(projected.rows[0].注册资本, 0);
+  assert.equal(projected.rows[0].开业时间, '2001-02-03');
+  assert.equal(projected.rows[1].法定代表人, '');
+  assert.equal(projected.headers.includes('legal_rep'), false);
+  assert.equal(projected.headers.includes('reg_status'), true, '原表不存在的已选维度仍需新增');
+  assert.deepEqual(projectCompletionResult(projected).rows, projected.rows, '重复导出不产生补全副列');
+  assert.deepEqual(input, original);
+  const store = new WorkflowArtifactStore({ fs: memoryFs() });
+  const artifacts = await store.createBundle('dcw-backfill-0001', input);
+  for (const artifact of artifacts) {
+    const bytes = await store.read('dcw-backfill-0001', artifact);
+    const workbook = XLSX.read(artifact.format === 'csv' ? bytes.toString('utf8').replace(/^\uFEFF/, '') : bytes, { type: artifact.format === 'csv' ? 'string' : 'buffer', raw: true });
+    const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: '' });
+    assert.deepEqual(matrix[0].slice(0, 8), input.headers);
+    assert.equal(matrix[0].some((key) => key.includes('（补全')), false);
+    assert.equal(matrix[1][1], artifact.kind === 'complete' ? '张三' : '');
+    if (artifact.kind === 'complete') assert.equal(matrix[1][3], '001234567890123456');
+  }
+});
+
+test('未选字段、不存在或重复映射不回填；false 和 0 均视为原有值', () => {
+  const input = { headers: ['A', 'B'], mappings: [{ sourceField: 'A', targetField: 'legal_rep' }], fieldSelection: ['legal_rep'], rows: [{ A: false, B: 0, legal_rep: '新值' }] };
+  assert.equal(projectCompletionResult(input).rows[0].A, false);
+  assert.equal(projectCompletionResult({ ...input, fieldSelection: [] }).rows[0].legal_rep, '新值');
+  const duplicate = projectCompletionResult({ ...input, mappings: [...input.mappings, { sourceField: 'B', targetField: 'legal_rep' }] });
+  assert.equal(duplicate.rows[0].B, 0);
+  assert.equal(duplicate.rows[0].legal_rep, '新值');
+});
 
 function memoryFs() {
   const files = new Map();

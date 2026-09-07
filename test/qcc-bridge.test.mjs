@@ -297,6 +297,19 @@ test('Bridge 自有超时被归一化为 QCC_TIMEOUT', async () => {
   );
 });
 
+test('首次补全保护英文键原值，只有空单元格接收 QCC 字段', async () => {
+  const bridge = new QccHostBridge({ tools: { get: () => undefined, execute: () => { throw new Error('unexpected real tool call'); } }, toolWaitMs: 0 });
+  bridge.waitForTool = async () => ({});
+  bridge.enrichCompany = async () => ({ status: 'enriched', fields: { legal_rep: '新法人', reg_capital: '500万元', risk_recorded_factor_count: 5, credit_no: '00123' } });
+  const original = { name: '甲公司', legal_rep: '原法人', reg_capital: 0, risk_recorded_factor_count: false, credit_no: '' };
+  const result = await bridge.enrichRows([original], { fieldSelection: ['legal_rep'] });
+  assert.equal(result.rows[0].legal_rep, '原法人');
+  assert.equal(result.rows[0].reg_capital, 0);
+  assert.equal(result.rows[0].risk_recorded_factor_count, false);
+  assert.equal(result.rows[0].credit_no, '00123');
+  assert.equal(original.credit_no, '');
+});
+
 test('实体匹配严格区分唯一、多候选和未匹配', () => {
   assert.deepEqual(classifyEntityMatch({
     匹配结果: '唯一精确匹配',

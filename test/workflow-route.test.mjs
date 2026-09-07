@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Readable } from 'node:stream';
+import XLSX from 'xlsx';
 import { mountWebRoutes } from '../lib/web.js';
 
 function memoryStorageDomain() {
@@ -219,12 +220,12 @@ test('Host 导出制品可跨插件重挂载恢复并下载真实 XLSX', async (
   const route = '/data-cleaning/api/workflow/tasks';
   let app = harness({ storageDomain, fs });
   let res = await invoke(app, route, {
-    method: 'POST', url: route, body: { title: '耐久制品任务' },
+    method: 'POST', url: route, body: { title: '耐久制品任务', fieldSelection: ['legal_rep'] },
   });
   let task = res.json().task;
   for (const [action, body] of [
-    ['upload', { source: { type: 'csv', fileName: 'companies.csv', rowCount: 2, headers: ['企业名称', 'qcc_match_status'] } }],
-    ['rules', { mappings: [{ sourceField: '企业名称', targetField: 'company_name' }] }],
+    ['upload', { source: { type: 'csv', fileName: 'companies.csv', rowCount: 2, headers: ['企业名称', '法人', 'qcc_match_status'] } }],
+    ['rules', { mappings: [{ sourceField: '企业名称', targetField: 'company_name' }, { sourceField: '法人', targetField: 'legal_rep' }] }],
     ['quality', { summary: { total: 2, valid: 2 } }],
   ]) {
     res = await invoke(app, route, {
@@ -240,10 +241,11 @@ test('Host 导出制品可跨插件重挂载恢复并下载真实 XLSX', async (
     url: `${route}/${task.id}/artifacts`,
     body: {
       expectedRevision: task.revision,
-      headers: ['企业名称', 'qcc_match_status'],
+      headers: ['企业名称', '法人', 'qcc_match_status'],
+      mappings: [], // 浏览器不能覆盖 Host 已确认的映射
       rows: [
-        { 企业名称: '甲公司', qcc_match_status: 'exact' },
-        { 企业名称: '乙公司', qcc_match_status: 'unresolved' },
+        { 企业名称: '甲公司', 法人: '', legal_rep: '张三', qcc_match_status: 'exact' },
+        { 企业名称: '乙公司', 法人: '', qcc_match_status: 'unresolved' },
       ],
       summary: { total: 2, completed: 2 },
     },
@@ -264,6 +266,10 @@ test('Host 导出制品可跨插件重挂载恢复并下载真实 XLSX', async (
   assert.equal(res.status, 200);
   assert.equal(res.headers['content-type'], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   assert.equal(res.body.subarray(0, 2).toString('ascii'), 'PK');
+  const workbook = XLSX.read(res.body, { type: 'buffer' });
+  const result = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: '' });
+  assert.deepEqual(result[0], ['企业名称', '法人', '匹配状态']);
+  assert.equal(result[1][1], '张三', 'Host 映射跨重启保持原列回填');
   res = await invoke(app, route, { method: 'GET', url: `${route}/${task.id}` });
   assert.equal(res.json().task.artifacts.length, 4);
   app.dispose();

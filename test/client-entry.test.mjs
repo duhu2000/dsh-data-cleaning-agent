@@ -870,6 +870,66 @@ test('T3 自动字段映射、文本名单数据集与质量摘要均为确定�
   }
 });
 
+test('智能映射覆盖全目录、别名和多义推荐，重复字段不抢占、未知列不冒充企业', async () => {
+  try {
+    const { guessMappings, mappingRecommendations, mergeRecommendedMappings } = loadClient().exports.__testing;
+    const { QCC_FIELD_CATALOG } = await import('../lib/qcc-field-catalog.js');
+    for (const field of QCC_FIELD_CATALOG.flatMap((group) => group.fields)) {
+      assert.deepEqual(guessMappings([field.label]), [{ sourceField: field.label, targetField: field.id }]);
+      assert.deepEqual(guessMappings([field.id]), [{ sourceField: field.id, targetField: field.id }]);
+    }
+    const headers = ['企业名称', '法定代表人', '法定代表人（重复列 2）', '统一社会信用代码', '地址', '网址', '联系电话', '注册资本', '开业时间'];
+    const hints = mappingRecommendations(headers);
+    assert.deepEqual(guessMappings(headers).map((item) => item.targetField), ['company_name', 'credit_no', 'phone', 'reg_capital']);
+    assert.equal(hints[1].conflict, true);
+    assert.equal(hints[2].conflict, true);
+    assert.deepEqual(hints[4].candidates.map(([id]) => id), ['registered_address', 'mailing_address', 'invoice_address']);
+    assert.equal(hints[5].candidates[0][0], 'contact_official_website');
+    assert.equal(hints[8].candidates[0][0], 'establish_date');
+    assert.equal(hints[8].automatic, false, '开业不必然等于成立，不能偷偷替换语义');
+    assert.deepEqual(guessMappings([' ＬＥＧＡＬ＿ＲＥＰ ', '成立时间', '公司全称']).map((item) => item.targetField), ['legal_rep', 'establish_date', 'company_name']);
+    assert.deepEqual(guessMappings(['金额', '一级行业', '二级行业', '负责人']), []);
+    assert.equal(guessMappings(['主体标识'])[0].targetField, 'company_name');
+    const selected = [{ sourceField: '地址', targetField: 'mailing_address' }, { sourceField: '法定代表人（重复列 2）', targetField: 'legal_rep' }];
+    const merged = mergeRecommendedMappings(headers, selected);
+    assert.deepEqual(merged.slice(0, 2), selected);
+    assert.equal(new Set(merged.map((item) => item.targetField)).size, merged.length);
+    assert.deepEqual(mappingRecommendations(['官网'], [['company_name', '企业名称']])[0].candidates, [], '只推荐当前 Host 支持的字段');
+  } finally { cleanupGlobals(); }
+});
+
+test('工作台预览与 Host 导出共用相同原列补空算法', async () => {
+  try {
+    const clientProjection = loadClient().exports.__testing.projectCompletionResult;
+    const { projectCompletionResult } = await import('../lib/engine.js');
+    assert.equal(clientProjection.toString().replace(/\s+/g, ''), projectCompletionResult.toString().replace(/\s+/g, ''));
+    const input = { headers: ['企业名称', '法人'], mappings: [{ sourceField: '法人', targetField: 'legal_rep' }], fieldSelection: ['legal_rep'],
+      rows: [{ 企业名称: '甲', 法人: '', legal_rep: '张三', qcc_match_status: 'enriched' }] };
+    assert.deepEqual(clientProjection(input), projectCompletionResult(input));
+    assert.equal(clientProjection(input).rows[0].法人, '张三');
+  } finally { cleanupGlobals(); }
+});
+
+test('人工映射不隐式抢占其他列，也不修改输出字段选择', () => {
+  try {
+    const loaded = loadClient();
+    let overlay;
+    loaded.exports.apply({ effect: () => () => {}, slots: {
+      inject: (name, callback) => { if (name === 'shell.overlay') overlay = callback(); return () => {}; },
+      register: (options, component) => ({ options, component }),
+    } });
+    const store = overlay.options.store.create();
+    store.actions.setFieldSelection(['credit_no']);
+    store.actions.setMappings([{ sourceField: 'A', targetField: 'legal_rep' }]);
+    store.actions.setMapping('B', 'legal_rep');
+    assert.deepEqual(store.getSnapshot().mappings, [{ sourceField: 'A', targetField: 'legal_rep' }]);
+    store.actions.setMapping('A', '');
+    store.actions.setMapping('B', 'legal_rep');
+    assert.deepEqual(store.getSnapshot().mappings, [{ sourceField: 'B', targetField: 'legal_rep' }]);
+    assert.deepEqual(store.getSnapshot().fieldSelection, ['credit_no']);
+  } finally { cleanupGlobals(); }
+});
+
 test('仅本地清洗目标跳过企查查匹配页，统计卡拒绝渲染对象值', () => {
   assert.match(source, /const requiresQcc = objectives\.includes\('validate_identity'\) \|\| objectives\.includes\('complete_fields'\)/);
   assert.match(source, /requiresQcc \? '下一步：匹配核验' : '下一步：本地清洗补全'/);

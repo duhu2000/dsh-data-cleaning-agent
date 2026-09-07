@@ -2,9 +2,9 @@
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.8.10** (stable release)
+> Current source version / 当前源码版本: **0.8.11** (stable release)
 
-This release adds continuous resizing from the workbench's left edge, keeping the native composer clear. Arrow keys, Home/End, double-click reset, and width restoration on reopening are supported. Constrained layouts use a full-screen drawer. All 128 fields, QCC-blue menus, existing workflows, and native DSH input and send behavior are preserved.
+This release adds automatic mapping for all 128 fields using standard labels, field keys, and explicit aliases, with searchable grouped choices and confirmation for ambiguous or duplicate columns. Enrichment fills empty cells in mapped original columns and preserves nonempty values; selected fields without a mapped column are appended. Duplicate CSV/XLSX headers retain independent values. Preview and exports follow the same rules. QCC-blue menus, resizable workbench, and native DSH input/send behavior remain unchanged. Existing download artifacts are not rewritten.
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)

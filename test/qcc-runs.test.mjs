@@ -179,6 +179,17 @@ test('只有 retryable 失败可由用户显式重试并更新原行', async () 
   assert.equal(retried.rows[0].credit_no, '9132RETRIED');
 });
 
+test('候选确认和失败续跑的字段合并不覆盖原有非空值', () => {
+  const store = new G5RunStore();
+  const result = resultWith({ status: 'failed' });
+  result.rows[0] = { ...result.rows[0], legal_rep: '原法人', reg_capital: 0, credit_no: ' ' };
+  const run = store.createRun({ headers: ['name', 'legal_rep', 'reg_capital', 'credit_no'], result });
+  store.patchCompany(store.requireRun(run.runId), '测试企业', [0], { status: 'enriched', fields: { legal_rep: '新法人', reg_capital: '500万元', credit_no: '00123' } });
+  assert.equal(store.get(run.runId).rows[0].legal_rep, '原法人');
+  assert.equal(store.get(run.runId).rows[0].reg_capital, 0);
+  assert.equal(store.get(run.runId).rows[0].credit_no, '00123');
+});
+
 test('Host 内存态过期后明确要求新建 run', () => {
   let now = 1_000;
   const store = new G5RunStore({ clock: () => now, ttlMs: 50, runIdFactory: () => 'g5-expiring' });

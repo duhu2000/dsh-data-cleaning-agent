@@ -341,6 +341,38 @@ try {
     } else {
       assert.equal(await drawer.getByRole('separator', { name: '调整工作台宽度' }).isVisible(), false);
     }
+    // User-reported mapping fixture: full catalog, ambiguity, duplicate targets and manual override.
+    const outputScope = await page.evaluate(() => {
+      const headers = ['企业名称', '法定代表人', '法定代表人（重复列 2）', '统一社会信用代码', '地址', '网址', '联系电话', '注册资本', '开业时间'];
+      window.store.actions.setDataset({ headers, rowCount: 2, preview: [] });
+      window.store.actions.setMappings(window.plugin.__testing.guessMappings(headers));
+      window.store.actions.setStep('rules');
+      return JSON.stringify(window.store.getSnapshot().fieldSelection);
+    });
+    assert.equal(await drawer.locator('.dcAgentMappingRow').count(), 9);
+    await drawer.getByLabel('法定代表人 推荐映射', { exact: true }).getByRole('button', { name: '推荐：法定代表人', exact: true }).click();
+    assert.equal(await drawer.getByLabel('法定代表人（重复列 2） 推荐映射', { exact: true }).getByRole('button').isDisabled(), true);
+    await drawer.getByLabel('地址 推荐映射', { exact: true }).getByRole('button', { name: '推荐：注册地址', exact: true }).click();
+    await drawer.getByLabel('网址 推荐映射', { exact: true }).getByRole('button').click();
+    await drawer.getByLabel('开业时间 推荐映射', { exact: true }).getByRole('button').click();
+    await drawer.getByLabel('地址 当前映射', { exact: true }).click();
+    await drawer.getByLabel('地址 搜索映射字段', { exact: true }).fill('通信');
+    const addressSelect = drawer.getByLabel('地址 字段映射', { exact: true });
+    assert.equal(await addressSelect.inputValue(), 'registered_address', 'filter must preserve current value');
+    await addressSelect.selectOption('mailing_address');
+    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).textContent(), '通信地址');
+    await drawer.getByRole('button', { name: '补充自动映射（保留已有选择）' }).click();
+    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).textContent(), '通信地址');
+    await drawer.getByLabel('地址 当前映射', { exact: true }).click();
+    await drawer.getByLabel('地址 搜索映射字段', { exact: true }).fill('不存在的字段');
+    assert.equal(await addressSelect.inputValue(), 'mailing_address');
+    await drawer.getByLabel('地址 搜索映射字段', { exact: true }).press('Escape');
+    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).evaluate(el => document.activeElement === el), true);
+    assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().fieldSelection)), outputScope);
+    await drawer.getByLabel('地址 当前映射', { exact: true }).click();
+    await drawer.getByLabel('地址 搜索映射字段', { exact: true }).fill('');
+    assert.ok(await drawer.locator('.dcAgentMappingRow').evaluateAll(rows => rows.every(row => row.scrollWidth <= row.clientWidth + 1)), 'mapping picker fits narrow panel');
+    await page.screenshot({ path: join(out, `mapping-${colorScheme}-${width}x${height}.png`) });
     await page.screenshot({ path: join(out, `workbench-${colorScheme}-${width}x${height}.png`) });
     await drawer.getByRole('button', { name: '关闭', exact: true }).click();
     await page.screenshot({ path: join(out, `home-${colorScheme}-${width}x${height}.png`) });

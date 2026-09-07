@@ -7,6 +7,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseCsv,
+  parseXlsx,
   parseJson,
   detectFormat,
   normalizePhone,
@@ -15,6 +16,21 @@ import {
   profileRows,
   toCsv,
 } from '../lib/engine.js';
+
+test('重复表头保留每一列原值，含已有重复列后缀时也不覆盖；CSV/XLSX 一致', async () => {
+  const headers = ['企业名称', '法定代表人', '法定代表人', '法定代表人（重复列 2）', '', 'col_5', '法定代表人'];
+  const values = ['甲公司', '张一', '李二', '王三', '原空表头', '原col5', '赵四'];
+  const csv = parseCsv(`${headers.join(',')}\n${values.join(',')}`);
+  assert.equal(new Set(csv.headers).size, headers.length);
+  assert.deepEqual(csv.headers.map((key) => csv.rows[0][key]), values);
+  assert.equal(csv.headers[2], '法定代表人（重复列 3）');
+  assert.deepEqual(parseCsv(toCsv(csv.headers, csv.rows)), csv);
+  const XLSX = (await import('xlsx')).default;
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([headers, values]), '名单');
+  const excel = await parseXlsx(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }));
+  assert.deepEqual(excel, csv);
+});
 
 test('parseCsv: 基本表头+行', () => {
   const { headers, rows } = parseCsv('name,phone,amount\n张三,13800000001,100\n李四,13800000002,200');
