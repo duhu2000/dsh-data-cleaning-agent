@@ -1,6 +1,6 @@
 # 实际控制人共享接入
 
-2026-09-07：发布目标为数据清洗补全 0.8.13，与 AI填表 0.2.11 共享实际控制人契约。
+2026-09-07：发布目标为数据清洗补全 0.8.13，与 AI填表 0.2.12 共享实际控制人契约（0.2.11 已用于独立 UI 修复）。
 
 本仓库直接依赖 qcc-field-contracts@0.1.0。业务契约唯一维护在 dsh-form-fill-agent 仓库 packages/qcc-field-contracts；完整方案见该仓库 docs/ACTUAL-CONTROLLER-SHARED-CONTRACT.md。
 
