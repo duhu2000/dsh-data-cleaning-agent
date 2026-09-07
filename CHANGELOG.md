@@ -2,6 +2,17 @@
 
 本文件记录 `dsh-data-cleaning-agent` 的版本变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+## [0.8.10] - 2026-09-07
+
+### Changed
+- 依据共享 DSH-UX-001 v1.3.0 / UX-39，为自有右侧工作台补充左侧连续拖拽分隔条、方向键和 Home/End 调宽、双击复位、拖动取消、手动宽度恢复；中央会话按实际面板宽度同步让位。
+- 按宿主会话区域实际可用宽度约束上下限，空间不足时全屏降级；关闭、切换或卸载恢复自有布局变量并清理监听，不改变 Host 任务、QCC 调用或发送机制。
+
+### Tests
+- 补充实际拖拽、取消、展开转手动、键盘调宽、关闭重开、宿主区域尺寸变化及让位清理回归；发布前通过 214 项检查测试与 10 组隔离 Chromium UI 回归。
+
 ## [0.8.9] - 2026-09-07
 
 ### Changed

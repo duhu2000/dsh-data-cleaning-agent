@@ -1421,12 +1421,21 @@ test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安�
     assert.equal(drawer.props['aria-modal'], 'false', '桌面工作台为非模态，中央会话保持可操作');
     assert.equal(drawer.props['aria-label'], '数据清洗补全工作台');
     assert.match(source, /body:has\(\.dcAgentWorkbench\) \[data-conversation-scroll\]/, '桌面工作台打开时必须使用 DSH 稳定标记为中央会话让出空间');
-    assert.match(source, /padding-right: min\(460px, 42vw\)/, '桌面让位宽度必须与工作台宽度保持一致');
+    assert.match(source, /padding-right: var\(--dc-agent-workbench-reserve, min\(460px, 42vw\)\)/, '桌面让位宽度跟随工作台实际宽度');
 
     // 五步核心工作流；质量体检和历史是横向能力。
     const stepButtons = [];
     collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['导入与核验', '规则与体检', '主体匹配', '字段补全', '结果下载'].includes(n.props['aria-label']), stepButtons);
     assert.equal(stepButtons.length, 5, '必须渲染五步 stepper');
+    const resizeHandle = findNode(panel, n => n.props?.role === 'separator');
+    assert.equal(resizeHandle.props['aria-label'], '调整工作台宽度');
+    assert.equal(resizeHandle.props['aria-orientation'], 'vertical');
+    assert.equal(resizeHandle.props.tabIndex, 0);
+    assert.deepEqual(exports.__testing.workbenchWidthBounds(1440), { mobile: false, min: 320, max: 1020 });
+    assert.deepEqual(exports.__testing.workbenchWidthBounds(761), { mobile: false, min: 320, max: 341 });
+    assert.deepEqual(exports.__testing.workbenchWidthBounds(390), { mobile: true, min: 390, max: 390 });
+    assert.deepEqual(exports.__testing.workbenchWidthBounds(1440, 1200), { mobile: false, min: 320, max: 780 });
+    assert.deepEqual(exports.__testing.workbenchWidthBounds(900, 660), { mobile: true, min: 900, max: 900 });
     assert.equal(stepButtons.filter(button => button.props['aria-current'] === 'step').length, 1);
     for (const button of stepButtons) {
       const children = button.children.flat(Infinity);

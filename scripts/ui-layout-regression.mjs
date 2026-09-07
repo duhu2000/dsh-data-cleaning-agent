@@ -233,6 +233,81 @@ try {
     }
     assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask)), beforeNavigation, 'navigation does not mutate or execute Host task');
     if (width > 760) {
+      const separator = drawer.getByRole('separator', { name: '调整工作台宽度' });
+      const panelWidth = async () => Math.round((await drawer.boundingBox()).width);
+      const assertNoOverlap = async () => {
+        const inputBox = await page.locator('[data-composer-card]').boundingBox();
+        const panelBox = await drawer.boundingBox();
+        assert.ok(inputBox.x + inputBox.width <= panelBox.x + 1, 'resizing must reserve the actual panel width');
+      };
+      const initialWidth = await panelWidth();
+      const taskBeforeResize = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
+      let grip = await separator.boundingBox();
+      await page.mouse.move(grip.x + 3, grip.y + 100);
+      await page.mouse.down();
+      await page.mouse.move(grip.x - 80, grip.y + 100, { steps: 8 });
+      await assertNoOverlap();
+      await page.mouse.up();
+      const manualWidth = await panelWidth();
+      assert.ok(manualWidth > initialWidth, 'dragging left expands continuously');
+      await separator.focus();
+      await page.keyboard.press('Home');
+      assert.equal(await panelWidth(), 320);
+      await page.keyboard.press('ArrowLeft');
+      assert.equal(await panelWidth(), 336);
+      await page.keyboard.press('Shift+ArrowLeft');
+      assert.equal(await panelWidth(), 384);
+      await page.keyboard.press('End');
+      assert.equal(await panelWidth(), width - 420);
+      await assertNoOverlap();
+      assert.equal(Number(await separator.getAttribute('aria-valuenow')), await panelWidth());
+      grip = await separator.boundingBox();
+      await page.mouse.move(grip.x + 3, grip.y + 100);
+      await page.mouse.down();
+      await page.mouse.move(grip.x + 65, grip.y + 100);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      assert.equal(await drawer.count(), 1, 'Escape during drag cancels resize, not the drawer');
+      assert.equal(await panelWidth(), width - 420);
+      await separator.dblclick();
+      assert.equal(await panelWidth(), initialWidth, 'double click restores default');
+      await separator.focus();
+      await page.keyboard.press('Home');
+      await page.keyboard.press('ArrowLeft');
+      await drawer.getByRole('button', { name: '展开工作台' }).click();
+      await drawer.getByRole('button', { name: '收起工作台' }).click();
+      assert.equal(await panelWidth(), 336, 'collapse restores manual preference');
+      await drawer.getByRole('button', { name: '关闭', exact: true }).click();
+      assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el => el.style.getPropertyValue('--dc-agent-workbench-reserve')), '');
+      await page.getByRole('button', { name: '任务历史', exact: true }).click();
+      await drawer.getByRole('button', { name: '当前任务', exact: true }).click();
+      assert.equal(await panelWidth(), 336, 'reopening preserves width, not a new task');
+      await page.setViewportSize({ width: 390, height: 700 });
+      assert.equal(await separator.isVisible(), false);
+      assert.equal(await panelWidth(), 390);
+      await page.setViewportSize({ width, height });
+      await page.waitForFunction(() => Math.round(document.querySelector('.dcAgentWorkbench').getBoundingClientRect().width) === 336);
+      assert.equal(await panelWidth(), 336);
+      assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask)), taskBeforeResize);
+      // Host sidebar changes available canvas width without a window resize.
+      await page.locator('[data-conversation-scroll]').evaluate(el => {
+        el.style.marginLeft = '240px'; el.style.width = 'calc(100% - 240px)';
+      });
+      if (width - 240 < 740) {
+        await page.waitForFunction(() => document.querySelector('.dcAgentWorkbench').dataset.narrow === 'true');
+        assert.equal(await separator.isVisible(), false);
+      } else {
+        await page.waitForFunction(expected => Number(document.querySelector('.dcAgentResizeHandle').getAttribute('aria-valuemax')) === expected, width - 660);
+        await separator.focus(); await page.keyboard.press('End');
+        assert.equal(await panelWidth(), width - 660);
+        await assertNoOverlap();
+      }
+      await page.locator('[data-conversation-scroll]').evaluate(el => {
+        el.style.removeProperty('margin-left'); el.style.removeProperty('width');
+      });
+      await page.waitForFunction(() => document.querySelector('.dcAgentWorkbench').dataset.narrow === 'false');
+      await separator.dblclick();
+      await assertStageNavigation('resized-default');
       for (const expanded of [false, true]) {
         if (expanded) await drawer.getByRole('button', { name: '展开工作台' }).click();
         if (expanded) await assertStageNavigation('expanded');
@@ -245,6 +320,26 @@ try {
         const drawerBox = await drawer.boundingBox();
         assert.ok(nativeBox.x + nativeBox.width <= drawerBox.x + 1, JSON.stringify({ reason: 'drawer overlap', width, height, expanded, nativeBox, drawerBox }));
       }
+      const expandedWidth = await panelWidth();
+      grip = await separator.boundingBox();
+      await page.mouse.move(grip.x + 3, grip.y + 100); await page.mouse.down();
+      await page.mouse.move(grip.x + 55, grip.y + 100, { steps: 5 }); await page.mouse.up();
+      assert.ok(await panelWidth() < expandedWidth);
+      assert.equal(await drawer.getByRole('button', { name: '展开工作台' }).count(), 1, 'drag from expanded returns to manual mode');
+      for (const cancellation of ['pointercancel', 'blur']) {
+        const savedWidth = await panelWidth();
+        grip = await separator.boundingBox();
+        await page.mouse.move(grip.x + 3, grip.y + 100); await page.mouse.down();
+        await page.mouse.move(grip.x + 30, grip.y + 100);
+        if (cancellation === 'pointercancel') await separator.dispatchEvent('pointercancel');
+        else await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+        await page.mouse.up();
+        assert.equal(await panelWidth(), savedWidth, `${cancellation} restores the starting width`);
+      }
+      await assertNoOverlap();
+      await separator.hover();
+    } else {
+      assert.equal(await drawer.getByRole('separator', { name: '调整工作台宽度' }).isVisible(), false);
     }
     await page.screenshot({ path: join(out, `workbench-${colorScheme}-${width}x${height}.png`) });
     await drawer.getByRole('button', { name: '关闭', exact: true }).click();
@@ -259,6 +354,7 @@ try {
     await dialog.waitFor();
     await page.evaluate(() => window.show('ordinary'));
     await page.locator('.dcAgentCapabilityMount').waitFor({ state: 'detached' });
+    assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el => el.style.getPropertyValue('--dc-agent-workbench-reserve')), '');
     assert.equal(await page.locator('.dcAgentPromptTrigger').count(), 0);
     assert.equal(await page.locator('.dcAgentPromptBackdrop').count(), 0);
     assert.equal(await page.locator('#foreign').count(), 1);
