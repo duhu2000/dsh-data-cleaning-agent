@@ -25,6 +25,7 @@ try {
     page.on('pageerror', (error) => errors.push(error.message));
     // Real origin for relative fetch; all traffic fulfilled locally, no live DSH/QCC.
     let fixtureTask = null;
+    let parseCalls = 0;
     const unexpectedRequests = [];
     await page.route('**/*', async (route) => {
       const request = route.request();
@@ -32,6 +33,14 @@ try {
       if (url.hostname !== 'dcq-ui.test') { unexpectedRequests.push(request.url()); return route.abort(); }
       if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' });
       const base = '/data-cleaning/api/workflow/tasks';
+      if (url.pathname === '/data-cleaning/api/mvp/parse') {
+        parseCalls++;
+        const data = request.postDataJSON();
+        if (data.filename === 'broken.xlsx') return route.fulfill({ json: { ok: false, message: '测试文件无法解析' } });
+        assert.equal(Buffer.from(data.content, 'base64').toString(), 'synthetic-xlsx-fixture');
+        const rows = Array.from({ length: 23 }, (_, i) => ({ 企业名称: `合成企业${i + 1}` }));
+        return route.fulfill({ json: { ok: true, fmt: 'xlsx', headers: ['企业名称'], rowCount: 23, rows, preview: rows.slice(0, 5) } });
+      }
       if (url.pathname === base && request.method() === 'GET') return route.fulfill({ json: { tasks: fixtureTask ? [fixtureTask] : [] } });
       if (url.pathname.startsWith(base) && ['POST', 'PATCH'].includes(request.method())) {
         const data = request.postDataJSON() || {};
@@ -219,6 +228,36 @@ try {
     await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'uploaded');
     assert.equal(await drawer.locator('.dcAgentError').count(), 0, 'fixture Host metadata successfully loaded');
     assert.equal(await drawer.locator('.dcAgentTable th').first().evaluate(el => getComputedStyle(el).backgroundColor), colorScheme === 'light' ? 'rgb(242, 249, 252)' : 'rgb(23, 44, 59)');
+    // File bytes are a synthetic Host fixture; this checks input/remount wiring,
+    // not XLSX decoding (covered separately by engine tests).
+    const picker = drawer.getByLabel('选择数据文件', { exact: true });
+    const file = { name: '测试名单.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('synthetic-xlsx-fixture') };
+    await picker.setInputFiles(file);
+    await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).waitFor();
+    await page.waitForFunction(() => !window.store.getSnapshot().busy);
+    assert.equal(parseCalls, 1);
+    assert.equal(await drawer.getByRole('button', { name: '解析数据', exact: true }).isDisabled(), true);
+    assert.ok((await drawer.getByLabel('当前导入数据').textContent()).includes('测试名单.xlsx'));
+    assert.equal(await picker.inputValue(), '', 'native chooser reset permits selecting the same file; status comes from dataset');
+    await drawer.getByRole('button', { name: '已核对清单，下一步：字段映射与规则' }).click();
+    await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
+    assert.equal(await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).count(), 1);
+    assert.equal(await drawer.locator('.dcAgentError').count(), 0);
+    await picker.setInputFiles({ ...file, name: 'broken.xlsx' });
+    await page.waitForFunction(() => !window.store.getSnapshot().busy && Boolean(window.store.getSnapshot().error));
+    assert.equal(await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).count(), 1, 'failed replacement preserves loaded data');
+    await picker.setInputFiles(file);
+    await page.waitForFunction(() => !window.store.getSnapshot().busy && !window.store.getSnapshot().error);
+    assert.equal(parseCalls, 3, 'same file can be selected again after reset');
+    await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).fill('待解析的新名单');
+    assert.equal(await drawer.getByRole('button', { name: '已核对清单，下一步：字段映射与规则' }).isDisabled(), true);
+    await drawer.getByRole('button', { name: '解析数据', exact: true }).click();
+    await page.waitForFunction(() => !window.store.getSnapshot().busy && window.store.getSnapshot().dataset?.rowCount === 1);
+    assert.equal(await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).inputValue(), '');
+    assert.equal(parseCalls, 3, 'plain entity list is parsed locally');
+    await picker.setInputFiles(file);
+    await page.waitForFunction(() => !window.store.getSnapshot().busy && window.store.getSnapshot().dataset?.rowCount === 23);
+    await page.screenshot({ path: join(out, `imported-${colorScheme}-${width}x${height}.png`) });
     await drawer.getByRole('button', { name: '规则与体检', exact: true }).click();
     const fieldSearch = drawer.getByRole('searchbox', { name: '查找补全字段' });
     await fieldSearch.fill('行业');

@@ -1697,6 +1697,19 @@ test('已完成任务再录入名单时自动创建新 taskId', async () => {
   }
 });
 
+test('导入状态以完整数据集为准，不以原生文件选择框或粘贴框是否为空判断', () => {
+  try {
+    const { intakeState } = loadClient().exports.__testing;
+    const dataset = { rowCount: 23 };
+    const rows = Array.from({ length: 23 }, () => ({ 企业名称: '合成企业' }));
+    assert.deepEqual(intakeState(dataset, rows, '', { fileName: '测试名单.xlsx' }), { available: true, pendingText: false, fileName: '测试名单.xlsx', count: 23 });
+    assert.equal(intakeState(dataset, rows, '新企业', {}).pendingText, true);
+    assert.equal(intakeState(dataset, [], '', {}).available, false, '仅恢复元数据不能冒充已恢复全部明细');
+    assert.equal(intakeState(dataset, rows.slice(0, 5), '', {}).available, false);
+    assert.equal(intakeState(null, [], '', {}).available, false);
+  } finally { cleanupGlobals(); }
+});
+
 test('上传解析进入 taskId runtime，字段映射在规则确认页完成', () => {
   const applyParsedStart = source.indexOf('function applyParsed(result, actions, taskId');
   const applyParsedEnd = source.indexOf('/** 右侧非模态工作台', applyParsedStart);
