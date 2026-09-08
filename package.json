@@ -1,7 +1,7 @@
 {
   "name": "dsh-data-cleaning-agent",
   "version": "0.8.14",
-  "description": "Clean, complete, and profile enterprise name lists in DeepSeek Harness — a data cleaning & completion agent plugin with local CSV/XLSX/JSON engine and optional Qichacha (QCC) MCP enrichment. Maintained by Qichacha/QCC.",
+  "description": "Data cleaning and data enrichment for CSV/XLSX/JSON enterprise lists in DeepSeek Harness, including spreadsheet cleaning, deduplication, profiling, optional Qichacha MCP and exports.",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -84,7 +84,22 @@
     "ai-tools",
     "llm-tools",
     "ai-agents",
-    "agent-skills"
+    "agent-skills",
+    "数据清洗补全",
+    "数据清洗",
+    "清洗补全",
+    "表格清洗",
+    "企业数据补全",
+    "字段补全",
+    "data cleaning",
+    "data enrichment",
+    "spreadsheet cleaning",
+    "数据 清洗 补全",
+    "数据清洗、补全",
+    "企查查MCP",
+    "企查查 MCP",
+    "data-enrichment",
+    "spreadsheet-cleaning"
   ],
   "license": "MIT",
   "repository": {
