@@ -19,7 +19,7 @@ npm keywords 已在包清单内更新。GitHub description 建议使用上述英
 数据清洗补全智能体：面向 Excel/CSV/JSON 企业名单，提供数据清洗、表格清洗、清洗补全、去重、企业数据补全与字段补全，支持企查查 MCP 和结果导出。
 
 ```sh
-dsh plugin --profile web add dsh-data-cleaning-agent@0.8.14
+dsh plugin --profile web add dsh-data-cleaning-agent@0.8.15
 ```
 
 请先满足下文的 DSH、连接器及侧边栏依赖要求；安装后完整停止并重启对应 Profile。
