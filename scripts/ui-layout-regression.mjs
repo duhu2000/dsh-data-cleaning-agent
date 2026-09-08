@@ -26,14 +26,26 @@ try {
     // Real origin for relative fetch; all traffic fulfilled locally, no live DSH/QCC.
     let fixtureTask = null;
     let parseCalls = 0;
+    let oldHost = false;
+    let fixtureCommand = null;
     const unexpectedRequests = [];
     await page.route('**/*', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
       if (url.hostname !== 'dcq-ui.test') { unexpectedRequests.push(request.url()); return route.abort(); }
       if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' });
-      if (url.pathname === '/data-cleaning/api/g5/capabilities') return route.fulfill({ json: { paidCallConfirmationRequired: true } });
+      if (url.pathname === '/data-cleaning/api/g5/capabilities') return route.fulfill({ json: oldHost ? { paidCallConfirmationRequired: true } : { workflowExecutionVersion: 1 } });
       const base = '/data-cleaning/api/workflow/tasks';
+      if (url.pathname === '/data-cleaning/api/g5/commands' && request.method() === 'POST') {
+        const input = request.postDataJSON();
+        assert.equal(input.workflowOwned, true);
+        assert.equal(input.expectedRevision, fixtureTask.revision);
+        assert.deepEqual(input.fieldSelection, fixtureTask.fieldSelection);
+        fixtureCommand = { commandId: 'dcq-ui-fixture', taskId: fixtureTask.id, state: 'prepared', prompt: '请执行已在「数据清洗补全工作台」确认的企业数据任务。安全任务凭证：dcq-ui-fixture。调用 data_cleaning_qcc_run，生成新的 XLSX。' };
+        return route.fulfill({ json: { command: fixtureCommand } });
+      }
+      if (url.pathname === '/data-cleaning/api/g5/commands/dcq-ui-fixture') return route.fulfill({ json: { command: fixtureCommand } });
+      if (url.pathname === base + '/dcw-ui-fixture' && request.method() === 'GET') return route.fulfill({ json: { task: fixtureTask } });
       if (url.pathname === '/data-cleaning/api/mvp/parse') {
         parseCalls++;
         const data = request.postDataJSON();
@@ -52,6 +64,8 @@ try {
         const data = request.postDataJSON() || {};
         fixtureTask = { id: 'dcw-ui-fixture', state: 'draft', stage: 'upload', artifacts: [], ...fixtureTask, ...data, revision: (fixtureTask?.revision || 0) + 1 };
         if (url.pathname.endsWith('/actions/upload')) fixtureTask.state = 'uploaded';
+        if (url.pathname.endsWith('/actions/rules')) fixtureTask.state = 'rules_confirmed';
+        if (url.pathname.endsWith('/actions/quality')) { fixtureTask.state = 'diagnosed'; fixtureTask.stage = 'match'; }
         return route.fulfill({ json: { task: fixtureTask } });
       }
       if (url.pathname === '/data-cleaning/api/workflow/contract') return route.fulfill({ json: { contract: {} } });
@@ -99,7 +113,15 @@ try {
       const store = slots['shell.overlay'].options.store.create();
       window.store = store;
       const Experience = slots['conversation.input.dock'].component;
-      const Prompt = slots['conversation.input.overlay'].component;
+      // DSH materializes session slots separately from the root workbench.
+      const sessionPlugin = window.registration.factory((name) => modules[name]);
+      const sessionSlots = {};
+      sessionPlugin.apply({ effect: fn => fn(), slots: {
+        inject: (name, fn) => { sessionSlots[name] = fn(); },
+        register: (options, component) => ({ options, component }),
+      } });
+      sessionPlugin.__testing.markCleaningSession('fixture');
+      const Prompt = sessionSlots['conversation.input.overlay'].component;
       const Drawer = slots['shell.overlay'].component;
       const useStore = (pick) => R.useSyncExternalStore(store.subscribe, () => pick(store.getSnapshot()));
       function App({ sessionId = 'fixture', phase = 'blank' }) {
@@ -234,8 +256,9 @@ try {
       await stageNav.screenshot({ path: join(out, `stage-menu-${colorScheme}-${width}x${height}-${mode}.png`) });
     }
     await assertStageNavigation('normal');
-    await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'uploaded');
+    await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'diagnosed');
     assert.equal(await drawer.locator('.dcAgentError').count(), 0, 'fixture Host metadata successfully loaded');
+    await stageNav.getByRole('button', { name: '导入与核验', exact: true }).click();
     assert.equal(await drawer.locator('.dcAgentTable th').first().evaluate(el => getComputedStyle(el).backgroundColor), colorScheme === 'light' ? 'rgb(242, 249, 252)' : 'rgb(23, 44, 59)');
     // File bytes are a synthetic Host fixture; this checks input/remount wiring,
     // not XLSX decoding (covered separately by engine tests).
@@ -443,9 +466,11 @@ try {
     assert.equal(await drawer.getByRole('checkbox').count(), 0);
     await generateDescription.scrollIntoViewIfNeeded();
     await page.screenshot({ path: join(out, `match-${colorScheme}-${width}x${height}.png`) });
+    oldHost = true;
     await generateDescription.click();
-    await drawer.getByText('页面与 Host 版本不一致。请先保存或导出现有任务，再升级并重启 DSH、刷新页面。生成任务说明不需要勾选费用确认。', { exact: true }).waitFor();
+    await drawer.getByText('页面与 Host 版本不一致。请保存任务后升级并完整重启 DSH；当前 Host 不支持自动生成结果文件。', { exact: true }).waitFor();
     assert.equal(unexpectedRequests.length, 0, 'old Host preflight must not stage or execute a QCC command');
+    oldHost = false;
     await drawer.getByRole('button', { name: '关闭', exact: true }).click();
     await page.screenshot({ path: join(out, `home-${colorScheme}-${width}x${height}.png`) });
     await page.evaluate(() => window.show('fixture', 'active'));
@@ -480,6 +505,18 @@ try {
     await dialog.getByRole('button',{name:'回填到对话框'}).click();
     await page.waitForFunction(()=>window.store.getSnapshot().workflowTask?.mappings?.length===15 && window.store.getSnapshot().workflowTask?.fieldSelection?.length===13);
     assert.equal(await page.evaluate(()=>new Set(window.store.getSnapshot().fieldSelection).size),13);
+    await dialog.waitFor({ state: 'detached' });
+    assert.match(await page.locator('#native').inputValue(), /安全任务凭证：dcq-/);
+    // Simulate the Agent-owned tool completing while the drawer is closed.
+    fixtureTask = { ...fixtureTask, state: 'completed', stage: 'download', qccRunId: 'g5-ui-fixture',
+      artifacts: [{ id: 'dca-ui-fixture', kind: 'complete', format: 'xlsx', fileName: '清洗补全结果.xlsx', rowCount: 1 }] };
+    fixtureCommand = { ...fixtureCommand, state: 'completed',
+      run: { runId: 'g5-ui-fixture', rows: [{ 公司名称: '合成测试企业' }], summary: { totalRows: 1, enriched: 1 } } };
+    await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'completed');
+    await page.getByRole('button', {name: '字段补全', exact: true}).click();
+    await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
+    await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
+    await drawer.getByRole('button', {name: '关闭', exact: true}).click();
     await page.getByRole('button', { name: '打开提示词生成' }).click();
     await dialog.waitFor();
     await page.evaluate(() => window.show('ordinary'));

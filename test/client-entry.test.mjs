@@ -1898,3 +1898,48 @@ test('T8 下载页使用 Host 耐久 CSV/XLSX 制品并支持最近任务 taskId
     cleanupGlobals();
   }
 });
+test('独立清洗会话在刷新及切换回来后恢复归属，保留已生成草稿', () => {
+  try {
+    const { exports } = loadClient();
+    const bridge = exports.__testing;
+    const sessionId = 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012';
+    let current = sessionId, selected, draft = '请执行已在「数据清洗补全工作台」确认的企业数据任务。安全任务凭证：dcq-test data_cleaning_qcc_run';
+    const ctx = {
+      sessions: { list: { getSnapshot: () => ({ current }), subscribe: fn => { selected = fn; return () => {}; } } },
+      get: () => ({ input: { shell: id => ({ snapshot: { draft: id === sessionId ? draft : '' }, setDraft: text => { if (id === sessionId) draft = text; } }) } }),
+    };
+    const release = bridge.installSessionOwnershipBridge(ctx);
+    assert.equal(bridge.isCleaningSession(sessionId), true);
+    const original = draft;
+    current = 'other-agent'; selected();
+    assert.equal(bridge.isCleaningSession(sessionId), false);
+    assert.equal(draft, original);
+    current = sessionId; selected();
+    assert.equal(bridge.isCleaningSession(sessionId), true);
+    assert.equal(draft, original);
+    release();
+  } finally { cleanupGlobals(); }
+});
+
+test('点击已选清洗会话的侧栏入口只重开工作台，不创建新会话或覆盖草稿', async () => {
+  try {
+    const { exports } = loadClient();
+    const current = 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012';
+    let entry, opened = 0;
+    document.addEventListener('dsh:data-cleaning-workbench-open', event => {
+      assert.equal(event.detail.sessionId, current); opened++; event.preventDefault();
+    });
+    exports.apply({
+      effect: () => () => {},
+      workspaces: { list: { getSnapshot: () => ({ items: [] }) } },
+      sessions: { list: { getSnapshot: () => ({ current }) }, create: () => { throw new Error('must not create'); } },
+      get: () => { throw new Error('must not overwrite draft'); },
+      slots: {
+        inject: (name, cb) => { if (name === 'sidebar.footer.action') entry = cb(); },
+        register: (options, component) => ({ options, component }),
+      },
+    });
+    assert.equal(await entry.options.inject().startSession(), current);
+    assert.equal(opened, 1);
+  } finally { cleanupGlobals(); }
+});

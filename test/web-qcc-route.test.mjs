@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import XLSX from 'xlsx';
+import { memoryStorageDomain, memoryFs } from './helpers/workflow-memory.mjs';
 import { Readable } from 'node:stream';
 import { mountWebRoutes } from '../lib/web.js';
 import { QCC_TOOL_NAMES } from '../lib/qcc.js';
@@ -36,7 +38,7 @@ function request({ method = 'GET', url, body } = {}) {
   return req;
 }
 
-function harness({ omitDefinitions = [], registrationFault = null } = {}) {
+function harness({ omitDefinitions = [], registrationFault = null, storageDomain = null, fs = null } = {}) {
   const routes = new Map();
   const calls = [];
   const registeredTools = new Map();
@@ -167,7 +169,8 @@ function harness({ omitDefinitions = [], registrationFault = null } = {}) {
     tools,
     skills: {},
     jobs: null,
-    storageDomain: null,
+    storageDomain,
+    fs,
   }, {
     logger: { info() {}, warn() {} },
     report,
@@ -846,3 +849,131 @@ for (const fault of [
     app.dispose();
   });
 }
+async function workflowRequest(app, url, body, method = body === undefined ? 'GET' : 'POST') {
+  const response = responseRecorder();
+  const route = url.includes('/g5/commands') ? '/data-cleaning/api/g5/commands' : '/data-cleaning/api/workflow/tasks';
+  await app.routes.get(route)(request({ url, body, method }), response);
+  assert.ok(response.status < 300, response.body);
+  return response.json();
+}
+
+async function stagedWorkflow(app, name = '示例企业有限公司') {
+  const base = '/data-cleaning/api/workflow/tasks';
+  let { task } = await workflowRequest(app, base, { title: '自动交付测试' });
+  const rows = [{ 公司名称: name, 法人: '', 负责人: '', 保留零: 0, 备注: '保留文本' }];
+  const headers = Object.keys(rows[0]);
+  ({ task } = await workflowRequest(app, base + '/' + task.id + '/actions/upload', {
+    expectedRevision: task.revision, source: { type: 'xlsx', fileName: '测试.xlsx', rowCount: 1, columnCount: headers.length, headers },
+  }));
+  ({ task } = await workflowRequest(app, base + '/' + task.id + '/actions/rules', {
+    expectedRevision: task.revision, fieldSelection: ['legal_rep'],
+    mappings: [
+      { sourceField: '公司名称', targetField: 'company_name' },
+      { sourceField: '法人', targetField: 'legal_rep' },
+      { sourceField: '负责人', targetField: 'legal_rep' },
+      { sourceField: '保留零', targetField: 'legal_rep' },
+    ],
+  }));
+  const payload = { kind: 'enrich', workflowOwned: true, expectedRevision: task.revision, taskId: task.id, rows, headers };
+  const { command } = await workflowRequest(app, '/data-cleaning/api/g5/commands', payload);
+  return { task, command, payload, rows };
+}
+function runCommand(app, command) {
+  return app.registeredTools.get('data_cleaning_qcc_run').execute({ commandId: command.commandId }, {
+    token: 'parent-token', agent: { session: { id: 'test-session' } }, signal: new AbortController().signal,
+  });
+}
+
+test('Host 单次发送自动交付新 XLSX：多列补空、保留 0、无需页面轮询且重挂载可下载', async () => {
+  const storageDomain = memoryStorageDomain(), fs = memoryFs();
+  let app = harness({ storageDomain, fs });
+  const { task, command, rows } = await stagedWorkflow(app);
+  assert.equal(app.calls.length, 0, '生成说明不查询');
+  assert.match(command.prompt, /不再询问额度或写回确认/);
+  const result = await runCommand(app, command);
+  assert.equal(result.deliveryState, 'completed');
+  assert.equal(result.artifactCount, 4);
+  const calls = app.calls.length;
+  await runCommand(app, command);
+  assert.equal(app.calls.length, calls, '同一发送重放不重复扣量');
+  const completed = (await workflowRequest(app, '/data-cleaning/api/workflow/tasks/' + task.id)).task;
+  assert.equal(completed.state, 'completed');
+  assert.equal(rows[0].法人, '', '原始输入不变');
+  const xlsx = completed.artifacts.find(a => a.kind === 'complete' && a.format === 'xlsx');
+  assert.match(xlsx.fileName, /测试-清洗补全结果\.xlsx$/);
+  app.dispose();
+  app = harness({ storageDomain, fs });
+  const restored = (await workflowRequest(app, '/data-cleaning/api/workflow/tasks/' + task.id)).task;
+  assert.equal(restored.artifacts.length, 4);
+  // Read actual persisted bytes, as the download service does after restart.
+  const { WorkflowArtifactStore } = await import('../lib/artifacts.js');
+  const artifactStore = new WorkflowArtifactStore({ fs });
+  const bytes = await artifactStore.read(task.id, xlsx);
+  const workbook = XLSX.read(bytes, { type: 'buffer' });
+  const output = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: '' });
+  assert.equal(output[0].法人, '张三');
+  assert.equal(output[0].负责人, '张三');
+  assert.equal(output[0].保留零, 0);
+  assert.equal(output[0].备注, '保留文本');
+  assert.equal(output[0].公司名称, rows[0].公司名称);
+  assert.equal(app.calls.length, 0, '恢复下载不查询');
+  app.dispose();
+});
+
+test('旧说明的 revision 失效时阻止重复扣量，不破坏已完成任务', async () => {
+  const app = harness({ storageDomain: memoryStorageDomain(), fs: memoryFs() });
+  const { task, command, payload } = await stagedWorkflow(app);
+  const second = (await workflowRequest(app, '/data-cleaning/api/g5/commands', payload)).command;
+  await runCommand(app, command);
+  const calls = app.calls.length;
+  await assert.rejects(runCommand(app, second), { code: 'DC_WORKFLOW_REVISION_CONFLICT' });
+  assert.equal(app.calls.length, calls);
+  assert.equal((await workflowRequest(app, '/data-cleaning/api/workflow/tasks/' + task.id)).task.state, 'completed');
+  app.dispose();
+});
+
+test('真正的多候选仍在工作台待确认，选定后 Host 自动交付', async () => {
+  const app = harness({ storageDomain: memoryStorageDomain(), fs: memoryFs() });
+  const { task, command } = await stagedWorkflow(app, '模糊企业');
+  const result = await runCommand(app, command);
+  assert.equal(result.deliveryState, 'review_required');
+  assert.equal(result.artifactCount, 0);
+  const current = (await workflowRequest(app, '/data-cleaning/api/workflow/tasks/' + task.id)).task;
+  const next = (await workflowRequest(app, '/data-cleaning/api/g5/commands', {
+    kind: 'resolve', workflowOwned: true, expectedRevision: current.revision, taskId: task.id,
+    runId: current.qccRunId, companyName: '模糊企业', selectedCreditNo: '9132AMBIG-A', confirmPaidCalls: true,
+  })).command;
+  assert.equal((await runCommand(app, next)).artifactCount, 4);
+  app.dispose();
+});
+
+test('Host 写文件失败不伪报完成，命令重放不再扣量', async () => {
+  const fs = memoryFs();
+  fs.writeText = async () => { throw new Error('disk full'); };
+  const app = harness({ storageDomain: memoryStorageDomain(), fs });
+  const { task, command } = await stagedWorkflow(app);
+  await assert.rejects(runCommand(app, command));
+  const calls = app.calls.length;
+  await assert.rejects(runCommand(app, command));
+  assert.equal(app.calls.length, calls);
+  const failed = (await workflowRequest(app, '/data-cleaning/api/workflow/tasks/' + task.id)).task;
+  assert.equal(failed.state, 'failed');
+  assert.equal(failed.artifacts.length, 0);
+  app.dispose();
+});
+test('部分失败自动提供结果下载但保留 partial，显式重试只重跑失败项', async () => {
+  const app = harness({ storageDomain: memoryStorageDomain(), fs: memoryFs(), registrationFault: { times: 1, upstreamCode: '503' } });
+  const { task, command } = await stagedWorkflow(app);
+  const first = await runCommand(app, command);
+  assert.equal(first.deliveryState, 'partial');
+  assert.equal(first.artifactCount, 4);
+  const current = (await workflowRequest(app, '/data-cleaning/api/workflow/tasks/' + task.id)).task;
+  const next = (await workflowRequest(app, '/data-cleaning/api/g5/commands', {
+    kind: 'retry', workflowOwned: true, taskId: task.id, runId: current.qccRunId,
+    expectedRevision: current.revision, companyNames: ['示例企业有限公司'], confirmPaidCalls: true,
+  })).command;
+  const result = await runCommand(app, next);
+  assert.equal(result.deliveryState, 'completed');
+  assert.equal(result.summary.failed, 0);
+  app.dispose();
+});
