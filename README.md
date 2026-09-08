@@ -1,13 +1,13 @@
 # dsh-data-cleaning-agent
 
-本次补丁仅更新搜索发现与安装转化文档，运行时能力保持上一版本；发布记录见 [发布说明](docs/RELEASE-0.8.15.md)。
+本版统一提示词向导与右侧工作台的原表解析、字段映射和补全范围；发布记录见 [发布说明](docs/RELEASE-0.8.16.md)。
 
 ## 安装与三分钟上手
 
 数据清洗补全智能体：面向 Excel/CSV/JSON 企业名单，提供数据清洗、表格清洗、清洗补全、去重、企业数据补全与字段补全，支持企查查 MCP 和结果导出。
 
 ```sh
-dsh plugin --profile web add dsh-data-cleaning-agent@0.8.15
+dsh plugin --profile web add dsh-data-cleaning-agent@0.8.16
 ```
 
 请先满足下文的 DSH、连接器及侧边栏依赖要求；安装后完整停止并重启对应 Profile。
@@ -25,9 +25,9 @@ dsh plugin --profile web add dsh-data-cleaning-agent@0.8.15
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.8.15**（正式版本）
+> 当前源码版本 / Current source version: **0.8.16**（正式版本）
 
-本版修复文件上传成功后的导入状态误报：文件选择后自动解析，当前来源、文件名和行数持续显示；文本解析仅处理新粘贴内容。支持重新选择同一文件，解析失败保留现有数据，新粘贴内容解析或清空后再进入下一步。保留 128 字段智能映射、原列补空、企查查蓝菜单、可调宽工作台及 DSH 原生发送机制。历史下载文件不自动改写。
+本版上传表格后展示完整清单及空白数量，用绿色、琥珀色、红色及文字区分已通过、待确认和未匹配映射。已映射字段自动纳入补全范围，额外字段默认折叠；多个原列可经确认使用同一非主体字段，分别补空并保留非空原值。修复 Host 草稿重置为默认五字段的问题，增加前后端版本错配提示。生成说明不查询，发送才执行；升级后需完整重启 DSH，历史下载文件不自动改写。
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)

@@ -8,9 +8,9 @@ Related agents: [数据清洗补全](https://github.com/duhu2000/dsh-data-cleani
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.8.15** (stable release)
+> Current source version / 当前源码版本: **0.8.16** (stable release)
 
-This release fixes misleading import errors after a successful upload. Files are parsed automatically, with persistent source, filename, and row-count status; text parsing handles only newly pasted content. The same file can be selected again, failed parsing preserves existing data, and pending pasted content must be parsed or cleared before continuing. Automatic mapping for 128 fields, blank-cell enrichment in original columns, QCC-blue menus, the resizable workbench, and native DSH sending remain unchanged. Existing download artifacts are not rewritten.
+This release unifies spreadsheet previews, column mapping, and enrichment scope across the prompt wizard and workbench. Mapping statuses use color and text; mapped fields automatically enter the scope, with optional extra fields collapsed. Multiple confirmed output columns may share a non-identity field while preserving non-empty values. It fixes saved drafts resetting the scope to five defaults and detects stale Host versions. Preparing a draft does not query QCC; sending starts execution. Fully restart DSH after upgrading. Existing download artifacts are not rewritten.
 
 [![CI](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/duhu2000/dsh-data-cleaning-agent/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-data-cleaning-agent)](https://www.npmjs.com/package/dsh-data-cleaning-agent)

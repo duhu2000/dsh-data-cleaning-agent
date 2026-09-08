@@ -9,7 +9,7 @@ test('补全回填已映射原列，仅补空，CSV/XLSX/异常清单一致且�
   const input = {
     headers: ['企业名称', '法定代表人', '法定代表人（重复列 2）', '统一社会信用代码', '地址', '网址', '注册资本', '开业时间'],
     mappings: [
-      ['企业名称', 'company_name'], ['法定代表人', 'legal_rep'], ['统一社会信用代码', 'credit_no'],
+      ['企业名称', 'company_name'], ['法定代表人', 'legal_rep'], ['法定代表人（重复列 2）', 'legal_rep'], ['统一社会信用代码', 'credit_no'],
       ['地址', 'registered_address'], ['网址', 'contact_official_website'], ['注册资本', 'reg_capital'], ['开业时间', 'establish_date'],
     ].map(([sourceField, targetField]) => ({ sourceField, targetField })),
     fieldSelection: ['company_name', 'legal_rep', 'credit_no', 'registered_address', 'contact_official_website', 'reg_capital', 'establish_date', 'reg_status', 'risk_recorded_factor_count'],
@@ -24,7 +24,7 @@ test('补全回填已映射原列，仅补空，CSV/XLSX/异常清单一致且�
   const projected = projectCompletionResult(input);
   assert.deepEqual(projected.headers.slice(0, 8), input.headers);
   assert.equal(projected.rows[0].法定代表人, '张三');
-  assert.equal(projected.rows[0]['法定代表人（重复列 2）'], '');
+  assert.equal(projected.rows[0]['法定代表人（重复列 2）'], '张三');
   assert.equal(projected.rows[0].统一社会信用代码, '001234567890123456');
   assert.equal(projected.rows[0].企业名称, '原名称');
   assert.equal(projected.rows[0].地址, '原地址');
@@ -44,17 +44,18 @@ test('补全回填已映射原列，仅补空，CSV/XLSX/异常清单一致且�
     assert.deepEqual(matrix[0].slice(0, 8), input.headers);
     assert.equal(matrix[0].some((key) => key.includes('（补全')), false);
     assert.equal(matrix[1][1], artifact.kind === 'complete' ? '张三' : '');
+    assert.equal(matrix[1][2], artifact.kind === 'complete' ? '张三' : '');
     if (artifact.kind === 'complete') assert.equal(matrix[1][3], '001234567890123456');
   }
 });
 
-test('未选字段、不存在或重复映射不回填；false 和 0 均视为原有值', () => {
+test('多原列可共用补全字段；false 和 0 均视为原有值且不新增副列', () => {
   const input = { headers: ['A', 'B'], mappings: [{ sourceField: 'A', targetField: 'legal_rep' }], fieldSelection: ['legal_rep'], rows: [{ A: false, B: 0, legal_rep: '新值' }] };
   assert.equal(projectCompletionResult(input).rows[0].A, false);
   assert.equal(projectCompletionResult({ ...input, fieldSelection: [] }).rows[0].legal_rep, '新值');
   const duplicate = projectCompletionResult({ ...input, mappings: [...input.mappings, { sourceField: 'B', targetField: 'legal_rep' }] });
   assert.equal(duplicate.rows[0].B, 0);
-  assert.equal(duplicate.rows[0].legal_rep, '新值');
+  assert.equal(duplicate.rows[0].legal_rep, undefined);
 });
 
 function memoryFs() {

@@ -55,6 +55,14 @@ test('当前字段目录不混入延期的历史、人员和招投标三域', ()
   assert.deepEqual(publicWorkflowContract().deferredDomains, ['history', 'person', 'tender']);
 });
 
+test('输出可多列对同一字段，主体锚点与单列目标仍唯一', () => {
+  const anchor = { sourceField: '公司名称', targetField: 'company_name' };
+  const output = [anchor, { sourceField: '法人1', targetField: 'legal_rep' }, { sourceField: '法人2', targetField: 'legal_rep' }];
+  assert.deepEqual(validateMappings(output), output);
+  assert.throws(() => validateMappings([...output, { sourceField: '公司2', targetField: 'company_name' }]), { code: 'DC_WORKFLOW_DUPLICATE_MAPPING' });
+  assert.throws(() => validateMappings([...output, { sourceField: '法人1', targetField: 'reg_capital' }]), { code: 'DC_WORKFLOW_DUPLICATE_MAPPING' });
+});
+
 test('补全目录开放 30 个基础字段、第一批 40 字段与第二批 58 字段', () => {
   const fields = FIELD_CATALOG.flatMap((group) => group.fields);
   const ids = fields.map((field) => field.id);

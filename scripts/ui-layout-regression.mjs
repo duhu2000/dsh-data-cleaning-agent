@@ -32,11 +32,17 @@ try {
       const url = new URL(request.url());
       if (url.hostname !== 'dcq-ui.test') { unexpectedRequests.push(request.url()); return route.abort(); }
       if (url.pathname === '/') return route.fulfill({ contentType: 'text/html', body: '<html><body></body></html>' });
+      if (url.pathname === '/data-cleaning/api/g5/capabilities') return route.fulfill({ json: { paidCallConfirmationRequired: true } });
       const base = '/data-cleaning/api/workflow/tasks';
       if (url.pathname === '/data-cleaning/api/mvp/parse') {
         parseCalls++;
         const data = request.postDataJSON();
         if (data.filename === 'broken.xlsx') return route.fulfill({ json: { ok: false, message: '测试文件无法解析' } });
+        if (data.filename === 'bank-template.xlsx') {
+          const headers = ['公司名称','统一社会信用代码','注册号','企业类型','经营范围','注册资本','核准日期 YYYY-MM-DD','法定代表人','成立日期','企业状态','所属省份','所属市','所属区县','所属行业','注册地址','企业划型','主营业务','法定代表人（重复列 2）','邮编','主营业务收入','注册资本（重复列 2）','从业人数','实际控制人'];
+          const rows = [Object.fromEntries(headers.map((key, i) => [key, i === 0 ? '合成测试企业' : '']))];
+          return route.fulfill({ json: { ok: true, fmt: 'xlsx', headers, rows, preview: rows, rowCount: 1 } });
+        }
         assert.equal(Buffer.from(data.content, 'base64').toString(), 'synthetic-xlsx-fixture');
         const rows = Array.from({ length: 23 }, (_, i) => ({ 企业名称: `合成企业${i + 1}` }));
         return route.fulfill({ json: { ok: true, fmt: 'xlsx', headers: ['企业名称'], rowCount: 23, rows, preview: rows.slice(0, 5) } });
@@ -113,7 +119,7 @@ try {
                 h('div', { className: 'nativeActions' }, h('span', null, 'Workspace Write'), h('button', { disabled: !draft }, '发送')),
                 h(Prompt, { sessionId, inputActions: { setDraft } })))),
           ),
-          h(Drawer, { useStore, actions: store.actions }));
+          h(Drawer, { useStore, actions: store.actions, setSessionDraft: (_sessionId, prompt) => setDraft(prompt) }));
       }
       window.root = window.createRoot(document.getElementById('app'));
       window.show = (sessionId = 'fixture', phase = 'blank') => window.root.render(h(App, { sessionId, phase }));
@@ -239,6 +245,7 @@ try {
     await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).waitFor();
     await page.waitForFunction(() => !window.store.getSnapshot().busy);
     assert.equal(parseCalls, 1);
+    assert.deepEqual(await page.evaluate(() => window.store.getSnapshot().workflowTask.fieldSelection), ['company_name'], 'uploaded columns define the saved completion scope, not the old default five');
     assert.equal(await drawer.getByRole('button', { name: '解析数据', exact: true }).isDisabled(), true);
     assert.ok((await drawer.getByLabel('当前导入数据').textContent()).includes('测试名单.xlsx'));
     assert.equal(await picker.inputValue(), '', 'native chooser reset permits selecting the same file; status comes from dataset');
@@ -262,6 +269,7 @@ try {
     await page.waitForFunction(() => !window.store.getSnapshot().busy && window.store.getSnapshot().dataset?.rowCount === 23);
     await page.screenshot({ path: join(out, `imported-${colorScheme}-${width}x${height}.png`) });
     await drawer.getByRole('button', { name: '规则与体检', exact: true }).click();
+    await drawer.locator('.dcAgentExtraFields > summary').click();
     const fieldSearch = drawer.getByRole('searchbox', { name: '查找补全字段' });
     await fieldSearch.fill('实控人');
     assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 4);
@@ -386,16 +394,16 @@ try {
       assert.equal(await drawer.getByRole('separator', { name: '调整工作台宽度' }).isVisible(), false);
     }
     // User-reported mapping fixture: full catalog, ambiguity, duplicate targets and manual override.
-    const outputScope = await page.evaluate(() => {
+    await page.evaluate(() => {
       const headers = ['企业名称', '法定代表人', '法定代表人（重复列 2）', '统一社会信用代码', '地址', '网址', '联系电话', '注册资本', '开业时间'];
       window.store.actions.setDataset({ headers, rowCount: 2, preview: [] });
       window.store.actions.setMappings(window.plugin.__testing.guessMappings(headers));
       window.store.actions.setStep('rules');
-      return JSON.stringify(window.store.getSnapshot().fieldSelection);
     });
     assert.equal(await drawer.locator('.dcAgentMappingRow').count(), 9);
     await drawer.getByLabel('法定代表人 推荐映射', { exact: true }).getByRole('button', { name: '推荐：法定代表人', exact: true }).click();
-    assert.equal(await drawer.getByLabel('法定代表人（重复列 2） 推荐映射', { exact: true }).getByRole('button').isDisabled(), true);
+    await drawer.getByLabel('法定代表人（重复列 2） 推荐映射', { exact: true }).getByRole('button').click();
+    assert.equal(await drawer.getByLabel('法定代表人（重复列 2） 当前映射',{exact:true}).textContent(),'法定代表人');
     await drawer.getByLabel('地址 推荐映射', { exact: true }).getByRole('button', { name: '推荐：注册地址', exact: true }).click();
     await drawer.getByLabel('网址 推荐映射', { exact: true }).getByRole('button').click();
     await drawer.getByLabel('开业时间 推荐映射', { exact: true }).getByRole('button').click();
@@ -412,7 +420,10 @@ try {
     assert.equal(await addressSelect.inputValue(), 'mailing_address');
     await drawer.getByLabel('地址 搜索映射字段', { exact: true }).press('Escape');
     assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).evaluate(el => document.activeElement === el), true);
-    assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().fieldSelection)), outputScope);
+    assert.equal(await page.evaluate(() => {
+      const state=window.store.getSnapshot();
+      return ['legal_rep','mailing_address','contact_official_website','establish_date'].every(id=>state.fieldSelection.includes(id)) && !state.fieldSelection.includes('registered_address');
+    }), true, 'mapping changes update output scope without retaining replaced fields');
     await drawer.getByLabel('地址 当前映射', { exact: true }).click();
     await drawer.getByLabel('地址 搜索映射字段', { exact: true }).fill('');
     assert.ok(await drawer.locator('.dcAgentMappingRow').evaluateAll(rows => rows.every(row => row.scrollWidth <= row.clientWidth + 1)), 'mapping picker fits narrow panel');
@@ -432,6 +443,9 @@ try {
     assert.equal(await drawer.getByRole('checkbox').count(), 0);
     await generateDescription.scrollIntoViewIfNeeded();
     await page.screenshot({ path: join(out, `match-${colorScheme}-${width}x${height}.png`) });
+    await generateDescription.click();
+    await drawer.getByText('页面与 Host 版本不一致。请先保存或导出现有任务，再升级并重启 DSH、刷新页面。生成任务说明不需要勾选费用确认。', { exact: true }).waitFor();
+    assert.equal(unexpectedRequests.length, 0, 'old Host preflight must not stage or execute a QCC command');
     await drawer.getByRole('button', { name: '关闭', exact: true }).click();
     await page.screenshot({ path: join(out, `home-${colorScheme}-${width}x${height}.png`) });
     await page.evaluate(() => window.show('fixture', 'active'));
@@ -440,6 +454,32 @@ try {
     assert.equal(await page.locator('.fixture_headlineText').textContent(), '探索未至之境');
     assert.equal(await page.locator('.fixture_fishHitbox').isVisible(), true);
     assert.equal(await page.locator('.dcAgentCapabilityMount').count(), 1);
+    await page.getByRole('button', { name: '打开提示词生成' }).click();
+    await dialog.waitFor();
+    await dialog.getByRole('tab', { name: '上传本地文件' }).click();
+    await dialog.locator('input[type=file]').setInputFiles({name:'bank-template.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('synthetic-bank-fixture')});
+    await dialog.getByText('原表空白单元格：22 个。', {exact:false}).waitFor();
+    assert.equal(await dialog.locator('input[type=file]').evaluate(el=>el.files[0]?.name), 'bank-template.xlsx');
+    await dialog.getByRole('button', {name:'下一步',exact:true}).click();
+    assert.equal(await dialog.locator('.dcAgentMappingRow').count(),23);
+    assert.equal(await dialog.locator('[data-status=confirmed]').count(),9);
+    const choose = async (sourceField, targetField) => {
+      const row = dialog.locator('.dcAgentMappingRow').filter({has:page.getByTitle(sourceField,{exact:true})});
+      await row.locator('summary').click();
+      await row.getByRole('combobox').selectOption(targetField);
+    };
+    for (const [column,field] of [['注册资本','reg_capital'],['注册资本（重复列 2）','reg_capital'],['法定代表人','legal_rep'],['法定代表人（重复列 2）','legal_rep'],['企业状态','reg_status'],['所属行业','industry_category']]) await choose(column,field);
+    assert.equal(await dialog.locator('[data-status=confirmed]').count(),15);
+    assert.equal(await dialog.locator('[data-status=unmatched]').count(),8);
+    await page.screenshot({path:join(out,`bank-mapping-${colorScheme}-${width}x${height}.png`)});
+    await dialog.getByRole('button',{name:'下一步',exact:true}).click();
+    await dialog.getByText('已按确认映射选择 13 个原列补全字段', {exact:false}).waitFor();
+    assert.equal(await dialog.locator('.dcAgentExtraFields').evaluate(el=>el.open),false);
+    await dialog.getByRole('button',{name:'下一步',exact:true}).click();
+    assert.match(await dialog.locator('.dcAgentPromptPreview').textContent(),/额外新增字段：无/);
+    await dialog.getByRole('button',{name:'回填到对话框'}).click();
+    await page.waitForFunction(()=>window.store.getSnapshot().workflowTask?.mappings?.length===15 && window.store.getSnapshot().workflowTask?.fieldSelection?.length===13);
+    assert.equal(await page.evaluate(()=>new Set(window.store.getSnapshot().fieldSelection).size),13);
     await page.getByRole('button', { name: '打开提示词生成' }).click();
     await dialog.waitFor();
     await page.evaluate(() => window.show('ordinary'));

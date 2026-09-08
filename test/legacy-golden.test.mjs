@@ -15,8 +15,11 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
   // Audited source changes: pass confirmed mappings, project empty-cell backfill,
   // preserve nonempty canonical input keys. Other source hashes remain frozen.
   Object.assign(golden.contract.unchanged, {
+    // Confirmed output mappings allow fan-out; identity anchors remain unique.
+    'lib/workflow-contract.js': 'f1c5edfb389a67987e0df6c052b872e81f7f73c07d680e26b289342de2b5ef17',
     // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
-    'lib/web.js': '3a771e39b401d0ef68de4a364c946a4ccf4c98db2606a53f49cdfe215f06dfc8',
+    // Additive Host capability flags prevent new-client/old-Host staging errors.
+    'lib/web.js': '8157c31af3d6247c458ff51fecf9d5adf6467aedd123b5f02559db854950572e',
     'lib/artifacts.js': '6d51d3735f01c50c4af3493d9ba08b5109915bca244c59ef1449f98242425088',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
     'lib/qcc.js': '1b6e35e7bbaf07c3344bd0669beb794b57506195a0eca1ee5399f65513cd9e28',

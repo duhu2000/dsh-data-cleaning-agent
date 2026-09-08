@@ -926,7 +926,39 @@ test('工作台预览与 Host 导出共用相同原列补空算法', async () =>
   } finally { cleanupGlobals(); }
 });
 
-test('人工映射不隐式抢占其他列，也不修改输出字段选择', () => {
+test('银行模板表头：确认映射驱动范围，重复输出共用字段，不支持列不冒充', () => {
+  try {
+    const api = loadClient().exports.__testing;
+    const headers = ['公司名称','统一社会信用代码','注册号','企业类型','经营范围','注册资本','核准日期 YYYY-MM-DD','法定代表人','成立日期','企业状态','所属省份','所属市','所属区县','所属行业','注册地址','企业划型','主营业务','法定代表人（重复列 2）','邮编','主营业务收入','注册资本（重复列 2）','从业人数','实际控制人'];
+    let mappings = api.guessMappings(headers);
+    assert.equal(mappings.length, 9);
+    assert.equal(mappings.find(m => m.sourceField.startsWith('核准日期')).targetField, 'approval_date');
+    const hints = api.mappingRecommendations(headers);
+    for (const name of ['所属省份','所属市','所属区县','企业划型','主营业务','邮编','主营业务收入','从业人数']) {
+      assert.deepEqual(hints.find(h => h.sourceField === name).candidates, []);
+    }
+    const initial = api.mappedOutputFields(mappings);
+    for (const [sourceField,targetField] of [['注册资本','reg_capital'],['注册资本（重复列 2）','reg_capital'],['法定代表人','legal_rep'],['法定代表人（重复列 2）','legal_rep'],['企业状态','reg_status'],['所属行业','industry_category']]) {
+      mappings = api.updateColumnMapping(mappings, sourceField, targetField);
+    }
+    assert.equal(mappings.length, 15);
+    const selected = api.syncMappedSelection(api.guessMappings(headers), mappings, initial);
+    assert.equal(selected.length, 13);
+    const row = Object.fromEntries(headers.map(h => [h, '']));
+    row['公司名称'] = '合成测试企业';
+    const result = api.projectCompletionResult({headers, mappings, fieldSelection:selected, rows:[{...row,legal_rep:'合成甲',reg_capital:'100万元',qcc_match_status:'enriched'}]});
+    assert.equal(result.rows[0]['法定代表人（重复列 2）'], '合成甲');
+    assert.equal(result.rows[0]['注册资本（重复列 2）'], '100万元');
+    assert.equal(result.headers.includes('legal_rep'),false);
+    assert.equal(result.rows[0]['主营业务收入'],'');
+    const prompt = api.buildTaskPrompt({mode:'excel', headers, mappings, entries:['合成测试企业'], enrichmentKeys:selected});
+    assert.match(prompt,/仅补已确认原列的空白/);
+    assert.match(prompt,/暂不补全的原列/);
+    assert.match(prompt,/额外新增字段：无/);
+  } finally { cleanupGlobals(); }
+});
+
+test('人工映射支持多原列写回，并自动同步补全范围', () => {
   try {
     const loaded = loadClient();
     let overlay;
@@ -938,11 +970,11 @@ test('人工映射不隐式抢占其他列，也不修改输出字段选择', ()
     store.actions.setFieldSelection(['credit_no']);
     store.actions.setMappings([{ sourceField: 'A', targetField: 'legal_rep' }]);
     store.actions.setMapping('B', 'legal_rep');
-    assert.deepEqual(store.getSnapshot().mappings, [{ sourceField: 'A', targetField: 'legal_rep' }]);
+    assert.deepEqual(store.getSnapshot().mappings, [{ sourceField: 'A', targetField: 'legal_rep' }, { sourceField: 'B', targetField: 'legal_rep' }]);
     store.actions.setMapping('A', '');
     store.actions.setMapping('B', 'legal_rep');
     assert.deepEqual(store.getSnapshot().mappings, [{ sourceField: 'B', targetField: 'legal_rep' }]);
-    assert.deepEqual(store.getSnapshot().fieldSelection, ['credit_no']);
+    assert.deepEqual(store.getSnapshot().fieldSelection, ['credit_no', 'legal_rep']);
   } finally { cleanupGlobals(); }
 });
 

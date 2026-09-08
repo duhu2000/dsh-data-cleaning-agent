@@ -234,6 +234,9 @@ test('G5 capabilities 路由被挂载且只做被动工具探测', async () => {
   assert.equal(res.json().marker, 'g5-host-bridge');
   assert.equal(res.json().capabilities.ready, true);
   assert.equal(res.json().paidCallConfirmationRequired, true);
+  assert.equal(res.json().draftPreparationVersion, 2);
+  assert.equal(res.json().draftPaidCallConfirmationRequired, false);
+  assert.equal(res.json().multipleOutputColumns, true);
   assert.equal(res.json().idempotencyRequired, true);
   assert.equal(res.json().candidateResume, true);
   assert.equal(res.json().agentCommandTool, 'data_cleaning_qcc_run');
