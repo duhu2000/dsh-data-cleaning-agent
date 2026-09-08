@@ -1,8 +1,14 @@
 # dsh-data-cleaning-agent
 
+Data cleaning and data enrichment for CSV/XLSX/JSON enterprise lists in DeepSeek Harness, including spreadsheet cleaning, deduplication, profiling, optional Qichacha MCP and exports.
+
+Install a pinned release using the command in the [Chinese quick start](README.md), review the preview or evidence before confirming, and keep the previous version and task-directory backup for rollback. Qichacha calls use the customer's authorized account.
+
+Related agents: [数据清洗补全](https://github.com/duhu2000/dsh-data-cleaning-agent) · [AI填表](https://github.com/duhu2000/dsh-form-fill-agent) · [访前尽调](https://github.com/duhu2000/dsh-pre-duediligence) · [招投标](https://github.com/duhu2000/dsh-tender-workbench)
+
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.8.14** (stable release)
+> Current source version / 当前源码版本: **0.8.15** (stable release)
 
 This release fixes misleading import errors after a successful upload. Files are parsed automatically, with persistent source, filename, and row-count status; text parsing handles only newly pasted content. The same file can be selected again, failed parsing preserves existing data, and pending pasted content must be parsed or cleared before continuing. Automatic mapping for 128 fields, blank-cell enrichment in original columns, QCC-blue menus, the resizable workbench, and native DSH sending remain unchanged. Existing download artifacts are not rewritten.
 
