@@ -528,7 +528,8 @@ try {
     fixtureCommand = { ...fixtureCommand, state: 'completed',
       run: { runId: 'g5-ui-fixture', rows: [{ 公司名称: '合成测试企业' }], summary: { totalRows: 1, enriched: 1 } } };
     await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'completed');
-    await page.getByRole('button', {name: '字段补全', exact: true}).click();
+    await drawer.waitFor({ state: 'visible' });
+    assert.equal(await page.evaluate(() => window.store.getSnapshot().open), true, '执行后自动打开工作台');
     await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
     await drawer.getByRole('button', {name: '关闭', exact: true}).click();

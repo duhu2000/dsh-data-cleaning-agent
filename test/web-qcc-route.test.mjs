@@ -852,7 +852,9 @@ for (const fault of [
 async function workflowRequest(app, url, body, method = body === undefined ? 'GET' : 'POST') {
   const response = responseRecorder();
   const route = url.includes('/g5/commands') ? '/data-cleaning/api/g5/commands' : '/data-cleaning/api/workflow/tasks';
-  await app.routes.get(route)(request({ url, body, method }), response);
+  const req = request({ url, body, method });
+  req.headers = { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' };
+  await app.routes.get(route)(req, response);
   assert.ok(response.status < 300, response.body);
   return response.json();
 }
@@ -894,6 +896,7 @@ test('Host 单次发送自动交付新 XLSX：多列补空、保留 0、无需�
   assert.equal(result.deliveryState, 'completed');
   assert.equal(result.artifactCount, 4);
   assert.equal(result.artifacts.length, 1, '零异常不向对话展示空异常清单');
+  assert.ok(result.artifacts[0].url.startsWith('http://127.0.0.1:3080/data-cleaning/'), '使用实际 HTTP 协议，不擅自升级 HTTPS');
   assert.ok(!result.artifacts[0].fileName.includes('异常清单'));
   const rendered = app.registeredTools.get('data_cleaning_qcc_run').output.render({}, result)[0].text;
   assert.match(rendered, /已处理.*去重主体/);

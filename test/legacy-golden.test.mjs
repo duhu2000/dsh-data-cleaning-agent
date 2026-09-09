@@ -22,7 +22,8 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     'lib/workflow-contract.js': '3147387a10f4fdc6b295b9bd8c4e3877fd2b36ec4778d7c58cae07c8f5ce58f8',
     // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
     // Additive Host capability flags prevent new-client/old-Host staging errors.
-    'lib/web.js': '6806200634995bc5479eea680f31a2c2a5de6f762ac5fead6bd911a131a50135',
+    // v0.8.21: derive artifact origin from actual browser request.
+    'lib/web.js': '7f71d0ff1fcb88b6fb89e25e6c64dff9cd2cc69ac46d4d589d54431e5190e4a9',
     // v0.8.20: normal absence notes are separate from actionable field issues.
     'lib/artifacts.js': '8895aa013d29e8b62c7e317db54639fe1caecc837c5329e5d099dced5e464cba',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
