@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { collectLegacy } from './helpers/legacy-characterization.mjs';
-import { ACTUAL_CONTROLLER_GROUP } from 'qcc-field-contracts';
+import { ACTUAL_CONTROLLER_GROUP, SNAPSHOT_GROUPS } from 'qcc-field-contracts';
 
 test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unchanged', async () => {
   const golden = JSON.parse(await readFile(new URL('./fixtures/legacy-v082.golden.json', import.meta.url)));
@@ -22,14 +22,15 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     'lib/workflow-contract.js': '3147387a10f4fdc6b295b9bd8c4e3877fd2b36ec4778d7c58cae07c8f5ce58f8',
     // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
     // Additive Host capability flags prevent new-client/old-Host staging errors.
-    'lib/web.js': 'ab3945c31f44d922bff472761c5f7904af26dc46c0f081f2c340d80b6d1a9f34',
-    'lib/artifacts.js': '6d51d3735f01c50c4af3493d9ba08b5109915bca244c59ef1449f98242425088',
+    'lib/web.js': '6806200634995bc5479eea680f31a2c2a5de6f762ac5fead6bd911a131a50135',
+    'lib/artifacts.js': '922fb076aedd905faa80178679cb10a2c3db3930c918ec5b574d6f2bd02a95bb',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
-    'lib/qcc.js': '1b6e35e7bbaf07c3344bd0669beb794b57506195a0eca1ee5399f65513cd9e28',
-    'lib/qcc-field-catalog.js': 'e255ea1500cf064ae92a4cd6a2fe4e6da257a74d0910e8ae02afbf3d91a89e28',
+    'lib/qcc.js': '3a380723173322e4390864051b15571115da10461aa500c1638e1424e9f4930b',
+    'lib/qcc-field-catalog.js': '7055dd390c40e8e3b5090d5122770c57485225b32f8ae8f010cd3246d287aaf3',
   });
   // Audited additive controller contract; all pre-existing labels/tools/cases remain frozen.
   golden.contract.tools.actualController = 'mcp__qcc-company__get_actual_controller';
   Object.assign(golden.contract.fields,Object.fromEntries(ACTUAL_CONTROLLER_GROUP.fields.map(f=>[f.id,f.label])));
+  Object.assign(golden.contract.fields, Object.fromEntries(SNAPSHOT_GROUPS.flatMap(g => g.fields.map(f => [f.id, f.label]))));
   assert.deepEqual(await collectLegacy(), golden);
 });

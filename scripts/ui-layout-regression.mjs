@@ -163,7 +163,7 @@ try {
     const dialog = page.getByRole('dialog', { name: '数据清洗补全任务生成器' });
     await dialog.waitFor();
     await dialog.getByRole('button', { name: '3 清洗与补全' }).click();
-    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input[type="checkbox"]').count(), 132);
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input[type="checkbox"]').count(), 136);
     const credit = dialog.getByRole('checkbox', { name: '统一社会信用代码', exact: true });
     await credit.uncheck();
     assert.equal(await credit.isChecked(), false);
@@ -299,7 +299,7 @@ try {
     await fieldSearch.fill('行业');
     assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 3);
     await fieldSearch.fill('');
-    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 132);
+    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 136);
     await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
     const beforeNavigation = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
     for (const name of ['主体匹配', '字段补全', '结果下载', '导入与核验']) {
@@ -491,7 +491,9 @@ try {
     const choose = async (sourceField, targetField) => {
       const row = dialog.locator('.dcAgentMappingRow').filter({has:page.getByTitle(sourceField,{exact:true})});
       await row.locator('summary').click();
-      await row.getByRole('combobox').selectOption(targetField);
+      await row.getByRole('combobox', {name: sourceField + ' 映射大类', exact:true}).selectOption('company_registration');
+      await row.getByRole('textbox').fill('');
+      await row.getByRole('combobox', {name: sourceField + ' 字段映射', exact:true}).selectOption(targetField);
     };
     for (const [column,field] of [['注册资本','reg_capital'],['注册资本（重复列 2）','reg_capital'],['法定代表人','legal_rep'],['法定代表人（重复列 2）','legal_rep'],['企业状态','reg_status'],['所属行业','industry_category']]) await choose(column,field);
     assert.equal(await dialog.locator('[data-status=confirmed]').count(),15);

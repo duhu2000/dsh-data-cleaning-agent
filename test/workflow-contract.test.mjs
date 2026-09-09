@@ -66,7 +66,7 @@ test('输出可多列对同一字段，主体锚点与单列目标仍唯一', ()
 test('补全目录开放 30 个基础字段、第一批 40 字段与第二批 58 字段', () => {
   const fields = FIELD_CATALOG.flatMap((group) => group.fields);
   const ids = fields.map((field) => field.id);
-  assert.equal(ids.length, 132);
+  assert.equal(ids.length, 136);
   assert.deepEqual(INPUT_ONLY_MAPPING_FIELDS, [{ id: 'phone', label: '联系电话' }]);
   assert.equal(ids.includes('phone'), false);
   assert.equal(ids.includes('industry_large'), false);
@@ -86,21 +86,23 @@ test('补全目录开放 30 个基础字段、第一批 40 字段与第二批 58
   assert.equal(fields.find((field) => field.id === 'qcc_industry')?.label, '企查查行业');
   assert.deepEqual(FIELD_CATALOG.map((group) => [group.label, group.sourceTool, group.fields.length]), [
     ['企业工商信息', 'get_company_registration_info', 27],
-    ['企业简介', 'get_company_profile', 3],
     ['联系方式', 'get_contact_info', 6],
-    ['上市信息', 'get_listing_info', 15],
+    ['实际控制人', 'get_actual_controller', 4],
+    ['受益所有人', 'get_beneficial_owners', 1],
+    ['企业简介', 'get_company_profile', 3],
+    ['财务数据', 'get_financial_data', 3],
     ['税务开票信息', 'get_tax_invoice_info', 8],
+    ['上市信息', 'get_listing_info', 15],
     ['进出口信用', 'get_import_export_credit', 11],
     ['企业自身风险扫描', 'get_company_risk_scan', 38],
     ['企业关联风险扫描', 'get_company_related_risk_scan', 20],
-    ['实际控制人', 'get_actual_controller', 4],
   ]);
 
   const draft = normalizeWorkflowDraft({
     fieldSelection: ['credit_no', 'phone', 'industry_large', 'qcc_industry', 'contact_preferred_phone', 'risk_dishonest_count'],
   });
   assert.deepEqual(draft.fieldSelection, ['credit_no', 'qcc_industry', 'contact_preferred_phone', 'risk_dishonest_count']);
-  assert.equal(normalizeWorkflowDraft({ fieldSelection: ids }).fieldSelection.length, 132);
+  assert.equal(normalizeWorkflowDraft({ fieldSelection: ids }).fieldSelection.length, 136);
 });
 
 test('匹配契约不暴露虚构置信度字段', () => {

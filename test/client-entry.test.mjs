@@ -1483,14 +1483,15 @@ test('M3 jobs pill：工作台 header 渲染后台任务状态位，jobs 列表�
     let pill = findNode(panel, (n) => n.props && n.props.className === 'dcAgentJobsPill');
     assert.ok(pill, 'header 必须渲染 jobs 状态 pill');
     assert.equal(pill.props['data-state'], 'idle');
-    assert.equal(pill.children[0], '无后台任务');
+    assert.equal(pill.children[0], '尚未开始');
 
     // 有运行中任务：running + 「运行中」。
-    instance.actions.setJobs([{ id: 'task-1', state: 'running' }]);
+    instance.actions.setJobs([{ id: 'unrelated', state: 'completed' }]);
+    instance.actions.setWorkflowTask({ id: 'dcw-current', state: 'matching', source: { rowCount: 28, type: 'xlsx' }, fieldSelection: [] });
     panel = flattenElement(render(overlayReg.component, {}, instance));
     pill = findNode(panel, (n) => n.props && n.props.className === 'dcAgentJobsPill');
-    assert.equal(pill.props['data-state'], 'running');
-    assert.equal(pill.children[0], '运行中');
+    assert.equal(pill.props['data-state'], 'matching');
+    assert.equal(pill.children[0], '匹配中');
   } finally {
     cleanupGlobals();
   }
@@ -1847,8 +1848,8 @@ test('规则页展示 40/58 两批字段并支持按工具维度全选与清空'
     collectNodes(panel, (n) => n.type === 'button' && n.children?.includes('全选'), selectAllButtons);
     const clearButtons = [];
     collectNodes(panel, (n) => n.type === 'button' && n.children?.includes('清空'), clearButtons);
-    assert.equal(selectAllButtons.length, 9);
-    assert.equal(clearButtons.length, 9);
+    assert.equal(selectAllButtons.length, 11);
+    assert.equal(clearButtons.length, 11);
   } finally {
     cleanupGlobals();
   }
