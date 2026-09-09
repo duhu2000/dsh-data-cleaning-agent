@@ -893,6 +893,11 @@ test('Host 单次发送自动交付新 XLSX：多列补空、保留 0、无需�
   const result = await runCommand(app, command);
   assert.equal(result.deliveryState, 'completed');
   assert.equal(result.artifactCount, 4);
+  assert.equal(result.artifacts.length, 1, '零异常不向对话展示空异常清单');
+  assert.ok(!result.artifacts[0].fileName.includes('异常清单'));
+  const rendered = app.registeredTools.get('data_cleaning_qcc_run').output.render({}, result)[0].text;
+  assert.match(rendered, /已处理.*去重主体/);
+  assert.match(rendered, /按输入行统计/);
   const calls = app.calls.length;
   await runCommand(app, command);
   assert.equal(app.calls.length, calls, '同一发送重放不重复扣量');

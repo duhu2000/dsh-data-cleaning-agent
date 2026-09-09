@@ -281,11 +281,11 @@ test('apply() 注册顶部入口、composer 下方能力、提示词生成器、
     assert.ok(slots.has('tool.call.toolview'), '必须注入 tool.call.toolview（模型工具富化卡片）');
 
     const toolviews = slots.get('tool.call.toolview');
-    assert.equal(toolviews.length, 4, 'tool.call.toolview 必须注册 4 个 keyed 入口');
+    assert.equal(toolviews.length, 5, 'tool.call.toolview 包括 QCC 结果文件入口');
     assert.deepEqual(
       toolviews.map((r) => r.options.key).sort(),
-      ['data_clean_rows', 'data_complete_rows', 'data_profile', 'data_cleaning_extract_image_companies'].sort(),
-      '四个工具 wire 名逐一 keyed'
+      ['data_clean_rows', 'data_complete_rows', 'data_profile', 'data_cleaning_extract_image_companies', 'data_cleaning_qcc_run'].sort(),
+      '五个工具 wire 名逐一 keyed'
     );
     for (const r of toolviews) {
       assert.equal(r.options.name, 'tool.call.toolview');
@@ -914,6 +914,44 @@ test('智能映射覆盖全目录、别名和多义推荐，重复字段不抢�
   } finally { cleanupGlobals(); }
 });
 
+test('受益人和主营业务收入只推荐，映射搜索展示可见列表并保持原选择', () => {
+  try {
+    const loaded = loadClient();
+    const api = loaded.exports.__testing;
+    const hints = api.mappingRecommendations(['受益人', '主营业务收入']);
+    assert.deepEqual(hints.map(row => row.candidates[0][0]), ['beneficial_owner_first_name', 'financial_total_revenue']);
+    assert.ok(hints.every(row => !row.automatic));
+    assert.match(hints[1].reason, /口径不同/);
+    assert.deepEqual(api.guessMappings(['受益人', '主营业务收入']), []);
+    assert.deepEqual(api.mappingRecommendations(['主营业务收入'], [['company_name', '企业名称']])[0].candidates, []);
+    let query = '营业', category = '', cursor = 0;
+    loaded.requireShim('react').useState = () => cursor++ === 0
+      ? [query, v => { query = v; }] : [category, v => { category = v; }];
+    const changes = [];
+    const draw = () => {
+      cursor = 0;
+      return api.MappingPicker({ sourceField: '主营业务收入',
+        mappings: [{ sourceField: '主营业务收入', targetField: 'company_name' }],
+        groups: [['company', '工商', [['company_name', '企业名称']]], ['finance', '财务', [['financial_total_revenue', '营业总收入']]]],
+        recommendation: hints[1], onChange: (...args) => changes.push(args) });
+    };
+    let tree = draw();
+    const details = findNode(tree, n => n.type === 'details');
+    assert.deepEqual(details.children.slice(0, 4).map(n => n.type), ['summary', 'input', 'select', 'select']);
+    const list = findNode(tree, n => n.props?.size === 8);
+    assert.equal(list.props.value, 'company_name');
+    assert.ok(findNode(list, n => n.props?.value === 'financial_total_revenue'));
+    assert.equal(findNode(list, n => n.type === 'optgroup' && n.props.label === '工商'), null);
+    query = '主营业务';
+    assert.ok(findNode(draw(), n => n.type === 'option' && n.props.value === 'financial_total_revenue'));
+    category = 'company';
+    tree = draw();
+    assert.equal(findNode(tree, n => n.type === 'option' && n.props.value === 'financial_total_revenue'), null);
+    assert.ok(findNode(tree, n => n.props?.role === 'status').children[0].includes('无匹配字段'));
+    assert.deepEqual(changes, []);
+  } finally { cleanupGlobals(); }
+});
+
 test('工作台预览与 Host 导出共用相同原列补空算法', async () => {
   try {
     const clientProjection = loadClient().exports.__testing.projectCompletionResult;
@@ -934,7 +972,7 @@ test('银行模板表头：确认映射驱动范围，重复输出共用字段�
     assert.equal(mappings.length, 9);
     assert.equal(mappings.find(m => m.sourceField.startsWith('核准日期')).targetField, 'approval_date');
     const hints = api.mappingRecommendations(headers);
-    for (const name of ['所属省份','所属市','所属区县','企业划型','主营业务','邮编','主营业务收入','从业人数']) {
+    for (const name of ['所属省份','所属市','所属区县','企业划型','主营业务','邮编','从业人数']) {
       assert.deepEqual(hints.find(h => h.sourceField === name).candidates, []);
     }
     const initial = api.mappedOutputFields(mappings);
@@ -1413,6 +1451,12 @@ test('M3 toolview：DataToolCard 把三工具摘要渲染为可读卡片（状�
     const byKey = new Map(slots.get('tool.call.toolview').map((r) => [r.options.key, r.component]));
     const Card = byKey.get('data_clean_rows');
     assert.ok(Card, '必须拿到 data_clean_rows 的 toolview 组件');
+    const url = '/data-cleaning/api/workflow/tasks/dcw-test/artifacts/a-test';
+    const qccCard = byKey.get('data_cleaning_qcc_run')({ toolName: 'data_cleaning_qcc_run',
+      block: { kind: 'result', content: [{ type: 'text', text: '[预览](' + url + '?preview=1) [下载](' + url + ') [恶意](javascript:alert)' }] } });
+    assert.equal(findNode(qccCard, node => node.type === 'a' && node.props.href === url)?.children[0], '下载');
+    assert.equal(findNode(qccCard, node => node.type === 'a' && node.props.href === url + '?preview=1')?.props.target, '_blank');
+    assert.equal(findNode(qccCard, node => node.type === 'a' && node.props.href.startsWith('javascript:')), null);
 
     const store = (() => {
       // 复用 overlay store：footer/overlay 共用一个 defineStore 句柄。

@@ -8,7 +8,7 @@ Related agents: [数据清洗补全](https://github.com/duhu2000/dsh-data-cleani
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.8.18** (stable release)
+> Current source version / 当前源码版本: **0.8.19** (stable release)
 
 This release unifies spreadsheet previews, column mapping, and enrichment scope across the prompt wizard and workbench. Mapping statuses use color and text; mapped fields automatically enter the scope, with optional extra fields collapsed. Multiple confirmed output columns may share a non-identity field while preserving non-empty values. It fixes saved drafts resetting the scope to five defaults and detects stale Host versions. Preparing a draft does not query QCC; sending starts execution. Fully restart DSH after upgrading. Existing download artifacts are not rewritten.
 
