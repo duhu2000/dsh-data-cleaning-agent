@@ -558,6 +558,14 @@ try {
     assert.equal(await page.evaluate(() => window.store.getSnapshot().open), true, '执行后自动打开工作台');
     await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
+    const headerLayout = await drawer.locator('.dcAgentWbHeader').evaluate(el => {
+      const title = el.querySelector('.dcAgentWbTitle').getBoundingClientRect();
+      const actions = el.querySelector('.dcAgentWbActions').getBoundingClientRect();
+      return { separated: title.right <= actions.left, fits: el.scrollWidth <= el.clientWidth + 1, text: el.innerText };
+    });
+    assert.equal(headerLayout.separated, true, '顶部标题不与操作按钮重叠');
+    assert.equal(headerLayout.fits, true);
+    assert.equal(headerLayout.text.includes('QCC'), false, '顶部不显示冗余技术状态');
     const artifactLayout = await drawer.locator('.dcAgentArtifactList').evaluate(el => {
       const link = el.querySelector('a');
       link.textContent = '预览 / 打开：' + '企业数据清洗补全结果长文件名'.repeat(8) + '.xlsx';

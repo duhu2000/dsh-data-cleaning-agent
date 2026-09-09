@@ -1499,7 +1499,7 @@ test('M3 toolview：DataToolCard 把三工具摘要渲染为可读卡片（状�
   }
 });
 
-test('M3 jobs pill：工作台 header 渲染后台任务状态位，jobs 列表驱动', () => {
+test('工作台 header 仅保留标题和控制按钮，状态集中在进度卡', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -1525,17 +1525,18 @@ test('M3 jobs pill：工作台 header 渲染后台任务状态位，jobs 列表�
     // 无任务：idle + 「无后台任务」。
     let panel = flattenElement(render(overlayReg.component, {}, instance));
     let pill = findNode(panel, (n) => n.props && n.props.className === 'dcAgentJobsPill');
-    assert.ok(pill, 'header 必须渲染 jobs 状态 pill');
-    assert.equal(pill.props['data-state'], 'idle');
-    assert.equal(pill.children[0], '尚未开始');
+    assert.ok(!pill, 'header 不重复展示状态');
 
     // 有运行中任务：running + 「运行中」。
     instance.actions.setJobs([{ id: 'unrelated', state: 'completed' }]);
     instance.actions.setWorkflowTask({ id: 'dcw-current', state: 'matching', source: { rowCount: 28, type: 'xlsx' }, fieldSelection: [] });
     panel = flattenElement(render(overlayReg.component, {}, instance));
     pill = findNode(panel, (n) => n.props && n.props.className === 'dcAgentJobsPill');
-    assert.equal(pill.props['data-state'], 'matching');
-    assert.equal(pill.children[0], '匹配中');
+    assert.ok(!pill);
+    const header = findNode(panel, n => n.props?.className === 'dcAgentWbHeader');
+    assert.ok(!JSON.stringify(header).includes('dcw-current'));
+    assert.ok(!JSON.stringify(header).includes('dcAgentQccBadge'));
+    assert.ok(JSON.stringify(panel).includes('匹配中'), '进度区保留真实任务状态');
     assert.ok(!JSON.stringify(panel).includes('已补全 undefined'));
     instance.actions.setWorkflowTask({ id: 'dcw-current', state: 'completed', revision: 5, source: {rowCount:28} });
     assert.equal(instance.getSnapshot().workflowTasks[0].state,'completed');
@@ -1608,10 +1609,9 @@ test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安�
       assert.ok(findNode(icon, n => n.type === 'path').props.d);
     }
 
-    // 未确认计费前只显示待检测，不触发调用。
+    // 顶部移除技术状态徽章；计费确认逻辑不受展示精简影响。
     const qccBadge = findNode(panel, (n) => n.props && n.props.title === '仅在当前用户确认使用自己的企查查账号后调用');
-    assert.ok(qccBadge, '必须显示 QCC 安全状态位');
-    assert.equal(qccBadge.children[0], 'QCC · 自动校验');
+    assert.ok(!qccBadge, '顶部不显示冗余 QCC 状态位');
 
     const expandButton = findNode(panel, (n) => n.props && n.props['aria-label'] === '展开工作台');
     assert.ok(expandButton, '必须支持按 Mockup 展开工作台');
