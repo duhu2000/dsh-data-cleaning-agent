@@ -537,6 +537,7 @@ try {
     await dialog.waitFor();
     await page.evaluate(() => window.show('ordinary'));
     await page.locator('.dcAgentCapabilityMount').waitFor({ state: 'detached' });
+    await page.waitForFunction(() => document.querySelector('[data-conversation-scroll]')?.style.getPropertyValue('--dc-agent-workbench-reserve') === '');
     assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el => el.style.getPropertyValue('--dc-agent-workbench-reserve')), '');
     assert.equal(await page.locator('.dcAgentPromptTrigger').count(), 0);
     assert.equal(await page.locator('.dcAgentPromptBackdrop').count(), 0);
