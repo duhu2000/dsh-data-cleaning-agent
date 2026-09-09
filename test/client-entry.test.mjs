@@ -1536,6 +1536,11 @@ test('M3 jobs pill：工作台 header 渲染后台任务状态位，jobs 列表�
     pill = findNode(panel, (n) => n.props && n.props.className === 'dcAgentJobsPill');
     assert.equal(pill.props['data-state'], 'matching');
     assert.equal(pill.children[0], '匹配中');
+    assert.ok(!JSON.stringify(panel).includes('已补全 undefined'));
+    instance.actions.setWorkflowTask({ id: 'dcw-current', state: 'completed', revision: 5, source: {rowCount:28} });
+    assert.equal(instance.getSnapshot().workflowTasks[0].state,'completed');
+    instance.actions.setWorkflowTasks([{id:'dcw-current',state:'diagnosed',revision:2}]);
+    assert.equal(instance.getSnapshot().workflowTasks[0].state,'completed');
   } finally {
     cleanupGlobals();
   }

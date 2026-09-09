@@ -1,4 +1,15 @@
 import test from 'node:test';
+test('normal undisclosed fields remain notes, not review failures', async () => {
+ const bridge = new QccHostBridge({tools:{get(){return {}},execute(){throw Error('must not call')}}});
+ bridge.enrichCompany = async () => ({status:'enriched',fields:{},fieldIssues:{
+   financial_total_revenue:{message:'未披露',reviewRequired:false}}});
+ const result = await bridge.enrichRows([{name:'合成测试有限公司'}],{fieldSelection:['financial_total_revenue']});
+ assert.equal(result.summary.enriched,1);
+ assert.equal(result.summary.fieldReview ?? 0,0);
+ assert.equal(result.rows[0].qcc_field_issues,'');
+ assert.match(result.rows[0].qcc_field_notes,/未披露/);
+ assert.equal(result.rows[0].financial_total_revenue,undefined);
+});
 test('batch field-review counts, terminal state and resolved issue cleanup remain consistent',async()=>{
  const {G5RunStore}=await import('../lib/qcc-runs.js');
  const bridge=new QccHostBridge({tools:{get(){return {}},execute(){throw Error('must not call')}}});

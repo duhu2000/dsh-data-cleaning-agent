@@ -23,9 +23,10 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
     // Additive Host capability flags prevent new-client/old-Host staging errors.
     'lib/web.js': '6806200634995bc5479eea680f31a2c2a5de6f762ac5fead6bd911a131a50135',
-    'lib/artifacts.js': '922fb076aedd905faa80178679cb10a2c3db3930c918ec5b574d6f2bd02a95bb',
+    // v0.8.20: normal absence notes are separate from actionable field issues.
+    'lib/artifacts.js': '8895aa013d29e8b62c7e317db54639fe1caecc837c5329e5d099dced5e464cba',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
-    'lib/qcc.js': '3a380723173322e4390864051b15571115da10461aa500c1638e1424e9f4930b',
+    'lib/qcc.js': '4a12bffa908e1af54d5e710796896708482989a4f9be49fb7b0bbb6786282308',
     'lib/qcc-field-catalog.js': '7055dd390c40e8e3b5090d5122770c57485225b32f8ae8f010cd3246d287aaf3',
   });
   // Audited additive controller contract; all pre-existing labels/tools/cases remain frozen.
