@@ -38,6 +38,82 @@ const source = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8');
  * create() 返回 { actions, getSnapshot, subscribe, store }；actions 以可变
  * draft 调用声明并触发订阅。
  */
+function sessionFixture(exports, sessionId) {
+  exports.__testing.installSessionWorkbench({});
+  const store = document[Symbol.for('dsh.data-cleaning.session-workbench')].controller.storeFor(sessionId);
+  return { options: { store: { create: () => store } }, component: exports.__testing.WorkbenchContent };
+}
+
+function contentFixture(exports) {
+  return { options: { store: exports.__testing.createWorkbenchStore() }, component: exports.__testing.WorkbenchContent };
+}
+
+test('optional provider arrival/removal does not unload business state or read an ungranted service', () => {
+  try {
+    const { exports } = loadClient();
+    let activate, providerCleanup, registrations=0;
+    const release = exports.__testing.installSessionWorkbench({
+      get betterSidebar() { assert.fail('Root cannot access an un-injected Cordis service'); },
+      inject(deps,callback) {
+        assert.deepEqual(deps,['betterSidebar']); activate=callback;
+        return {dispose:()=>providerCleanup?.()};
+      },
+    });
+    const controller = document[Symbol.for('dsh.data-cleaning.session-workbench')].controller;
+    const business = controller.storeFor('s1');
+    business.actions.setInput('保留名单');
+    assert.equal(controller.open('s1','upload'),false);
+    assert.match(business.getSnapshot().error,/安装或升级/);
+    const service = { features:['targetedOpen','stateSubscription'],
+      registerTab() { registrations++; return ()=>registrations--; },
+      subscribeState:()=>()=>{},getSnapshot:()=>({sessionId:'s1'}),isTabEnabled:()=>true,openTab:()=>{} };
+    activate({betterSidebar:service,effect:fn=>{providerCleanup=fn();}});
+    assert.equal(controller.open('s1','history'),true);
+    providerCleanup();
+    assert.equal(registrations,0);
+    assert.equal(controller.open('s1','upload'),false);
+    assert.equal(business.getSnapshot().input,'保留名单');
+    release();
+  } finally { cleanupGlobals(); }
+});
+
+test('Session controller shares one descriptor, isolates stores and survives Tab close without task writes', () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    const { exports } = loadClient();
+    let registered = 0, removed = 0, subscribed = 0, opens = 0;
+    const service = {
+      features: ['targetedOpen','stateSubscription'],
+      registerTab(descriptor) { assert.equal(descriptor.single,true); registered++; return ()=>removed++; },
+      subscribeState() { subscribed++; return ()=>subscribed--; },
+      getSnapshot: ()=>({sessionId:'s1'}),
+      isTabEnabled: ()=>true,
+      openTab(seed,scope) { assert.equal(seed.type,'dsh-data-cleaning-agent:workbench'); assert.ok(scope.sessionId); opens++; },
+    };
+    globalThis.fetch = () => assert.fail('Shortcuts and Tab lifecycle must not create, cancel or delete tasks');
+    const release1 = exports.__testing.installSessionWorkbench({betterSidebar:service});
+    const release2 = exports.__testing.installSessionWorkbench({betterSidebar:service});
+    const controller = document[Symbol.for('dsh.data-cleaning.session-workbench')].controller;
+    const first = controller.storeFor('s1'), second = controller.storeFor('s2');
+    first.actions.setInput('甲企业'); second.actions.setInput('乙企业');
+    first.actions.setWorkflowTask({id:'dcw-kept',state:'enriching'});
+    for (const step of ['upload','rules','match','enrich','history']) {
+      controller.open('s1',step); controller.open('s1',step);
+      assert.equal(first.getSnapshot().step,step);
+    }
+    assert.equal(registered,1); assert.equal(opens,10);
+    assert.equal(second.getSnapshot().input,'乙企业');
+    assert.equal(second.getSnapshot().open,false);
+    assert.equal(first.getSnapshot().workflowTask.id,'dcw-kept');
+    release1(); release1();
+    assert.equal(removed,0,'one materialized scope leaving cannot dispose other Session tabs');
+    release2(); release2();
+    assert.equal(removed,1); assert.equal(subscribed,0);
+    assert.equal(first.getSnapshot().workflowTask.state,'enriching','unload does not mutate Host task state');
+    assert.equal(controller.open('s1','upload'),false);
+  } finally { globalThis.fetch=previousFetch; cleanupGlobals(); }
+});
+
 function defineStore(decl) {
   return {
     spec: decl,
@@ -227,6 +303,8 @@ function loadClient() {
 }
 
 function cleanupGlobals() {
+  const shared = globalThis.document?.[Symbol.for('dsh.data-cleaning.session-workbench')];
+  if (shared) { shared.references = 1; shared.release(); }
   delete globalThis.window;
   delete globalThis.document;
 }
@@ -271,7 +349,7 @@ test('apply() 注册顶部入口、composer 下方能力、提示词生成器、
 
     exports.apply(ctx);
 
-    assert.ok(slots.has('shell.overlay'), '必须注入 shell.overlay');
+    assert.equal(slots.has('shell.overlay'), false, '禁止注入私有工作台 overlay');
     assert.ok(slots.has('sidebar.footer.action'), '必须注入 sidebar.footer.action');
     assert.ok(slots.has('conversation.input.dock'), '必须注入原生 composer 独立 dock');
     assert.ok(slots.has('conversation.input.overlay'), '必须注入提示词生成浮层');
@@ -293,10 +371,7 @@ test('apply() 注册顶部入口、composer 下方能力、提示词生成器、
       assert.equal(typeof r.component, 'function');
     }
 
-    const overlay = slots.get('shell.overlay')[0];
-    assert.equal(overlay.options.name, 'shell.overlay');
-    assert.equal(overlay.options.id, 'data-cleaning-agent');
-    assert.equal(overlay.options.order, 200);
+    const overlay = contentFixture(exports);
 
     const footer = slots.get('sidebar.footer.action')[0];
     assert.equal(footer.options.name, 'sidebar.footer.action');
@@ -621,7 +696,7 @@ test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工�
     loaded = loadClient();
     const { exports } = loaded;
     let capabilityReg = null;
-    let overlayReg = null;
+    let overlayReg = sessionFixture(loaded.exports, 'session-3');
     const ctx = {
       effect: () => () => {},
       slots: {
@@ -660,7 +735,7 @@ test('blank 清洗会话渲染业务首页，普通会话不注入业务内容',
     loaded = loadClient();
     const { exports } = loaded;
     let dockReg = null;
-    let overlayReg = null;
+    let overlayReg = contentFixture(loaded.exports);
     const ctx = {
       effect: () => () => {},
       slots: {
@@ -819,7 +894,7 @@ test('提示词生成器注册在 input.overlay，且只对清洗会话显示触
     loaded = loadClient();
     const { exports } = loaded;
     let promptReg = null;
-    let overlayReg = null;
+    let overlayReg = contentFixture(loaded.exports);
     const ctx = {
       effect: () => () => {},
       slots: {
@@ -999,7 +1074,7 @@ test('银行模板表头：确认映射驱动范围，重复输出共用字段�
 test('人工映射支持多原列写回，并自动同步补全范围', () => {
   try {
     const loaded = loadClient();
-    let overlay;
+    let overlay = contentFixture(loaded.exports);
     loaded.exports.apply({ effect: () => () => {}, slots: {
       inject: (name, callback) => { if (name === 'shell.overlay') overlay = callback(); return () => {}; },
       register: (options, component) => ({ options, component }),
@@ -1195,7 +1270,7 @@ for (const intake of ['file', 'clipboard-items', 'wizard-text-paste', 'workbench
       let prevented = false;
       try {
         window.dispatchEvent({ type: 'paste', clipboardData: { files: [], items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }] },
-          target: { closest: (selector) => selector === '.dcAgentWorkbench' ? null : ({}) }, preventDefault: () => { prevented = true; }, stopImmediatePropagation() {} });
+          target: { closest: (selector) => selector === '.dcAgentWorkbenchContent' ? null : ({}) }, preventDefault: () => { prevented = true; }, stopImmediatePropagation() {} });
         await new Promise((resolve) => setImmediate(resolve));
         assert.equal(prevented, true);
       } finally { for (const stop of cleanup) if (typeof stop === 'function') stop(); }
@@ -1272,7 +1347,7 @@ test('工作台图片文件转交同会话向导，接收失败保留工作台',
   const previousFetch = globalThis.fetch;
   try {
     const loaded = loadClient();
-    let overlay;
+    let overlay = contentFixture(loaded.exports);
     loaded.exports.apply({ effect: () => () => {}, slots: {
       inject: (name, cb) => { if (name === 'shell.overlay') overlay = cb(); return () => {}; },
       register: (options, component) => ({ options, component }),
@@ -1307,7 +1382,7 @@ test('提示词生成器解析出的完整表格通过事件桥进入 root 工�
   try {
     loaded = loadClient();
     const { exports } = loaded;
-    let overlayReg = null;
+    let overlayReg = sessionFixture(loaded.exports, 'cleaning-excel');
     const ctx = {
       effect: () => () => {},
       slots: {
@@ -1460,7 +1535,7 @@ test('M3 toolview：DataToolCard 把三工具摘要渲染为可读卡片（状�
 
     const store = (() => {
       // 复用 overlay store：footer/overlay 共用一个 defineStore 句柄。
-      const overlay = slots.get('shell.overlay')[0];
+      const overlay = contentFixture(exports);
       return overlay.options.store;
     })();
     const instance = store.create();
@@ -1505,7 +1580,7 @@ test('工作台 header 仅保留标题和控制按钮，状态集中在进度卡
     loaded = loadClient();
     const { exports } = loaded;
 
-    let overlayReg = null;
+    let overlayReg = contentFixture(loaded.exports);
     const ctx = {
       effect: () => () => {},
       slots: {
@@ -1547,13 +1622,13 @@ test('工作台 header 仅保留标题和控制按钮，状态集中在进度卡
   }
 });
 
-test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安全状态，关闭按钮调用 actions.close', () => {
+test('Session Tab 内容：五步导航，无容器控制和中央让位', () => {
   let loaded;
   try {
     loaded = loadClient();
     const { exports } = loaded;
 
-    let overlayReg = null;
+    let overlayReg = contentFixture(loaded.exports);
     const ctx = {
       effect: () => () => {},
       slots: {
@@ -1570,31 +1645,19 @@ test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安�
     const { options, component } = overlayReg;
     const instance = options.store.create();
 
-    assert.equal(render(component, {}, instance), null, '关闭状态不渲染');
+    assert.ok(render(component, {}, instance), '内容挂载由 Host Tab 管理');
 
     instance.actions.open();
     const panel = flattenElement(render(component, {}, instance));
-    const drawer = findNode(panel, (n) => n.type === 'aside' && n.props && n.props.className.includes('dcAgentWorkbench'));
-    assert.ok(drawer, '必须在 overlay 中渲染右侧 aside 工作台');
-    assert.equal(drawer.props.role, 'dialog');
-    assert.equal(drawer.props['aria-modal'], 'false', '桌面工作台为非模态，中央会话保持可操作');
+    const drawer = findNode(panel, n => n.props?.className === 'dcAgentWorkbenchContent');
+    assert.ok(drawer);
     assert.equal(drawer.props['aria-label'], '数据清洗补全工作台');
-    assert.match(source, /body:has\(\.dcAgentWorkbench\) \[data-conversation-scroll\]/, '桌面工作台打开时必须使用 DSH 稳定标记为中央会话让出空间');
-    assert.match(source, /padding-right: var\(--dc-agent-workbench-reserve, min\(460px, 42vw\)\)/, '桌面让位宽度跟随工作台实际宽度');
-
+    assert.doesNotMatch(source, /dc-agent-workbench-reserve|installWorkbenchSizing|preferredWidth|toggleExpanded|shell\.overlay/);
     // 五步核心工作流；质量体检和历史是横向能力。
     const stepButtons = [];
     collectNodes(panel, (n) => n.props && n.props['aria-label'] && ['导入与核验', '规则与体检', '主体匹配', '字段补全', '结果下载'].includes(n.props['aria-label']), stepButtons);
     assert.equal(stepButtons.length, 5, '必须渲染五步 stepper');
-    const resizeHandle = findNode(panel, n => n.props?.role === 'separator');
-    assert.equal(resizeHandle.props['aria-label'], '调整工作台宽度');
-    assert.equal(resizeHandle.props['aria-orientation'], 'vertical');
-    assert.equal(resizeHandle.props.tabIndex, 0);
-    assert.deepEqual(exports.__testing.workbenchWidthBounds(1440), { mobile: false, min: 320, max: 1020 });
-    assert.deepEqual(exports.__testing.workbenchWidthBounds(761), { mobile: false, min: 320, max: 341 });
-    assert.deepEqual(exports.__testing.workbenchWidthBounds(390), { mobile: true, min: 390, max: 390 });
-    assert.deepEqual(exports.__testing.workbenchWidthBounds(1440, 1200), { mobile: false, min: 320, max: 780 });
-    assert.deepEqual(exports.__testing.workbenchWidthBounds(900, 660), { mobile: true, min: 900, max: 900 });
+    assert.equal(findNode(panel, n => n.props?.role === 'separator'), null);
     assert.equal(stepButtons.filter(button => button.props['aria-current'] === 'step').length, 1);
     for (const button of stepButtons) {
       const children = button.children.flat(Infinity);
@@ -1613,30 +1676,23 @@ test('工作台：关闭返回 null，打开渲染 v2 五步 stepper + QCC 安�
     const qccBadge = findNode(panel, (n) => n.props && n.props.title === '仅在当前用户确认使用自己的企查查账号后调用');
     assert.ok(!qccBadge, '顶部不显示冗余 QCC 状态位');
 
-    const expandButton = findNode(panel, (n) => n.props && n.props['aria-label'] === '展开工作台');
-    assert.ok(expandButton, '必须支持按 Mockup 展开工作台');
-    expandButton.props.onClick();
-    assert.equal(instance.getSnapshot().expanded, true);
-
-    const closeButton = findNode(panel, (n) => n.props && n.props['aria-label'] === '关闭');
-    assert.ok(closeButton, '必须有关闭按钮');
-    closeButton.props.onClick();
-    assert.equal(instance.getSnapshot().open, false);
+    assert.equal(findNode(panel, n => n.props?.['aria-label'] === '展开工作台'), null);
+    assert.equal(findNode(panel, n => n.props?.['aria-label'] === '关闭'), null);
   } finally {
     cleanupGlobals();
   }
 });
 
 test('工作台关闭态 guard 位于所有 store hooks 之后，避免 React #310', () => {
-  const componentStart = source.indexOf('function WorkbenchDrawer(props)');
+  const componentStart = source.indexOf('function WorkbenchContent(props)');
   const componentEnd = source.indexOf('function apply(ctx)', componentStart);
   const componentSource = source.slice(componentStart, componentEnd);
   const guardIndex = componentSource.indexOf('if (!open) return null;');
   const lastStoreHookIndex = componentSource.indexOf('const activeSessionId = useStore((state) => state.activeSessionId);');
 
-  assert.ok(componentStart >= 0 && componentEnd > componentStart, '必须定位到 WorkbenchDrawer');
+  assert.ok(componentStart >= 0 && componentEnd > componentStart, '必须定位到 WorkbenchContent');
   assert.ok(lastStoreHookIndex >= 0, '必须定位到最后一个 store hook');
-  assert.ok(guardIndex > lastStoreHookIndex, '关闭态 guard 必须在全部 store hooks 之后');
+  assert.equal(guardIndex, -1, 'Tab 关闭由 Host 卸载，内容不得再按私有 open flag 隐藏');
 });
 
 test('中央业务首页以独立 React 元素渲染，避免 hero 切换破坏 Hooks 顺序', () => {
@@ -1810,7 +1866,7 @@ test('导入状态以完整数据集为准，不以原生文件选择框或粘�
 
 test('上传解析进入 taskId runtime，字段映射在规则确认页完成', () => {
   const applyParsedStart = source.indexOf('function applyParsed(result, actions, taskId');
-  const applyParsedEnd = source.indexOf('/** 右侧非模态工作台', applyParsedStart);
+  const applyParsedEnd = source.indexOf('function WorkbenchContent', applyParsedStart);
   const applyParsedSource = source.slice(applyParsedStart, applyParsedEnd);
   assert.doesNotMatch(applyParsedSource, /setStep\('profile'\)/, '解析后必须留在上传映射页供用户确认字段');
   assert.match(applyParsedSource, /runtimeFor\(taskId\)/);
@@ -1832,7 +1888,7 @@ test('T3 匹配核验页直接生成说明，不依赖手动检测估算或额�
   try {
     loaded = loadClient();
     const { exports } = loaded;
-    let overlayReg = null;
+    let overlayReg = contentFixture(loaded.exports);
     const ctx = {
       effect: () => () => {},
       slots: {
@@ -1877,7 +1933,7 @@ test('规则页展示 40/58 两批字段并支持按工具维度全选与清空'
   let loaded;
   try {
     loaded = loadClient();
-    let overlayReg = null;
+    let overlayReg = contentFixture(loaded.exports);
     const ctx = {
       effect: () => () => {},
       slots: {
@@ -1908,7 +1964,7 @@ test('T8 下载页使用 Host 耐久 CSV/XLSX 制品并支持最近任务 taskId
   let loaded;
   try {
     loaded = loadClient();
-    let overlayReg = null;
+    let overlayReg = contentFixture(loaded.exports);
     const ctx = {
       effect: () => () => {},
       slots: {

@@ -1,5 +1,9 @@
 # 兼容性 / Compatibility
 
+## 0.9.0：Session 单例 Tab
+
+工作台通过可选 `ctx.inject(['betterSidebar'], ...)` 接入 Provider，探测 `targetedOpen` 与 `stateSubscription`；缺失时保留会话和 Host 工具，不提供私有抽屉回退。当前仅完成隔离模拟服务与 Chromium 回归，尚未实装组合验收；旧版本的 Host/UI 验证不自动覆盖此次迁移。详见 [采用记录](UI-V1.5.0-ADOPTION.md)。
+
 ## 1. 目标基线
 
 本插件面向 DeepSeek Harness（DSH）预发布阶段，双基线验证：

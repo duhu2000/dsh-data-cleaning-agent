@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-10
+
+- 工作台迁移到 Better Sidebar Session 单例 Tab；移除自有固定抽屉、宽度拖拽、展开/关闭按钮和中央会话让位逻辑。
+- 按 Session 隔离任务视图；关闭或折叠 Tab 不取消任务，五流程入口复用同一 Tab。
+- 可选 Provider 生命周期探测，缺失时提示安装/升级，不回退到旧抽屉；需要 targetedOpen 和 stateSubscription。
+- 完整 256 项测试及 10 组隔离 React/Chromium 回归通过；真实 DSH 四插件组合联调尚未完成，详见 docs/UI-V1.5.0-ADOPTION.md。
+
 ## [0.8.23] - 2026-09-09
 
 - 工作台顶部仅保留产品标题和展开、关闭按钮，移除重复状态与技术标识。

@@ -76,7 +76,13 @@ try {
     await page.goto('http://dcq-ui.test/');
     await page.setContent(`<html style="color-scheme:${colorScheme}"><head><style>
       body { margin:0; font:14px system-ui; background:light-dark(#fff,#161b23); color:light-dark(#172033,#edf2fa) }
-      #app { min-height:100vh } [data-conversation-scroll] { box-sizing:border-box; padding:24px 12px; min-height:100vh }
+      #app { min-height:100vh }
+      .fixtureLayout { display:flex; min-width:0 }
+      .fixtureConversation { flex:1; min-width:0 }
+      .fixtureSidebar { width:min(460px,100vw); height:100vh; flex:none; display:flex; flex-direction:column; border-left:1px solid #8886 }
+      .fixtureSidebar[data-open=false] { display:none }
+      .fixtureTabBody { flex:1; min-height:0; min-width:0 }
+      @media(max-width:760px) { .fixtureLayout { flex-direction:column } .fixtureSidebar { width:100%; } } [data-conversation-scroll] { box-sizing:border-box; padding:24px 12px; min-height:100vh }
       [data-composer-seat] { max-width:800px; margin:0 auto }
       .fixture_composerStack { display:flex; flex-direction:column; gap:8px }
       [data-composer-card] { position:relative; box-sizing:border-box; border:1px solid #8886; border-radius:20px; padding:16px; background:light-dark(#fff,#161b23) }
@@ -104,13 +110,45 @@ try {
         '@deepseek-ai/dsh-client-store': { defineStore } };
       const plugin = window.registration.factory((name) => modules[name]);
       const slots = {};
-      plugin.apply({ effect: (fn) => fn(), slots: {
+      const states = new Map(), hostListeners = new Set();
+      let activeSession = 'fixture', descriptor, revision = 0;
+      const emit = () => { revision++; hostListeners.forEach(fn => fn()); };
+      const stateFor = id => {
+        if (!states.has(id)) states.set(id, { tab: null, state: { panelOpen:false, splits: {kind:'leaf',tabs:[]}, floats:[] } });
+        return states.get(id);
+      };
+      const sidebar = {
+        features:['targetedOpen','stateSubscription'],
+        registerTab(value) { descriptor = value; return () => { descriptor = null; }; },
+        isTabEnabled: () => true,
+        getSnapshot: () => ({sessionId:activeSession, state:stateFor(activeSession).state}),
+        subscribeState(fn) { hostListeners.add(fn); return () => hostListeners.delete(fn); },
+        openTab(seed,scope) {
+          const entry = stateFor(scope.sessionId);
+          if (!entry.tab) {
+            entry.tab = {id:'tab-' + scope.sessionId, type:seed.type};
+            entry.state = {...entry.state, splits:{kind:'leaf',tabs:[entry.tab]}};
+          }
+          emit();
+        },
+      };
+      window.hostCloseTab = () => { const entry = stateFor(activeSession); entry.tab = null; entry.state = {...entry.state,splits:{kind:'leaf',tabs:[]}}; emit(); };
+      window.hostCollapse = () => { const entry = stateFor(activeSession); entry.state = {...entry.state,panelOpen:false}; emit(); };
+      window.hostTabCount = () => stateFor(activeSession).tab ? 1 : 0;
+      plugin.apply({ conversation:{input:{shell:()=>({setDraft:prompt=>{window.writeDraft?.(prompt);return true;}})}}, sessions:{open:()=>{}},
+        inject(deps,callback) {
+          if (deps.join() !== 'betterSidebar') throw new Error('Unexpected optional provider');
+          let cleanup;
+          callback({betterSidebar:sidebar,effect:fn=>{cleanup=fn();}});
+          return {dispose:()=>cleanup?.()};
+        },
+        effect: (fn) => fn(), slots: {
         inject: (name, fn) => { slots[name] = fn(); },
         register: (options, component) => ({ options, component }),
       } });
       window.plugin = plugin;
       plugin.__testing.markCleaningSession('fixture');
-      const store = slots['shell.overlay'].options.store.create();
+      const store = document[Symbol.for('dsh.data-cleaning.session-workbench')].controller.storeFor('fixture');
       window.store = store;
       const Experience = slots['conversation.input.dock'].component;
       // DSH materializes session slots separately from the root workbench.
@@ -122,11 +160,19 @@ try {
       } });
       sessionPlugin.__testing.markCleaningSession('fixture');
       const Prompt = sessionSlots['conversation.input.overlay'].component;
-      const Drawer = slots['shell.overlay'].component;
-      const useStore = (pick) => R.useSyncExternalStore(store.subscribe, () => pick(store.getSnapshot()));
+      function HostTab({ sessionId, setDraft }) {
+        R.useSyncExternalStore(fn => { hostListeners.add(fn); return () => hostListeners.delete(fn); }, () => revision);
+        const entry = stateFor(sessionId);
+        if (!entry.tab || !descriptor) return null;
+        if (!entry.store) entry.store = { reduce(fn) { entry.state=fn(entry.state); emit(); } };
+        return h('aside', {className:'fixtureSidebar','data-open':entry.state.panelOpen},
+          h('div', null, 'Host: 数据清洗补全', h('button', {onClick:window.hostCloseTab,'aria-label':'Host 关闭 Tab'}, '×')),
+          h('div', {className:'fixtureTabBody'}, h(descriptor.component,{scope:{sessionId},tab:entry.tab,store:entry.store,visible:entry.state.panelOpen})));
+      }
       function App({ sessionId = 'fixture', phase = 'blank' }) {
         const [draft, setDraft] = R.useState('');
-        return h('div', { 'data-conversation-scroll': '' },
+        window.writeDraft = setDraft;
+        return h('div', { className:'fixtureLayout' }, h('div', { 'data-conversation-scroll': '', className:'fixtureConversation' },
           h('div', { 'data-composer-seat': '', 'data-phase': phase === 'blank' ? 'hero' : 'active' },
             h('div', { className: 'fixture_composerStack' },
               h('div', { className: 'fixture_headline' },
@@ -141,10 +187,10 @@ try {
                 h('div', { className: 'nativeActions' }, h('span', null, 'Workspace Write'), h('button', { disabled: !draft }, '发送')),
                 h(Prompt, { sessionId, inputActions: { setDraft } })))),
           ),
-          h(Drawer, { useStore, actions: store.actions, setSessionDraft: (_sessionId, prompt) => setDraft(prompt) }));
+          ), h(HostTab, { sessionId, setDraft }));
       }
       window.root = window.createRoot(document.getElementById('app'));
-      window.show = (sessionId = 'fixture', phase = 'blank') => window.root.render(h(App, { sessionId, phase }));
+      window.show = (sessionId = 'fixture', phase = 'blank') => { activeSession = sessionId; emit(); window.root.render(h(App, { sessionId, phase })); };
       window.show();
     });
     await page.locator('.dcAgentCapabilityMount .dcAgentCapabilities').waitFor();
@@ -205,7 +251,7 @@ try {
     assert.equal(await page.getByRole('button', { name: '发送', exact: true }).isEnabled(), true);
     const nativeSendStyle = await page.getByRole('button', { name: '发送', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor);
     await page.getByRole('button', { name: '任务历史', exact: true }).click();
-    const drawer = page.getByRole('dialog', { name: '数据清洗补全工作台' });
+    const drawer = page.getByRole('region', { name: '数据清洗补全工作台' });
     assert.equal(await drawer.getByRole('navigation', { name: '清洗流程' }).count(), 0);
     await drawer.getByRole('button', { name: '当前任务', exact: true }).click();
     assert.equal(await drawer.getByRole('navigation', { name: '清洗流程' }).getByRole('button').count(), 5);
@@ -307,114 +353,27 @@ try {
       assert.equal(await stageNav.getByRole('button', { name, exact: true }).getAttribute('aria-current'), 'step');
     }
     assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask)), beforeNavigation, 'navigation does not mutate or execute Host task');
+    const taskBeforeHostChanges = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
+    assert.equal(await drawer.getByRole('separator').count(), 0);
+    assert.equal(await drawer.getByRole('button',{name:'展开工作台'}).count(),0);
+    await page.evaluate(() => window.hostCollapse());
+    await drawer.waitFor({state:'hidden'});
+    await page.locator('.dcAgentCapabilityMount').getByRole('button',{name:'导入名单'}).click();
+    await drawer.waitFor({state:'visible'});
+    assert.equal(await page.evaluate(() => window.hostTabCount()),1);
+    await page.evaluate(() => window.hostCloseTab());
+    await drawer.waitFor({state:'detached'});
+    await page.locator('.dcAgentCapabilityMount').getByRole('button',{name:'导入名单'}).click();
+    await drawer.waitFor({state:'visible'});
+    assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask)),taskBeforeHostChanges);
+    assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el=>getComputedStyle(el).paddingRight),'12px');
+    await assertStageNavigation('host-singleton-tab');
     if (width > 760) {
-      const separator = drawer.getByRole('separator', { name: '调整工作台宽度' });
-      const panelWidth = async () => Math.round((await drawer.boundingBox()).width);
-      const assertNoOverlap = async () => {
-        const inputBox = await page.locator('[data-composer-card]').boundingBox();
-        const panelBox = await drawer.boundingBox();
-        assert.ok(inputBox.x + inputBox.width <= panelBox.x + 1, 'resizing must reserve the actual panel width');
-      };
-      const initialWidth = await panelWidth();
-      const taskBeforeResize = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
-      let grip = await separator.boundingBox();
-      await page.mouse.move(grip.x + 3, grip.y + 100);
-      await page.mouse.down();
-      await page.mouse.move(grip.x - 80, grip.y + 100, { steps: 8 });
-      await assertNoOverlap();
-      await page.mouse.up();
-      const manualWidth = await panelWidth();
-      assert.ok(manualWidth > initialWidth, 'dragging left expands continuously');
-      await separator.focus();
-      await page.keyboard.press('Home');
-      assert.equal(await panelWidth(), 320);
-      await page.keyboard.press('ArrowLeft');
-      assert.equal(await panelWidth(), 336);
-      await page.keyboard.press('Shift+ArrowLeft');
-      assert.equal(await panelWidth(), 384);
-      await page.keyboard.press('End');
-      assert.equal(await panelWidth(), width - 420);
-      await assertNoOverlap();
-      assert.equal(Number(await separator.getAttribute('aria-valuenow')), await panelWidth());
-      grip = await separator.boundingBox();
-      await page.mouse.move(grip.x + 3, grip.y + 100);
-      await page.mouse.down();
-      await page.mouse.move(grip.x + 65, grip.y + 100);
-      await page.keyboard.press('Escape');
-      await page.mouse.up();
-      assert.equal(await drawer.count(), 1, 'Escape during drag cancels resize, not the drawer');
-      assert.equal(await panelWidth(), width - 420);
-      await separator.dblclick();
-      assert.equal(await panelWidth(), initialWidth, 'double click restores default');
-      await separator.focus();
-      await page.keyboard.press('Home');
-      await page.keyboard.press('ArrowLeft');
-      await drawer.getByRole('button', { name: '展开工作台' }).click();
-      await drawer.getByRole('button', { name: '收起工作台' }).click();
-      assert.equal(await panelWidth(), 336, 'collapse restores manual preference');
-      await drawer.getByRole('button', { name: '关闭', exact: true }).click();
-      assert.equal(await page.locator('[data-conversation-scroll]').evaluate(el => el.style.getPropertyValue('--dc-agent-workbench-reserve')), '');
-      await page.getByRole('button', { name: '任务历史', exact: true }).click();
-      await drawer.getByRole('button', { name: '当前任务', exact: true }).click();
-      assert.equal(await panelWidth(), 336, 'reopening preserves width, not a new task');
-      await page.setViewportSize({ width: 390, height: 700 });
-      assert.equal(await separator.isVisible(), false);
-      assert.equal(await panelWidth(), 390);
-      await page.setViewportSize({ width, height });
-      await page.waitForFunction(() => Math.round(document.querySelector('.dcAgentWorkbench').getBoundingClientRect().width) === 336);
-      assert.equal(await panelWidth(), 336);
-      assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask)), taskBeforeResize);
-      // Host sidebar changes available canvas width without a window resize.
-      await page.locator('[data-conversation-scroll]').evaluate(el => {
-        el.style.marginLeft = '240px'; el.style.width = 'calc(100% - 240px)';
-      });
-      if (width - 240 < 740) {
-        await page.waitForFunction(() => document.querySelector('.dcAgentWorkbench').dataset.narrow === 'true');
-        assert.equal(await separator.isVisible(), false);
-      } else {
-        await page.waitForFunction(expected => Number(document.querySelector('.dcAgentResizeHandle').getAttribute('aria-valuemax')) === expected, width - 660);
-        await separator.focus(); await page.keyboard.press('End');
-        assert.equal(await panelWidth(), width - 660);
-        await assertNoOverlap();
-      }
-      await page.locator('[data-conversation-scroll]').evaluate(el => {
-        el.style.removeProperty('margin-left'); el.style.removeProperty('width');
-      });
-      await page.waitForFunction(() => document.querySelector('.dcAgentWorkbench').dataset.narrow === 'false');
-      await separator.dblclick();
-      await assertStageNavigation('resized-default');
-      for (const expanded of [false, true]) {
-        if (expanded) await drawer.getByRole('button', { name: '展开工作台' }).click();
-        if (expanded) await assertStageNavigation('expanded');
-        const menuClippedLeft = await page.locator('.dcAgentCapabilities').evaluate(el => {
-          el.scrollLeft = 0;
-          return el.firstElementChild.getBoundingClientRect().left < el.getBoundingClientRect().left - 1;
-        });
-        assert.equal(menuClippedLeft, false, 'narrow desktop menu must scroll from first item, not clip centered overflow');
-        const nativeBox = await page.locator('[data-composer-card]').boundingBox();
-        const drawerBox = await drawer.boundingBox();
-        assert.ok(nativeBox.x + nativeBox.width <= drawerBox.x + 1, JSON.stringify({ reason: 'drawer overlap', width, height, expanded, nativeBox, drawerBox }));
-      }
-      const expandedWidth = await panelWidth();
-      grip = await separator.boundingBox();
-      await page.mouse.move(grip.x + 3, grip.y + 100); await page.mouse.down();
-      await page.mouse.move(grip.x + 55, grip.y + 100, { steps: 5 }); await page.mouse.up();
-      assert.ok(await panelWidth() < expandedWidth);
-      assert.equal(await drawer.getByRole('button', { name: '展开工作台' }).count(), 1, 'drag from expanded returns to manual mode');
-      for (const cancellation of ['pointercancel', 'blur']) {
-        const savedWidth = await panelWidth();
-        grip = await separator.boundingBox();
-        await page.mouse.move(grip.x + 3, grip.y + 100); await page.mouse.down();
-        await page.mouse.move(grip.x + 30, grip.y + 100);
-        if (cancellation === 'pointercancel') await separator.dispatchEvent('pointercancel');
-        else await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-        await page.mouse.up();
-        assert.equal(await panelWidth(), savedWidth, `${cancellation} restores the starting width`);
-      }
-      await assertNoOverlap();
-      await separator.hover();
-    } else {
-      assert.equal(await drawer.getByRole('separator', { name: '调整工作台宽度' }).isVisible(), false);
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width='320px'; });
+      await assertStageNavigation('host-320px');
+      await page.locator('.fixtureSidebar').evaluate((el,value) => { el.style.width=value+'px'; }, Math.min(760,width-420));
+      await assertStageNavigation('host-wide');
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.removeProperty('width'); });
     }
     // User-reported mapping fixture: full catalog, ambiguity, duplicate targets and manual override.
     await page.evaluate(() => {
@@ -471,7 +430,7 @@ try {
     await drawer.getByText('页面与 Host 版本不一致。请保存任务后升级并完整重启 DSH；当前 Host 不支持自动生成结果文件。', { exact: true }).waitFor();
     assert.equal(unexpectedRequests.length, 0, 'old Host preflight must not stage or execute a QCC command');
     oldHost = false;
-    await drawer.getByRole('button', { name: '关闭', exact: true }).click();
+    await page.evaluate(() => window.hostCloseTab());
     await page.screenshot({ path: join(out, `home-${colorScheme}-${width}x${height}.png`) });
     await page.evaluate(() => window.show('fixture', 'active'));
     await page.waitForFunction(() => document.querySelector('.dcAgentCapabilityMount'));
@@ -558,14 +517,7 @@ try {
     assert.equal(await page.evaluate(() => window.store.getSnapshot().open), true, '执行后自动打开工作台');
     await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
-    const headerLayout = await drawer.locator('.dcAgentWbHeader').evaluate(el => {
-      const title = el.querySelector('.dcAgentWbTitle').getBoundingClientRect();
-      const actions = el.querySelector('.dcAgentWbActions').getBoundingClientRect();
-      return { separated: title.right <= actions.left, fits: el.scrollWidth <= el.clientWidth + 1, text: el.innerText };
-    });
-    assert.equal(headerLayout.separated, true, '顶部标题不与操作按钮重叠');
-    assert.equal(headerLayout.fits, true);
-    assert.equal(headerLayout.text.includes('QCC'), false, '顶部不显示冗余技术状态');
+    assert.equal(await drawer.locator('.dcAgentWbHeader, .dcAgentWbActions, .dcAgentWbClose').count(),0, 'content has no duplicate Host header controls');
     const artifactLayout = await drawer.locator('.dcAgentArtifactList').evaluate(el => {
       const link = el.querySelector('a');
       link.textContent = '预览 / 打开：' + '企业数据清洗补全结果长文件名'.repeat(8) + '.xlsx';
@@ -575,7 +527,7 @@ try {
     });
     assert.equal(artifactLayout.separated, true, '长文件名预览与下载按钮分行留白');
     assert.equal(artifactLayout.fits, true, '文件操作不超出工作台宽度');
-    await drawer.getByRole('button', {name: '关闭', exact: true}).click();
+    await page.evaluate(() => window.hostCloseTab());
     await page.getByRole('button', { name: '打开提示词生成' }).click();
     await dialog.waitFor();
     await page.evaluate(() => window.show('ordinary'));

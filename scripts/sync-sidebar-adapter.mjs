@@ -1,0 +1,10 @@
+import { readFile, writeFile } from 'node:fs/promises';
+const clientUrl = new URL('../lib/client.js', import.meta.url);
+const source = await readFile(new URL('../lib/better-sidebar-adapter.js', import.meta.url), 'utf8');
+const client = await readFile(clientUrl, 'utf8');
+const begin = '    // BEGIN generated Better Sidebar adapter (source: lib/better-sidebar-adapter.js)';
+const end = '    // END generated Better Sidebar adapter';
+const block = begin + '\n' + source.replace(/^export /gm, '').split('\n').map(line => line ? '    ' + line : '').join('\n') + '\n';
+const next = client.slice(0, client.indexOf(begin)) + block + client.slice(client.indexOf(end));
+if (process.argv.includes('--write')) await writeFile(clientUrl, next);
+else if (next !== client) throw new Error('Run node scripts/sync-sidebar-adapter.mjs --write before testing');

@@ -1,6 +1,6 @@
 {
   "name": "dsh-data-cleaning-agent",
-  "version": "0.8.23",
+  "version": "0.9.0",
   "description": "Data cleaning and data enrichment for CSV/XLSX/JSON enterprise lists in DeepSeek Harness, including spreadsheet cleaning, deduplication, profiling, optional Qichacha MCP and exports.",
   "type": "module",
   "main": "lib/index.js",
@@ -22,6 +22,7 @@
     "docs/USER-GUIDE.md",
     "docs/FIRST-CONTRIBUTION.md",
     "docs/COMPATIBILITY.md",
+    "docs/UI-V1.5.0-ADOPTION.md",
     "docs/QCC-ENRICHMENT-DESIGN.md",
     "docs/QCC-PHASES-ROADMAP.md",
     "docs/PHASE2-ACCEPTANCE.md",
