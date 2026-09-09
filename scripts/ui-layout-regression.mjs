@@ -484,6 +484,32 @@ try {
     await dialog.getByRole('tab', { name: '上传本地文件' }).click();
     await dialog.locator('input[type=file]').setInputFiles({name:'bank-template.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from('synthetic-bank-fixture')});
     await dialog.getByText('原表空白单元格：22 个。', {exact:false}).waitFor();
+    const sheetViewport = dialog.locator('.dcAgentPreviewTable');
+    const sheetLayout = await sheetViewport.evaluate(el => {
+      const header = el.querySelector('th');
+      const before = header.getBoundingClientRect().left;
+      el.scrollLeft = 180;
+      return { overflow: el.scrollWidth > el.clientWidth, moved: header.getBoundingClientRect().left < before,
+        sticky: getComputedStyle(header).position, wrap: getComputedStyle(header).whiteSpace };
+    });
+    assert.equal(sheetLayout.overflow, true, '多列保留宽度并横向滚动');
+    assert.equal(sheetLayout.moved, true);
+    assert.equal(sheetLayout.sticky, 'sticky');
+    assert.equal(sheetLayout.wrap, 'nowrap');
+    const pinned = await sheetViewport.evaluate(el => {
+      const body = el.querySelector('tbody');
+      const clones = Array.from({length:30}, () => body.firstElementChild.cloneNode(true));
+      clones.forEach(row => body.append(row));
+      const top = el.querySelector('th').getBoundingClientRect().top;
+      el.scrollTop = 180;
+      const held = el.scrollTop > 0 && Math.abs(el.querySelector('th').getBoundingClientRect().top - top) < 2;
+      clones.forEach(row => row.remove());
+      el.scrollTop = 0;
+      return held;
+    });
+    assert.equal(pinned, true, '纵向滚动时表头固定');
+    await sheetViewport.evaluate(el => { el.scrollLeft = 0; });
+    await page.screenshot({path:join(out,`spreadsheet-${colorScheme}-${width}x${height}.png`)});
     assert.equal(await dialog.locator('input[type=file]').evaluate(el=>el.files[0]?.name), 'bank-template.xlsx');
     await dialog.getByRole('button', {name:'下一步',exact:true}).click();
     assert.equal(await dialog.locator('.dcAgentMappingRow').count(),23);
@@ -532,6 +558,15 @@ try {
     assert.equal(await page.evaluate(() => window.store.getSnapshot().open), true, '执行后自动打开工作台');
     await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
+    const artifactLayout = await drawer.locator('.dcAgentArtifactList').evaluate(el => {
+      const link = el.querySelector('a');
+      link.textContent = '预览 / 打开：' + '企业数据清洗补全结果长文件名'.repeat(8) + '.xlsx';
+      const a = link.getBoundingClientRect();
+      const b = el.querySelector('button').getBoundingClientRect();
+      return { separated: b.top >= a.bottom + 8, fits: el.scrollWidth <= el.clientWidth + 1 };
+    });
+    assert.equal(artifactLayout.separated, true, '长文件名预览与下载按钮分行留白');
+    assert.equal(artifactLayout.fits, true, '文件操作不超出工作台宽度');
     await drawer.getByRole('button', {name: '关闭', exact: true}).click();
     await page.getByRole('button', { name: '打开提示词生成' }).click();
     await dialog.waitFor();

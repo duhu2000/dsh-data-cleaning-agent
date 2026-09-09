@@ -27,7 +27,8 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     // v0.8.20: normal absence notes are separate from actionable field issues.
     'lib/artifacts.js': '8895aa013d29e8b62c7e317db54639fe1caecc837c5329e5d099dced5e464cba',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
-    'lib/qcc.js': '4a12bffa908e1af54d5e710796896708482989a4f9be49fb7b0bbb6786282308',
+    // Failed rows now retain normalized error identifiers for exception exports.
+    'lib/qcc.js': '8ac6e50c2e00e738c18f8da044cb165b393bfc8a5cd381fa73c54a0cb8f7c9fa',
     'lib/qcc-field-catalog.js': '7055dd390c40e8e3b5090d5122770c57485225b32f8ae8f010cd3246d287aaf3',
   });
   // Audited additive controller contract; all pre-existing labels/tools/cases remain frozen.

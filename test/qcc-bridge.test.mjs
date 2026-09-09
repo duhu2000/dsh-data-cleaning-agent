@@ -658,6 +658,9 @@ test('单企业失败不会中断其余批次，错误不包含工具原始响�
   assert.equal(result.summary.failed, 1);
   assert.equal(result.summary.enriched, 1);
   assert.equal(result.errors[0].error.code, 'QCC_TOOL_FAILED');
+  assert.match(result.rows[0].qcc_error, /QCC_TOOL_FAILED/);
+  assert.match(result.rows[0].qcc_error, /get_company_registration_info/);
+  assert.equal(result.rows[0].qcc_error.includes('upstream failed'), false);
   assert.equal('data' in result.errors[0].error, false);
 });
 
