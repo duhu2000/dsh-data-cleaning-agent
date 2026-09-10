@@ -25,7 +25,8 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     // Additive Host capability flags prevent new-client/old-Host staging errors.
     // v0.8.21: derive artifact origin from actual browser request.
     // Authorized image continuation binds a confirmed draft revision before Agent execution.
-    'lib/web.js': '66e23c3551cc09da5a55222934fda33d4ab20c952b0e45d7808b928210ba780a',
+    // Read-only artifact preview now uses a compact scroll grid with fixed headers.
+    'lib/web.js': '6318ba469fb6fb5cac87771dbe681307c434fd90079ccbba3459f90951387e67',
     // v0.8.20: normal absence notes are separate from actionable field issues.
     'lib/artifacts.js': '8895aa013d29e8b62c7e317db54639fe1caecc837c5329e5d099dced5e464cba',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
