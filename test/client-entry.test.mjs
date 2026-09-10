@@ -634,6 +634,36 @@ test('新会话 Bridge：不复用空白清洗会话，失败/并发/卸载及�
   } finally { cleanupGlobals(); }
 });
 
+test('rc.1 New Session bridge binds optional uiWorkspace lifecycle', async () => {
+  try {
+    const { exports } = loadClient();
+    let current = 'cleaning-session', notify, cleanup, disposed = false;
+    const original = () => {};
+    const navigation = { startSession: original };
+    const ctx = {
+      workspaces: { list: { getSnapshot: () => ({ items: [{ workspaceId: 'ws', sessionIds: [current] }] }) } },
+      sessions: {
+        list: { getSnapshot: () => ({ current }), subscribe: fn => { notify = fn; return () => {}; } },
+        create: async () => 'normal-session', open: id => { current = id; notify(); },
+      },
+      inject: (keys, callback) => {
+        assert.deepEqual(Array.from(keys), ['uiWorkspace']);
+        callback({ ...ctx, uiWorkspace: navigation, effect: fn => { cleanup = fn(); } });
+        return { dispose: () => { disposed = true; cleanup(); } };
+      },
+    };
+    exports.__testing.markCleaningSession(current);
+    const release = exports.__testing.installSessionOwnershipBridge(ctx);
+    navigation.startSession();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(current, 'normal-session');
+    assert.equal(exports.__testing.isCleaningSession(current), false);
+    release();
+    assert.equal(disposed, true);
+    assert.equal(navigation.startSession, original);
+  } finally { cleanupGlobals(); }
+});
+
 test('完整清单显示13行、跨页可达最后一行，下载不受页码限制且中文表头安全', async () => {
   const originalCreate = URL.createObjectURL;
   const originalRevoke = URL.revokeObjectURL;
@@ -1491,6 +1521,10 @@ test('流程导航拒绝跳过导入、规则与匹配，历史制品无需重�
     assert.match(issue('enrich', { state: 'diagnosed', objectives: ['validate_identity'], fieldSelection: [] }, true), /确认企业/);
     assert.equal(issue('download', { artifacts: [{ id: 'saved' }] }, false), null);
     assert.match(issue('download', { state: 'matched' }, true), /先完成/);
+    const local = { state: 'diagnosed', objectives: ['deduplicate'] };
+    assert.equal(issue('download', local, true, {}, null, true), null);
+    assert.match(issue('download', local, true, {}, null, false), /先完成/);
+    assert.match(issue('download', { ...local, objectives: ['complete_fields'] }, true, {}, null, true), /先完成/);
     assert.equal(issue('download', { state: 'export_ready' }, true), null);
   } finally { cleanupGlobals(); }
 });

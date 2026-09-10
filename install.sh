@@ -2,8 +2,8 @@
 # dsh-data-cleaning-agent 一键安装脚本（DeepSeek Harness）
 # 用法：
 #   本地：  bash install.sh
-#   远端：  bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-agent/main/install.sh)
-# 支持：优先 dsh CLI（自动注册 bundle）；无 dsh 时回退 pnpm 并兜底注册 bundles。
+#   请从完整 npm 包或源码目录运行，确保随包预检可用。
+# 需要实际 dsh CLI 通过预检；脚本不会升级全局宿主。
 # 幂等：重复执行不会重复注册或破坏已有配置。
 set -euo pipefail
 
@@ -20,6 +20,14 @@ if [ ! -d "$PROFILE_DIR" ]; then
   echo "请确认 DSH_HOME 与 DSH_PROFILE（默认 ~/.dsh 与 web）。"
   exit 1
 fi
+
+# 在任何安装/配置写入前，只读检查实际 CLI 与目标 Profile 的组合。
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ ! -f "$SCRIPT_DIR/lib/install-preflight.js" ]; then
+  echo "错误：缺少随包预检。请解压 npm pack dsh-data-cleaning-agent 的完整包后运行 bash package/install.sh；不再支持流式执行脚本。"
+  exit 1
+fi
+node "$SCRIPT_DIR/lib/install-preflight.js" "$PROFILE_DIR"
 
 # ── 1) 安装依赖 ──
 if command -v dsh >/dev/null 2>&1; then

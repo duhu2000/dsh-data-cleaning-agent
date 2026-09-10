@@ -1,6 +1,6 @@
 # dsh-data-cleaning-agent
 
-> 0.9.0 升级说明：工作台已迁移到 Better Sidebar 的 Session 单例 Tab，需要兼容的 `dsh-better-sidebar`（`targetedOpen`、`stateSubscription`）。缺失时会提示安装/升级，不回退到自有抽屉；本轮验证边界见 [采用记录](docs/UI-V1.5.0-ADOPTION.md)。
+> 0.9.1 升级说明：工作台已迁移到 Better Sidebar 的 Session 单例 Tab，需要兼容的 `dsh-better-sidebar`（`targetedOpen`、`stateSubscription`）。缺失时会提示安装/升级，不回退到自有抽屉；本轮验证边界见 [采用记录](docs/UI-V1.5.0-ADOPTION.md)。
 
 本版统一向导与工作台的 Host 执行闭环：发送后自动生成新 Excel，原文件不修改，工作台入口可恢复；发布记录见 [发布说明](docs/RELEASE-0.8.22.md)。
 
@@ -9,7 +9,7 @@
 数据清洗补全智能体：面向 Excel/CSV/JSON 企业名单，提供数据清洗、表格清洗、清洗补全、去重、企业数据补全与字段补全，支持企查查 MCP 和结果导出。
 
 ```sh
-dsh plugin --profile web add dsh-data-cleaning-agent@0.9.0
+dsh plugin --profile web add dsh-data-cleaning-agent@0.9.1
 ```
 
 请先满足下文的 DSH、连接器及侧边栏依赖要求；安装后完整停止并重启对应 Profile。
@@ -27,7 +27,7 @@ dsh plugin --profile web add dsh-data-cleaning-agent@0.9.0
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.9.0**（正式版本）
+> 当前源码版本 / Current source version: **0.9.1**（正式版本）
 
 本版上传表格后展示完整清单及空白数量，用绿色、琥珀色、红色及文字区分已通过、待确认和未匹配映射。已映射字段自动纳入补全范围，额外字段默认折叠；多个原列可经确认使用同一非主体字段，分别补空并保留非空原值。修复 Host 草稿重置为默认五字段的问题，增加前后端版本错配提示。生成说明不查询，发送才执行；升级后需完整重启 DSH，历史下载文件不自动改写。
 
@@ -81,10 +81,13 @@ Composer 图片附件，因此不支持视觉输入的文本模型也能调度 A
 或分发凭据。本地服务会把用户明确提交的图片上传到企查查文档解析网关；未连接本地服务时功能会
 fail closed，并明确提示配置要求，文本与 Excel 流程不受影响。
 
-没有 `dsh` CLI 时，也可以用安装脚本：
+安装前请核验完整 DSH `0.1.2-rc.1` + Better Sidebar `0.18.1`。context 不是必装依赖；若已装 `0.36.0`，需先升级到 `0.48.0`。预检不会升级全局宿主，也不代表业务验收通过。
+
+从完整源码或解压的 npm 包运行安装脚本（需要实际 `dsh` CLI；不再支持流式脚本）：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-agent/main/install.sh)
+node lib/install-preflight.js "$DSH_HOME/profiles/web"
+bash install.sh
 ```
 
 或直接让 Agent 安装：
