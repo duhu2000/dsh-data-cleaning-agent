@@ -16,14 +16,16 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
   // preserve nonempty canonical input keys. Other source hashes remain frozen.
   Object.assign(golden.contract.unchanged, {
     // v0.8.17: Host finalizes workbench artifacts; partial remains retryable.
-    'lib/workflow.js': '59606d45a2e81ea78a0829ca86d3da37ffef9f3af000d14427c11eebe80c797f',
+    // Image drafts retain sanitized source metadata, without advancing upload state.
+    'lib/workflow.js': 'b61016e1d31ed380f9b8c6d332c10f79783d0f65ef63a706e85c631ecdb1f491',
     'lib/skill-enrich.js': '245f5b2b099d2242f1ddb4cafb6db3bb1d612911f929f3eb1f64e850dba9941b',
     // Confirmed output mappings allow fan-out; identity anchors remain unique.
     'lib/workflow-contract.js': '3147387a10f4fdc6b295b9bd8c4e3877fd2b36ec4778d7c58cae07c8f5ce58f8',
     // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
     // Additive Host capability flags prevent new-client/old-Host staging errors.
     // v0.8.21: derive artifact origin from actual browser request.
-    'lib/web.js': '7f71d0ff1fcb88b6fb89e25e6c64dff9cd2cc69ac46d4d589d54431e5190e4a9',
+    // Authorized image continuation binds a confirmed draft revision before Agent execution.
+    'lib/web.js': '66e23c3551cc09da5a55222934fda33d4ab20c952b0e45d7808b928210ba780a',
     // v0.8.20: normal absence notes are separate from actionable field issues.
     'lib/artifacts.js': '8895aa013d29e8b62c7e317db54639fe1caecc837c5329e5d099dced5e464cba',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.

@@ -46,6 +46,21 @@ async function createStore(storageDomain, ids = ['dcw-test-1', 'dcw-test-2']) {
   }).init();
 }
 
+test('图片草稿保留安全来源元数据，未识别前不进入已上传状态', async () => {
+  const store = await createStore(memoryStorageDomain());
+  let task = await store.create({ source: { type: 'image', fileName: '截图.png', rowCount: 99, content: 'secret' } });
+  assert.equal(task.state, 'draft');
+  assert.equal(task.source.type, 'image');
+  assert.equal(task.source.fileName, '截图.png');
+  assert.equal(task.source.rowCount, 0);
+  assert.equal(task.source.content, undefined);
+  task = await store.updateDraft(task.id, { expectedRevision: task.revision, source: { type: 'image', fileName: '新图.png' } });
+  assert.equal(task.source.fileName, '新图.png');
+  task = await store.updateDraft(task.id, { expectedRevision: task.revision, title: '保留图片配置' });
+  assert.equal(task.source.fileName, '新图.png');
+  assert.equal(task.state, 'draft');
+});
+
 test('Host 工作流完成五步闭环并仅持久化安全元数据', async () => {
   const storage = memoryStorageDomain();
   const store = await createStore(storage);

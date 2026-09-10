@@ -111,7 +111,8 @@ try {
       const plugin = window.registration.factory((name) => modules[name]);
       const slots = {};
       const states = new Map(), hostListeners = new Set();
-      let activeSession = 'fixture', descriptor, revision = 0;
+      const descriptors = new Map();
+      let activeSession = 'fixture', revision = 0;
       const emit = () => { revision++; hostListeners.forEach(fn => fn()); };
       const stateFor = id => {
         if (!states.has(id)) states.set(id, { tab: null, state: { panelOpen:false, splits: {kind:'leaf',tabs:[]}, floats:[] } });
@@ -119,7 +120,7 @@ try {
       };
       const sidebar = {
         features:['targetedOpen','stateSubscription'],
-        registerTab(value) { descriptor = value; return () => { descriptor = null; }; },
+        registerTab(value) { descriptors.set(value.id, value); return () => descriptors.delete(value.id); },
         isTabEnabled: () => true,
         getSnapshot: () => ({sessionId:activeSession, state:stateFor(activeSession).state}),
         subscribeState(fn) { hostListeners.add(fn); return () => hostListeners.delete(fn); },
@@ -164,6 +165,7 @@ try {
       function HostTab({ sessionId, setDraft }) {
         R.useSyncExternalStore(fn => { hostListeners.add(fn); return () => hostListeners.delete(fn); }, () => revision);
         const entry = stateFor(sessionId);
+        const descriptor = descriptors.get(entry.tab?.type);
         if (!entry.tab || !descriptor) return null;
         if (!entry.store) entry.store = { reduce(fn) { entry.state=fn(entry.state); emit(); } };
         return h('aside', {className:'fixtureSidebar','data-open':entry.state.panelOpen},

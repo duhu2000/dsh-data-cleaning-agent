@@ -251,6 +251,46 @@ test('G5 capabilities 路由被挂载且只做被动工具探测', async () => {
   app.dispose();
 });
 
+test('一次发送图片任务保留已选字段、生成 XLSX，重复调用不重复查询', async () => {
+  const app = harness({ storageDomain: memoryStorageDomain(), fs: memoryFs() });
+  const call = async (route, method, url, body) => {
+    const res = responseRecorder();
+    await app.routes.get(route)(request({ method, url, body }), res);
+    return res;
+  };
+  try {
+    const base = '/data-cleaning/api/workflow/tasks';
+    const image = '/data-cleaning/api/images/commands';
+    const taskResponse = await call(base, 'POST', base, { fieldSelection: ['reg_capital'],
+      source: { type: 'image', fileName: '名单.png' } });
+    const task = taskResponse.json().task;
+    const prepared = await call(image, 'POST', image, { fileName: '名单.png',
+      content: Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]), Buffer.alloc(24)]).toString('base64') });
+    const id = prepared.json().command.commandId;
+    const refused = await call(image, 'PATCH', image + '/' + id, { taskId: task.id, expectedRevision: task.revision });
+    assert.equal(refused.status, 409, '未声明发送授权不绑定自动续跑');
+    const bound = await call(image, 'PATCH', image + '/' + id, { taskId: task.id,
+      expectedRevision: task.revision, executeOnSend: true });
+    assert.equal(bound.status, 200);
+    assert.equal(app.calls.length, 0, '向导确认不提前消耗额度');
+    const tool = app.registeredTools.get('data_cleaning_extract_image_companies');
+    const exec = { agent: { session: { id: 'image-once' } }, token: 'original-parent', signal: new AbortController().signal };
+    const results = await Promise.all([tool.execute({ commandId: id }, exec), tool.execute({ commandId: id }, exec)]);
+    assert.equal(results[0].workflowResult.artifactCount > 0, true);
+    assert.deepEqual(results[0], results[1]);
+    const count = app.calls.length;
+    await tool.execute({ commandId: id }, exec);
+    assert.equal(app.calls.length, count);
+    assert.equal(app.calls.filter(c => c.name === QCC_DOCUMENT_LOCAL_TOOL_PAIRS[0].parse).length, 1);
+    assert.ok(app.calls.every(c => c.parent === exec.token && c.agent === exec.agent));
+    const final = (await call(base, 'GET', base + '/' + task.id)).json().task;
+    assert.deepEqual(final.fieldSelection, ['reg_capital']);
+    assert.equal(final.source.type, 'image');
+    assert.equal(final.source.rowCount, 2);
+    assert.ok(final.artifacts.some(a => a.format === 'xlsx'));
+  } finally { app.dispose(); }
+});
+
 test('图片名单路由只暂存原图，Agent-owned 高层工具识别后可轮询结果', async () => {
   const app = harness();
   const capabilities = responseRecorder();
