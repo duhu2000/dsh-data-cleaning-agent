@@ -81,10 +81,13 @@ Composer 图片附件，因此不支持视觉输入的文本模型也能调度 A
 或分发凭据。本地服务会把用户明确提交的图片上传到企查查文档解析网关；未连接本地服务时功能会
 fail closed，并明确提示配置要求，文本与 Excel 流程不受影响。
 
-没有 `dsh` CLI 时，也可以用安装脚本：
+安装前请核验完整 DSH `0.1.2-rc.1` + Better Sidebar `0.18.1`。context 不是必装依赖；若已装 `0.36.0`，需先升级到 `0.48.0`。预检不会升级全局宿主，也不代表业务验收通过。
+
+从完整源码或解压的 npm 包运行安装脚本（需要实际 `dsh` CLI；不再支持流式脚本）：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-agent/main/install.sh)
+node lib/install-preflight.js "$DSH_HOME/profiles/web"
+bash install.sh
 ```
 
 或直接让 Agent 安装：

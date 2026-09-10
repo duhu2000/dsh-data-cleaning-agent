@@ -4,9 +4,26 @@
 
 工作台通过可选 `ctx.inject(['betterSidebar'], ...)` 接入 Provider，探测 `targetedOpen` 与 `stateSubscription`；缺失时保留会话和 Host 工具，不提供私有抽屉回退。当前仅完成隔离模拟服务与 Chromium 回归，尚未实装组合验收；旧版本的 Host/UI 验证不自动覆盖此次迁移。详见 [采用记录](UI-V1.5.0-ADOPTION.md)。
 
-## 1. 目标基线
+## 当前加固目标（2026-09-10）
 
-本插件面向 DeepSeek Harness（DSH）预发布阶段，双基线验证：
+完整 DSH `0.1.2-rc.1` + Better Sidebar `0.18.1`；可选 context 共存版本 `0.48.0`。版本预检通过仅代表排除已知版本冲突，不代表模块加载、服务激活或业务闭环已通过。其他版本提示未验证，旧宿主配 Sidebar 0.18.1、rc.1 配 Sidebar 0.17.1 或 context 0.36.0 阻断安装。反向冲突证据由 AI 填表隔离验收共享：`/tmp/ff-compat-oldhost.log`（实际宿主为 rc.1，文件名并非版本依据），缺少 `settingsNamespace` 导致导入失败。不推断整个版本区间。
+
+安装前从完整包运行 `node lib/install-preflight.js <目标Profile目录> [实际dsh可执行文件]`；只读取包版本并执行 CLI `--version`，不读取密钥或修改安装。先备份 Profile 与锁文件，由宿主管理者升级完整宿主，不能只升级 Session 子包；回滚须还原成套宿主和插件锁定版本，不能把 Sidebar 0.18.1 留在旧宿主上。
+
+## 1. 历史基线（不代表 0.9.0 新组合承诺）
+
+### 本轮隔离证据（2026-09-10，候选未发布）
+
+- Node `v25.9.0`；临时根 `/private/tmp/dcq-host-rc1`，独立 DSH_HOME `home`，端口 `43278`。未访问正式 Profile，未调用真实 MCP。
+- npm pack 候选安装到临时 Profile，完整 DSH `0.1.2-rc.1` / Sidebar `0.18.1` / context `0.48.0`：Host apply、真实浏览器入口和 Session Tab 可见，pageErrors 为 0。未用旧 runtime 模块替身。
+- 合成 XLSX（2 行）实际上传、自动映射、规则确认、质量体检、本地确定性清洗、本地补全、生成 XLSX 均执行；导出工作表 `清洗补全结果` 可反向解析，预览 HTTP 200。
+- 实证修复：纯本地任务完成后仍被下载导航的外部补全状态门禁阻断。现在只在非 QCC 目标、规则已确认且确有本地结果时允许进入下载；QCC 目标仍保持原门禁。
+- **未通过/待查**：同一测试点击宿主 New Session 后清洗 dock 仍可见；尚未排除宿主复用空会话，不能声称普通会话隔离通过。真实 QCC、图片 OCR、候选确认、多插件完整共存和关闭/恢复回归尚未在此组合完成。
+- 环境调整：初次跳过 peer 安装缺失宿主依赖，补全后启动；文件监听 EMFILE，测试 Profile 设 `patchReload: startup` 并关闭 settings/credentials watch。磁盘 ENOSPC 曾阻断工作区创建，清理本轮下载缓存后重试成功。上述不是产品兼容通过依据。
+- 重现脚本：`DCQ_PLAYWRIGHT=<playwright模块路径> DCQ_SMOKE_ROOT=/private/tmp/dcq-host-rc1 node scripts/host-rc1-smoke.cjs`。仅对该布局、指定独立端口运行；需先按上文安装包、注册 bundle 并启动测试 Host，脚本不启动或升级宿主。脚本最后保留普通会话隔离断言，当前预期暴露上述未通过项。
+- 本机证据：`/private/tmp/dcq-host-rc1/business-result.log`、`startup.png`、`workbench.png`，全量单测/发布包检查 `/private/tmp/dcq-compat-check.log`（259 通过）。本轮 tarball 是未发布候选，沿用基线版本用于隔离安装，**不允许覆盖发布 npm 0.9.0**。
+
+以下是旧发布的历史证据，不继承为当前组合验收：
 
 | 基线 | 框架 npm 包线 | 备注 |
 | --- | --- | --- |

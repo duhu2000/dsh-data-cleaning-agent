@@ -72,10 +72,13 @@ temporary files. The local server uploads the explicitly submitted file to the Q
 Both use the current customer's own QCC account and quota. Without the local connector,
 image intake fails closed with actionable guidance; text and spreadsheet paths remain available.
 
-Without the `dsh` CLI, use the install script:
+Check the complete DSH `0.1.2-rc.1` + Better Sidebar `0.18.1` combination first. Context is optional; an existing `0.36.0` installation must be upgraded to `0.48.0`. Preflight does not upgrade the global host or prove business acceptance.
+
+Run from a full checkout or unpacked npm package with the actual `dsh` CLI (streamed shell installation is no longer supported):
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/duhu2000/dsh-data-cleaning-agent/main/install.sh)
+node lib/install-preflight.js "$DSH_HOME/profiles/web"
+bash install.sh
 ```
 
 Or let an agent install it for you:

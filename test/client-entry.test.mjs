@@ -1491,6 +1491,10 @@ test('流程导航拒绝跳过导入、规则与匹配，历史制品无需重�
     assert.match(issue('enrich', { state: 'diagnosed', objectives: ['validate_identity'], fieldSelection: [] }, true), /确认企业/);
     assert.equal(issue('download', { artifacts: [{ id: 'saved' }] }, false), null);
     assert.match(issue('download', { state: 'matched' }, true), /先完成/);
+    const local = { state: 'diagnosed', objectives: ['deduplicate'] };
+    assert.equal(issue('download', local, true, {}, null, true), null);
+    assert.match(issue('download', local, true, {}, null, false), /先完成/);
+    assert.match(issue('download', { ...local, objectives: ['complete_fields'] }, true, {}, null, true), /先完成/);
     assert.equal(issue('download', { state: 'export_ready' }, true), null);
   } finally { cleanupGlobals(); }
 });
