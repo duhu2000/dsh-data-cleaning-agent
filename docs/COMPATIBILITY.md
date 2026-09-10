@@ -1,5 +1,19 @@
 # 兼容性 / Compatibility
 
+## 0.9.2：可选侧栏验收
+
+Node v25.9.0，完整 DSH 0.1.2-rc.1；使用 npm pack 产物、独立 DSH_HOME 和端口，未修改生产 Profile 或调用计费 MCP。
+
+| 组合 | 实测结果 |
+| --- | --- |
+| 无 Sidebar / 无 context | 基础预检允许；Host 启动、原生会话、缺失提示及草稿保留通过。真实 tools.execute 执行 data_clean_rows、data_complete_rows、data_profile 合成数据成功。工作台不可用。 |
+| Sidebar 0.18.1 / context 0.48.0 | Host 与浏览器无 pageErrors；合成 XLSX 导入、映射确认、本地清洗/补全、导出回读、HTTP 预览及普通会话草稿通过。 |
+| Sidebar 0.17.1 | 基础预检仍阻断；隔离启动复现 settingsNamespace 缺失，不因 optional 忽略冲突。 |
+
+基础安装不强装侧栏；`--workbench` 模式在侧栏缺失时阻断，运行时另检 targetedOpen/stateSubscription。工具未发现 session.events/snapshotEvents 依赖，不套用其他产品补丁。无侧栏不支持交互导入、映射确认、结果预览下载与工作台导航，不等于完整工作流可用。
+
+验收脚本：scripts/host-no-sidebar-smoke.cjs、scripts/host-rc1-smoke.cjs。测试数据为合成数据；真实 QCC、OCR、多候选确认和四产品完整共存仍未验证。以下章节是历史版本证据，不覆盖这些未测能力。
+
 ## 0.9.0：Session 单例 Tab
 
 工作台通过可选 `ctx.inject(['betterSidebar'], ...)` 接入 Provider，探测 `targetedOpen` 与 `stateSubscription`；缺失时保留会话和 Host 工具，不提供私有抽屉回退。当前仅完成隔离模拟服务与 Chromium 回归，尚未实装组合验收；旧版本的 Host/UI 验证不自动覆盖此次迁移。详见 [采用记录](UI-V1.5.0-ADOPTION.md)。
