@@ -18,10 +18,11 @@
 - npm pack 候选安装到临时 Profile，完整 DSH `0.1.2-rc.1` / Sidebar `0.18.1` / context `0.48.0`：Host apply、真实浏览器入口和 Session Tab 可见，pageErrors 为 0。未用旧 runtime 模块替身。
 - 合成 XLSX（2 行）实际上传、自动映射、规则确认、质量体检、本地确定性清洗、本地补全、生成 XLSX 均执行；导出工作表 `清洗补全结果` 可反向解析，预览 HTTP 200。
 - 实证修复：纯本地任务完成后仍被下载导航的外部补全状态门禁阻断。现在只在非 QCC 目标、规则已确认且确有本地结果时允许进入下载；QCC 目标仍保持原门禁。
-- **未通过/待查**：同一测试点击宿主 New Session 后清洗 dock 仍可见；尚未排除宿主复用空会话，不能声称普通会话隔离通过。真实 QCC、图片 OCR、候选确认、多插件完整共存和关闭/恢复回归尚未在此组合完成。
+- 第二处实证修复：rc.1 原生 New Session 已迁至 `uiWorkspace.startSession`，旧桥挂在 `workspaces.startSession` 因而失效。现在通过可选服务注入跟随 `uiWorkspace` 生命周期挂载/恢复兼容桥，保留旧接口回退。重打包安装后 New Session 切换、清洗 dock 隐藏、普通会话自写草稿均通过，pageErrors=0。
+- **待验收**：真实 QCC、图片 OCR、候选确认、多插件完整共存和关闭/恢复回归尚未在此组合完成；不能以本地合成闭环代替这些验收。
 - 环境调整：初次跳过 peer 安装缺失宿主依赖，补全后启动；文件监听 EMFILE，测试 Profile 设 `patchReload: startup` 并关闭 settings/credentials watch。磁盘 ENOSPC 曾阻断工作区创建，清理本轮下载缓存后重试成功。上述不是产品兼容通过依据。
-- 重现脚本：`DCQ_PLAYWRIGHT=<playwright模块路径> DCQ_SMOKE_ROOT=/private/tmp/dcq-host-rc1 node scripts/host-rc1-smoke.cjs`。仅对该布局、指定独立端口运行；需先按上文安装包、注册 bundle 并启动测试 Host，脚本不启动或升级宿主。脚本最后保留普通会话隔离断言，当前预期暴露上述未通过项。
-- 本机证据：`/private/tmp/dcq-host-rc1/business-result.log`、`startup.png`、`workbench.png`，全量单测/发布包检查 `/private/tmp/dcq-compat-check.log`（259 通过）。本轮 tarball 是未发布候选，沿用基线版本用于隔离安装，**不允许覆盖发布 npm 0.9.0**。
+- 重现脚本：`DCQ_PLAYWRIGHT=<playwright模块路径> DCQ_SMOKE_ROOT=/private/tmp/dcq-host-rc1 node scripts/host-rc1-smoke.cjs`。仅对该布局、指定独立端口运行；需先按上文安装包、注册 bundle 并启动测试 Host，脚本不启动或升级宿主。脚本包含普通会话隔离断言，修复后通过。
+- 本机证据：`/private/tmp/dcq-host-rc1/business-result.log`、`startup.png`、`workbench.png`，全量单测/发布包检查 `/private/tmp/dcq-compat-check.log`（260 通过）。本轮 tarball 是未发布候选，沿用基线版本用于隔离安装，**不允许覆盖发布 npm 0.9.0**。
 
 以下是旧发布的历史证据，不继承为当前组合验收：
 

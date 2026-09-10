@@ -3,12 +3,13 @@ const fs=require('node:fs');
 const root=process.env.DCQ_SMOKE_ROOT;
 if(!root || !/^\/(private\/)?tmp\//.test(root)) throw Error('DCQ_SMOKE_ROOT must be an isolated tmp directory');
 (async()=>{
+ const url=fs.readFileSync(root+'/host.log','utf8').match(/http:\/\/127\.0\.0\.1:43278\/\?token=\S+/)?.[0];
+ if(!url)throw Error('Isolated Host not ready on port 43278');
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage(); const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
  await page.addLocatorHandler(page.getByRole('button',{name:/^(Continue|继续)$/}),l=>l.click());
  await page.addLocatorHandler(page.getByRole('button',{name:/^(稍后配置|Configure later|Set up later)$/i}),l=>l.click());
- const url=fs.readFileSync(root+'/host.log','utf8').match(/http:\/\/127\.0\.0\.1:43278\/\?token=\S+/)[0];
  try {
  await page.goto(url);await page.getByRole('button',{name:'数据清洗补全',exact:true}).waitFor();
  const result=await page.evaluate(async root=>{const method='workspace/create';return (await (await fetch('/api/'+method,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'client-request',rpcId:crypto.randomUUID(),method,payload:{args:{request:{path:root}}}})})).json()).result;},root);
@@ -45,6 +46,7 @@ if(!root || !/^\/(private\/)?tmp\//.test(root)) throw Error('DCQ_SMOKE_ROOT must
  await composer.fill('合成普通会话草稿，不发送');
  if(await composer.evaluate(el=>el.value??el.textContent)!=='合成普通会话草稿，不发送')throw Error('Draft mismatch');
  await page.waitForTimeout(1000);
+ if(errors.length)throw Error('Browser page errors: '+errors.join('; '));
  console.log(JSON.stringify({errors,text:await page.locator('body').innerText()}));
  await page.screenshot({path:root+'/workbench.png'});
  }catch(e){console.log(await page.locator('body').innerText());throw e;}finally {await browser.close();}
