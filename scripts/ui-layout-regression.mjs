@@ -137,6 +137,7 @@ try {
       window.hostTabCount = () => stateFor(activeSession).tab ? 1 : 0;
       plugin.apply({ conversation:{input:{shell:()=>({setDraft:prompt=>{window.writeDraft?.(prompt);return true;}})}}, sessions:{open:()=>{}},
         inject(deps,callback) {
+          if (deps.join() === 'uiWorkspace') return {dispose(){}}; // Provider absent in this layout-only fixture.
           if (deps.join() !== 'betterSidebar') throw new Error('Unexpected optional provider');
           let cleanup;
           callback({betterSidebar:sidebar,effect:fn=>{cleanup=fn();}});
