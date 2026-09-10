@@ -269,6 +269,9 @@ test('Host 导出制品可跨插件重挂载恢复并下载真实 XLSX', async (
   const preview = await invoke(app, route, { method: 'GET', url: `${route}/${task.id}/artifacts/${xlsxArtifact.id}?preview=1` });
   assert.equal(preview.status, 200);
   assert.match(preview.body.toString(), /下载完整 Excel/);
+  assert.match(preview.body.toString(), /class="grid"/);
+  assert.match(preview.body.toString(), /white-space:nowrap/);
+  assert.match(preview.body.toString(), /thead th\{position:sticky;top:0/);
   assert.match(preview.headers['content-security-policy'], /default-src 'none'/);
   const workbook = XLSX.read(res.body, { type: 'buffer' });
   const result = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: '' });

@@ -41,7 +41,7 @@ jobs:
           node-version: 24
       - run: npm install --prefix _scratch/ui-deps --ignore-scripts --no-audit --no-fund react@19.2.8 react-dom@19.2.8 esbuild@0.25.12 playwright@1.62.1
       - run: node _scratch/ui-deps/node_modules/playwright/cli.js install --with-deps chromium
-      - run: npm run test:ui
+      - run: npm run test:ui && node scripts/artifact-preview-regression.mjs
         env:
           DCQ_UI_DEPS: _scratch/ui-deps/node_modules
           DCQ_PLAYWRIGHT: _scratch/ui-deps/node_modules/playwright
