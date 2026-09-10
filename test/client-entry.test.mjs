@@ -101,17 +101,47 @@ test('Session controller shares one descriptor, isolates stores and survives Tab
       controller.open('s1',step); controller.open('s1',step);
       assert.equal(first.getSnapshot().step,step);
     }
-    assert.equal(registered,1); assert.equal(opens,10);
+    assert.equal(registered,2); assert.equal(opens,10);
     assert.equal(second.getSnapshot().input,'乙企业');
     assert.equal(second.getSnapshot().open,false);
     assert.equal(first.getSnapshot().workflowTask.id,'dcw-kept');
     release1(); release1();
     assert.equal(removed,0,'one materialized scope leaving cannot dispose other Session tabs');
     release2(); release2();
-    assert.equal(removed,1); assert.equal(subscribed,0);
+    assert.equal(removed,2); assert.equal(subscribed,0);
     assert.equal(first.getSnapshot().workflowTask.state,'enriching','unload does not mutate Host task state');
     assert.equal(controller.open('s1','upload'),false);
   } finally { globalThis.fetch=previousFetch; cleanupGlobals(); }
+});
+
+test('预览链接复用当前 Session 的侧栏 Tab，下载和外域链接不拦截', () => {
+  const previousLocation = globalThis.location;
+  try {
+    const { exports } = loadClient();
+    globalThis.location = { href: 'http://127.0.0.1:3080/', origin: 'http://127.0.0.1:3080' };
+    const opens = [];
+    const tabs = new Map();
+    const service = { features: ['targetedOpen', 'stateSubscription'],
+      registerTab: descriptor => { tabs.set(descriptor.id, descriptor); return () => tabs.delete(descriptor.id); },
+      subscribeState: () => () => {}, getSnapshot: () => ({ sessionId: 's-preview' }),
+      isTabEnabled: () => true, openTab: (seed, scope) => opens.push({ seed, scope }) };
+    const release = exports.__testing.installSessionWorkbench({ betterSidebar: service });
+    const click = href => {
+      const event = { type: 'click', button: 0, defaultPrevented: false,
+        target: { closest: () => ({ href }) }, preventDefault() { this.defaultPrevented = true; }, stopPropagation() {} };
+      document.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const path = '/data-cleaning/api/workflow/tasks/dcw-test/artifacts/dca-test';
+    assert.equal(click(path + '?preview=1'), true);
+    assert.equal(opens[0].seed.type, 'dsh-data-cleaning-agent:artifact-preview');
+    assert.equal(opens[0].scope.sessionId, 's-preview');
+    assert.equal(click(path), false);
+    assert.equal(click('https://example.com' + path + '?preview=1'), false);
+    assert.equal(click('/other?preview=1'), false);
+    release();
+    assert.equal(click(path + '?preview=1'), false);
+  } finally { globalThis.location = previousLocation; cleanupGlobals(); }
 });
 
 function defineStore(decl) {
@@ -1281,6 +1311,11 @@ for (const intake of ['file', 'clipboard-items', 'wizard-text-paste', 'workbench
       attachImages: async () => [{ id: 'preview-test', previewUrl: 'blob:preview-test' }],
       removeImage: (_session, image) => { removed.push(image.id); },
     };
+    document.addEventListener('dsh:data-cleaning-workbench-prepare', event => {
+      event.preventDefault();
+      event.detail.resolve({ commandId: 'dci-test', state: 'prepared',
+        prompt: loaded.exports.__testing.buildTaskPrompt(event.detail.config) });
+    });
     const renderPrompt = () => { cursor = 0; effects.length = 0; return prompt.component(props); };
     let tree = renderPrompt();
     const file = { name: '截图.png', type: 'image/png', size: 8, arrayBuffer: async () => new Uint8Array([137,80,78,71,13,10,26,10]).buffer };
@@ -1312,7 +1347,7 @@ for (const intake of ['file', 'clipboard-items', 'wizard-text-paste', 'workbench
       await findNode(tree, (n) => n.type === 'input' && n.props?.type === 'file').props.onChange({ target: { files: [file], value: '' } });
     }
     tree = renderPrompt();
-    assert.ok(findNode(tree, (n) => n.type === 'img' && n.props?.src === 'blob:preview-test'));
+    assert.ok(findNode(tree, (n) => n.type === 'img' && n.props?.src?.startsWith('data:image/png;base64,')));
     assert.ok(findNode(tree, (n) => n.props?.role === 'status' && n.children?.some((child) => String(child).includes('图片已载入'))));
     assert.deepEqual(removed, [], '连接缺失不能移除缩略图');
     for (let step = 1; step <= 3; step++) {
@@ -1327,10 +1362,17 @@ for (const intake of ['file', 'clipboard-items', 'wizard-text-paste', 'workbench
     tree = renderPrompt();
     assert.ok(findNode(tree, (n) => n.children?.some((child) => typeof child === 'string' && child.includes('当前对话正在提交'))));
     inputPhase = 'idle';
-    findNode(tree, (n) => n.type === 'button' && n.children?.includes('回填到对话框')).props.onClick();
+    await findNode(tree, (n) => n.type === 'button' && n.children?.includes('回填到对话框')).props.onClick();
+    await new Promise(resolve => setImmediate(resolve));
     assert.match(draft, /dci-test/);
     assert.match(draft, /补全/);
     assert.deepEqual(removed, ['preview-test'], '只在回填时释放模型附件');
+    tree = renderPrompt();
+    findNode(tree, (n) => n.props?.['aria-label'] === '打开提示词生成').props.onClick();
+    tree = renderPrompt();
+    assert.ok(findNode(tree, (n) => n.type === 'img' && n.props?.src?.startsWith('data:image/png;base64,')), '重新打开向导保留独立缩略图');
+    assert.ok(findNode(tree, (n) => n.props?.['aria-label'] === '放大查看 截图.png'));
+    assert.equal(findNode(tree, (n) => n.type === 'input' && n.props?.type === 'file'), null, '已选图片不显示未选择文件');
     assert.equal(requests.length, 1, '选图与回填只暂存一次，不执行 OCR');
   } finally { globalThis.fetch = previousFetch; cleanupGlobals(); }
 });

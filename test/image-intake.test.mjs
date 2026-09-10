@@ -94,9 +94,8 @@ test('Agent-owned 图片工具通过 qcc-document-mcp 提交一次并轮询结�
   });
   assert.equal(result.entryCount, 2);
   const guidance = tool.output.render({}, result)[0].text;
-  assert.match(guidance, /下载全量 CSV\/JSON/);
-  assert.match(guidance, /自动回填中央对话框/);
-  assert.match(guidance, /无需手工复制/);
+  assert.match(guidance, /未绑定已确认/);
+  assert.match(guidance, /导入与核验/);
   assert.doesNotMatch(guidance, /深圳奥雅|星际量子/, '工具摘要不泄露识别名单');
   assert.equal(store.status(command.commandId).state, 'completed');
   assert.equal(calls.length, 2);
