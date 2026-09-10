@@ -11,6 +11,7 @@ test('known incompatible combinations block', () => {
 });
 test('missing CLI or provider blocks; unknown combination warns', () => {
   assert.equal(assessCombination({sidebar:'0.18.1'}).ok,false);
-  assert.equal(assessCombination({host:'0.1.2-rc.1'}).ok,false);
+  assert.equal(assessCombination({host:'0.1.2-rc.1'}).ok,true);
+  assert.equal(assessCombination({host:'0.1.2-rc.1',workbench:true}).ok,false);
   assert.ok(assessCombination({host:'0.1.3',sidebar:'0.19.0'}).warnings.length);
 });

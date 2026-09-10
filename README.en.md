@@ -1,6 +1,6 @@
 # dsh-data-cleaning-agent
 
-> 0.9.1 upgrade: the workbench now uses a Session-singleton Better Sidebar Tab, requiring `targetedOpen` and `stateSubscription`. Missing providers show an install/upgrade message, not a private drawer. See the [adoption and validation record](docs/UI-V1.5.0-ADOPTION.md).
+> 0.9.2 upgrade: Better Sidebar is an optional workbench dependency. Base tools and conversations remain available without it. The workbench requires `targetedOpen` and `stateSubscription`; no private drawer fallback is created. See the [compatibility record](docs/COMPATIBILITY.md).
 
 Data cleaning and data enrichment for CSV/XLSX/JSON enterprise lists in DeepSeek Harness, including spreadsheet cleaning, deduplication, profiling, optional Qichacha MCP and exports.
 
@@ -10,7 +10,7 @@ Related agents: [数据清洗补全](https://github.com/duhu2000/dsh-data-cleani
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.9.1** (stable release)
+> Current source version / 当前源码版本: **0.9.2** (stable release)
 
 This release unifies spreadsheet previews, column mapping, and enrichment scope across the prompt wizard and workbench. Mapping statuses use color and text; mapped fields automatically enter the scope, with optional extra fields collapsed. Multiple confirmed output columns may share a non-identity field while preserving non-empty values. It fixes saved drafts resetting the scope to five defaults and detects stale Host versions. Preparing a draft does not query QCC; sending starts execution. Fully restart DSH after upgrading. Existing download artifacts are not rewritten.
 
@@ -72,7 +72,7 @@ temporary files. The local server uploads the explicitly submitted file to the Q
 Both use the current customer's own QCC account and quota. Without the local connector,
 image intake fails closed with actionable guidance; text and spreadsheet paths remain available.
 
-Check the complete DSH `0.1.2-rc.1` + Better Sidebar `0.18.1` combination first. Context is optional; an existing `0.36.0` installation must be upgraded to `0.48.0`. Preflight does not upgrade the global host or prove business acceptance.
+Better Sidebar is optional and is not automatically installed. Native conversations and the clean/complete/profile engine tools work without it; interactive import, mapping confirmation, workbench preview/export and navigation do not. Workbench entry explains the limitation without deleting drafts/tasks or creating a private drawer. For the workbench, use the tested DSH `0.1.2-rc.1` + Sidebar `0.18.1` pair; an exact optional peer is not a general compatibility claim. Existing incompatible sidebar installations still block preflight. Context is optional; an existing `0.36.0` must be upgraded to `0.48.0`. Use `node lib/install-preflight.js <profile> <dsh-executable> --workbench` for workbench checks; base checks permit a missing sidebar. Runtime capabilities are checked separately. No global host upgrades are performed.
 
 Run from a full checkout or unpacked npm package with the actual `dsh` CLI (streamed shell installation is no longer supported):
 

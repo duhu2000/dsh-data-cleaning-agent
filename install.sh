@@ -28,6 +28,7 @@ if [ ! -f "$SCRIPT_DIR/lib/install-preflight.js" ]; then
   exit 1
 fi
 node "$SCRIPT_DIR/lib/install-preflight.js" "$PROFILE_DIR"
+echo "==> 基础智能体安装：不会强制安装侧栏；交互工作台需兼容 Better Sidebar，可用 --workbench 单独预检。"
 
 # ── 1) 安装依赖 ──
 if command -v dsh >/dev/null 2>&1; then
