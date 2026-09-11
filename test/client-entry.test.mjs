@@ -1956,6 +1956,9 @@ test('上传解析进入 taskId runtime，字段映射在规则确认页完成',
   assert.doesNotMatch(applyParsedSource, /setStep\('profile'\)/, '解析后必须留在上传映射页供用户确认字段');
   assert.match(applyParsedSource, /runtimeFor\(taskId\)/);
   assert.match(source, /actions\.setStep\('rules'\)/);
+  assert.match(source, /const \[intakeEditorOpen, setIntakeEditorOpen\] = react\.useState\(\(\) => dataset == null\)/);
+  assert.match(source, /const showIntakeEditor = !dataset \|\| intakeEditorOpen/);
+  assert.match(source, /setIntakeEditorOpen\(dataset == null\)/, '成功导入后必须收起来源输入，数据缺失时重新展开');
   assert.match(source, /required: nameField \? \[nameField\] : \[\]/);
   assert.match(source, /dedupeOn: nameField \|\| null/);
   assert.match(source, /options: localCleanOptions/);
