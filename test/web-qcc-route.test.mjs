@@ -934,8 +934,8 @@ test('Host 单次发送自动交付新 XLSX：多列补空、保留 0、无需�
   assert.match(command.prompt, /不再询问额度或写回确认/);
   const result = await runCommand(app, command);
   assert.equal(result.deliveryState, 'completed');
-  assert.equal(result.artifactCount, 4);
-  assert.equal(result.artifacts.length, 1, '零异常不向对话展示空异常清单');
+  assert.equal(result.artifactCount, 2);
+  assert.equal(result.artifacts.length, 2, '零异常只展示主结果和任务报告');
   assert.ok(result.artifacts[0].url.startsWith('http://127.0.0.1:3080/data-cleaning/'), '使用实际 HTTP 协议，不擅自升级 HTTPS');
   assert.ok(!result.artifacts[0].fileName.includes('异常清单'));
   const rendered = app.registeredTools.get('data_cleaning_qcc_run').output.render({}, result)[0].text;
@@ -952,7 +952,7 @@ test('Host 单次发送自动交付新 XLSX：多列补空、保留 0、无需�
   app.dispose();
   app = harness({ storageDomain, fs });
   const restored = (await workflowRequest(app, '/data-cleaning/api/workflow/tasks/' + task.id)).task;
-  assert.equal(restored.artifacts.length, 4);
+  assert.equal(restored.artifacts.length, 2);
   // Read actual persisted bytes, as the download service does after restart.
   const { WorkflowArtifactStore } = await import('../lib/artifacts.js');
   const artifactStore = new WorkflowArtifactStore({ fs });
@@ -991,7 +991,7 @@ test('真正的多候选仍在工作台待确认，选定后 Host 自动交付',
     kind: 'resolve', workflowOwned: true, expectedRevision: current.revision, taskId: task.id,
     runId: current.qccRunId, companyName: '模糊企业', selectedCreditNo: '9132AMBIG-A', confirmPaidCalls: true,
   })).command;
-  assert.equal((await runCommand(app, next)).artifactCount, 4);
+  assert.equal((await runCommand(app, next)).artifactCount, 2);
   app.dispose();
 });
 
@@ -1014,7 +1014,7 @@ test('部分失败自动提供结果下载但保留 partial，显式重试只重
   const { task, command } = await stagedWorkflow(app);
   const first = await runCommand(app, command);
   assert.equal(first.deliveryState, 'partial');
-  assert.equal(first.artifactCount, 4);
+  assert.equal(first.artifactCount, 3);
   const current = (await workflowRequest(app, '/data-cleaning/api/workflow/tasks/' + task.id)).task;
   const next = (await workflowRequest(app, '/data-cleaning/api/g5/commands', {
     kind: 'retry', workflowOwned: true, taskId: task.id, runId: current.qccRunId,

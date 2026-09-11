@@ -1,4 +1,5 @@
 import test from 'node:test';
+import XLSX from 'xlsx';
 test('normal undisclosed fields remain notes, not review failures', async () => {
  const bridge = new QccHostBridge({tools:{get(){return {}},execute(){throw Error('must not call')}}});
  bridge.enrichCompany = async () => ({status:'enriched',fields:{},fieldIssues:{
@@ -32,9 +33,10 @@ test('controller issues stay visible in results/exception exports while unrelate
  const memory=new Map();
  const store=new WorkflowArtifactStore({fs:{resolve:async key=>({key}),writeText:async(target,text)=>memory.set(target.key,Buffer.from(text)),readBytes:async target=>memory.get(target.key)},idFactory:(()=>{let n=0;return()=> 'dca-controller-'+(++n).toString().padStart(6,'0')})()});
  const artifacts=await store.createBundle('dcw-controller-001',{headers:['企业名称','实控人'],rows,fieldSelection:['actual_controller_name'],mappings:[{sourceField:'实控人',targetField:'actual_controller_name'}]});
- const csv=artifacts.find(a=>a.kind==='review'&&a.format==='csv');
+ const csv=artifacts.find(a=>a.kind==='review'&&a.format==='xlsx');
  assert.ok(csv);
- const text=(await store.read('dcw-controller-001',csv)).toString();
+ const book=XLSX.read(await store.read('dcw-controller-001',csv),{type:'buffer'});
+ const text=JSON.stringify(XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]]));
  assert.match(text,/多名实际控制人/);
  assert.match(text,/字段补全待核验原因/);
  const projected=projectCompletionResult({headers:['企业名称','实控人'],rows:[{...rows[0],actual_controller_name:'合成控制人'}],fieldSelection:['actual_controller_name'],mappings:[{sourceField:'实控人',targetField:'actual_controller_name'}]});

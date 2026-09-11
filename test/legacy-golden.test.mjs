@@ -28,15 +28,24 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     // Read-only artifact preview now uses a compact scroll grid with fixed headers.
     'lib/web.js': '6318ba469fb6fb5cac87771dbe681307c434fd90079ccbba3459f90951387e67',
     // v0.8.20: normal absence notes are separate from actionable field issues.
-    'lib/artifacts.js': '8895aa013d29e8b62c7e317db54639fe1caecc837c5329e5d099dced5e464cba',
+    'lib/artifacts.js': '0ce08d0fba95d4c46b017caa3a7d4773482fa9f4397fd3ae2a592bca48d78e49',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
     // Failed rows now retain normalized error identifiers for exception exports.
-    'lib/qcc.js': '8ac6e50c2e00e738c18f8da044cb165b393bfc8a5cd381fa73c54a0cb8f7c9fa',
+    'lib/qcc.js': 'c2413987a2eb8ac36bd4020a2969fae71ca96281dcc4f521896ef2eee066d71e',
     'lib/qcc-field-catalog.js': '7055dd390c40e8e3b5090d5122770c57485225b32f8ae8f010cd3246d287aaf3',
   });
   // Audited additive controller contract; all pre-existing labels/tools/cases remain frozen.
   golden.contract.tools.actualController = 'mcp__qcc-company__get_actual_controller';
   Object.assign(golden.contract.fields,Object.fromEntries(ACTUAL_CONTROLLER_GROUP.fields.map(f=>[f.id,f.label])));
   Object.assign(golden.contract.fields, Object.fromEntries(SNAPSHOT_GROUPS.flatMap(g => g.fields.map(f => [f.id, f.label]))));
+  // Audited delivery change: XLSX only, execution metadata moved to a report.
+  const artifacts = golden.cases.find(item => item.id === 'artifacts');
+  const complete = structuredClone(artifacts.expected.find(a => a.kind === 'complete' && a.format === 'xlsx'));
+  const report = { ...structuredClone(complete), kind: 'report', fileName: '合成客户台账-任务结果报告.xlsx' };
+  for (const row of complete.content) delete row.匹配状态;
+  for (const row of report.content) { row.匹配状态 = row.匹配状态 === 'exact' ? '精确匹配' : '候选主体待确认'; row.数据来源 = ''; }
+  const review = structuredClone(artifacts.expected.find(a => a.kind === 'review' && a.format === 'xlsx'));
+  for (const row of review.content) { row.匹配状态 = '候选主体待确认'; row.数据来源 = ''; }
+  artifacts.expected = [complete, report, review];
   assert.deepEqual(await collectLegacy(), golden);
 });

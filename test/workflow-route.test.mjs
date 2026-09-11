@@ -253,7 +253,7 @@ test('Host 导出制品可跨插件重挂载恢复并下载真实 XLSX', async (
   assert.equal(res.status, 201);
   task = res.json().task;
   assert.equal(task.state, 'completed');
-  assert.equal(task.artifacts.length, 4);
+  assert.equal(task.artifacts.length, 3);
   const xlsxArtifact = task.artifacts.find((item) => item.kind === 'complete' && item.format === 'xlsx');
   assert.ok(xlsxArtifact);
   app.dispose();
@@ -275,9 +275,9 @@ test('Host 导出制品可跨插件重挂载恢复并下载真实 XLSX', async (
   assert.match(preview.headers['content-security-policy'], /default-src 'none'/);
   const workbook = XLSX.read(res.body, { type: 'buffer' });
   const result = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: '' });
-  assert.deepEqual(result[0], ['企业名称', '法人', '匹配状态']);
+  assert.deepEqual(result[0], ['企业名称', '法人']);
   assert.equal(result[1][1], '张三', 'Host 映射跨重启保持原列回填');
   res = await invoke(app, route, { method: 'GET', url: `${route}/${task.id}` });
-  assert.equal(res.json().task.artifacts.length, 4);
+  assert.equal(res.json().task.artifacts.length, 3);
   app.dispose();
 });

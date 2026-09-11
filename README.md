@@ -9,7 +9,7 @@
 数据清洗补全智能体：面向 Excel/CSV/JSON 企业名单，提供数据清洗、表格清洗、清洗补全、去重、企业数据补全与字段补全，支持企查查 MCP 和结果导出。
 
 ```sh
-dsh plugin --profile web add dsh-data-cleaning-agent@0.9.4
+dsh plugin --profile web add dsh-data-cleaning-agent@0.9.5
 ```
 
 请先满足下文的 DSH、连接器及侧边栏依赖要求；安装后完整停止并重启对应 Profile。
@@ -27,7 +27,7 @@ dsh plugin --profile web add dsh-data-cleaning-agent@0.9.4
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.9.4**（正式版本）
+> 当前源码版本 / Current source version: **0.9.5**（正式版本）
 
 本版上传表格后展示完整清单及空白数量，用绿色、琥珀色、红色及文字区分已通过、待确认和未匹配映射。已映射字段自动纳入补全范围，额外字段默认折叠；多个原列可经确认使用同一非主体字段，分别补空并保留非空原值。修复 Host 草稿重置为默认五字段的问题，增加前后端版本错配提示。生成说明不查询，发送才执行；升级后需完整重启 DSH，历史下载文件不自动改写。
 
@@ -67,7 +67,7 @@ dsh plugin --profile web add dsh-data-cleaning-agent
 DSH 原生会话：首页标题、产品说明与工作流会替换通用探索页；输入框左上角提供提示词生成器，支持
 粘贴名单、解析 Excel/CSV/JSON 或附加图片并选择清洗动作、补全字段。上传清洗、质量体检、匹配核验、
 字段补全和任务历史五个入口位于输入框下方，右侧工作台承载“上传数据 → 规则确认 → 数据匹配 →
-清洗补全 → 下载数据”五步闭环。完成后可下载结果与异常清单的 CSV/XLSX 四类 Host 耐久制品。
+清洗补全 → 下载数据”五步闭环。完成后可预览、下载清洗补全结果 XLSX 和独立任务结果报告 XLSX；有异常时另提供异常清单 XLSX。执行状态和来源信息不会追加到客户主结果中。
 
 0.8.1 起，在数据清洗补全会话的原生输入框粘贴图片，或在「提示词生成」的图片页
 拖入/选择 PNG、JPEG、WebP，会显示可点击放大的原生缩略图。用户可继续完成匹配规则、清洗项与补全字段，

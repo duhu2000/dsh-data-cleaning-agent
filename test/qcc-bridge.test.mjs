@@ -627,6 +627,8 @@ test('批量补全去重调用，精确项补全，多候选暂停，未匹配�
     includeRisk: true,
   });
   assert.equal(result.rows[0].credit_no, '9132EXACT');
+  assert.match(result.rows[0].qcc_source, /企查查 MCP · server: qcc-company · 工具: get_company_by_query/);
+  assert.match(result.rows[0].qcc_source, /工具: get_company_registration_info/);
   assert.equal(result.rows[1].risk_tags, '行政处罚:1');
   assert.equal(result.rows[2].qcc_match_status, 'ambiguous');
   assert.equal(result.reviewQueue.length, 1);
