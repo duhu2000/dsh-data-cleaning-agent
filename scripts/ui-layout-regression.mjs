@@ -106,7 +106,11 @@ try {
         return { actions, getSnapshot: () => state, subscribe: (cb) => { listeners.add(cb); return () => listeners.delete(cb); } };
       } });
       const modules = { react: R, 'react-dom': window.ReactDOM,
-        '@deepseek-ai/dsh-client-ui-primitives': { Button: (props) => h('button', props) },
+        '@deepseek-ai/dsh-client-ui-primitives': {
+          Button: (props) => h('button', props),
+          IconDownloadOutline16: (props) => h('svg', { ...props, width: 16, height: 16, viewBox: '0 0 16 16', 'aria-hidden': true },
+            h('path', { d: 'M8 2v8m-3-3 3 3 3-3M3 13h10', fill: 'none', stroke: 'currentColor' })),
+        },
         '@deepseek-ai/dsh-client-store': { defineStore } };
       const plugin = window.registration.factory((name) => modules[name]);
       const slots = {};
@@ -262,12 +266,15 @@ try {
     async function assertStageNavigation(mode) {
       const layout = await stageNav.evaluate(nav => {
         const rect = el => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; };
+        const workbench = nav.closest('.dcAgentWorkbenchContent');
         return { nav: rect(nav), scrollWidth: nav.scrollWidth, clientWidth: nav.clientWidth,
+          workbenchWidth: workbench.clientWidth,
           buttons: Array.from(nav.children, button => {
             const icon = button.querySelector('.dcAgentStepIcon');
             const label = button.querySelector('.dcAgentStepLabel');
             return { ...rect(button), icon: rect(icon), label: rect(label),
               text: button.textContent, name: button.getAttribute('aria-label'),
+              labelWhiteSpace: getComputedStyle(label).whiteSpace,
               children: button.children.length, svgCount: icon.querySelectorAll('svg').length,
               separator: getComputedStyle(button).borderRightWidth,
               active: button.getAttribute('aria-current') === 'step',
@@ -285,23 +292,26 @@ try {
         assert.equal(button.text, button.name, 'no descriptions or numeric prefixes');
         assert.equal(button.children, 2);
         assert.equal(button.svgCount, 1);
+        assert.equal(button.labelWhiteSpace, layout.workbenchWidth <= 520 ? 'normal' : 'nowrap');
         assert.equal(button.separator, index === 4 ? '0px' : '1px');
         if (button.active) {
           assert.equal(button.underlineHeight, '3px');
           assert.equal(button.underline, colorScheme === 'light' ? 'rgb(8, 117, 209)' : 'rgb(130, 195, 255)');
         }
       }
-      // Long future labels truncate inside their cell instead of stretching the grid.
+      // Long future labels truncate or line-clamp inside their cell instead of stretching the grid.
       const stress = await stageNav.evaluate(nav => {
         const label = nav.querySelector('.dcAgentStepLabel');
         const original = label.textContent;
         label.textContent = '超长阶段标题'.repeat(8);
         const result = { ellipsis: getComputedStyle(label).textOverflow,
-          fits: nav.scrollWidth <= nav.clientWidth, truncated: label.scrollWidth > label.clientWidth };
+          whiteSpace: getComputedStyle(label).whiteSpace,
+          fits: nav.scrollWidth <= nav.clientWidth,
+          truncated: label.scrollWidth > label.clientWidth || label.scrollHeight > label.clientHeight };
         label.textContent = original;
         return result;
       });
-      assert.deepEqual(stress, { ellipsis: 'ellipsis', fits: true, truncated: true });
+      assert.deepEqual(stress, { ellipsis: 'ellipsis', whiteSpace: layout.workbenchWidth <= 520 ? 'normal' : 'nowrap', fits: true, truncated: true });
       await stageNav.screenshot({ path: join(out, `stage-menu-${colorScheme}-${width}x${height}-${mode}.png`) });
     }
     await assertStageNavigation('normal');
@@ -309,6 +319,10 @@ try {
     assert.equal(await drawer.locator('.dcAgentError').count(), 0, 'fixture Host metadata successfully loaded');
     await stageNav.getByRole('button', { name: '导入与核验', exact: true }).click();
     assert.equal(await drawer.locator('.dcAgentTable th').first().evaluate(el => getComputedStyle(el).backgroundColor), colorScheme === 'light' ? 'rgb(242, 249, 252)' : 'rgb(23, 44, 59)');
+    const reimport = drawer.getByRole('button', { name: '重新导入', exact: true });
+    assert.equal(await drawer.getByLabel('选择数据文件', { exact: true }).count(), 0, 'restored data keeps intake controls collapsed');
+    assert.equal(await reimport.count(), 1);
+    await reimport.click();
     // File bytes are a synthetic Host fixture; this checks input/remount wiring,
     // not XLSX decoding (covered separately by engine tests).
     const picker = drawer.getByLabel('选择数据文件', { exact: true });
@@ -318,29 +332,173 @@ try {
     await page.waitForFunction(() => !window.store.getSnapshot().busy);
     assert.equal(parseCalls, 1);
     assert.deepEqual(await page.evaluate(() => window.store.getSnapshot().workflowTask.fieldSelection), ['company_name'], 'uploaded columns define the saved completion scope, not the old default five');
-    assert.equal(await drawer.getByRole('button', { name: '解析数据', exact: true }).isDisabled(), true);
+    assert.equal(await drawer.getByLabel('选择数据文件', { exact: true }).count(), 0, 'file picker hides after successful import');
+    assert.equal(await drawer.getByRole('button', { name: '图片识别（粘贴 / 选择）', exact: true }).count(), 0, 'image intake hides after successful import');
+    assert.equal(await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).count(), 0, 'paste intake hides after successful import');
+    assert.equal(await drawer.getByRole('button', { name: '解析数据', exact: true }).count(), 0, 'paste action hides with the intake editor');
     assert.ok((await drawer.getByLabel('当前导入数据').textContent()).includes('测试名单.xlsx'));
-    assert.equal(await picker.inputValue(), '', 'native chooser reset permits selecting the same file; status comes from dataset');
-    await drawer.getByRole('button', { name: '已核对清单，下一步：字段映射与规则' }).click();
+    assert.equal(await reimport.count(), 1, 'successful import exposes a single reimport entry');
+    const uploadActions = drawer.locator('.dcAgentUploadActions');
+    assert.equal(await uploadActions.getByRole('button').count(), 2, 'imported state keeps reimport and next step as two footer actions');
+    const nextFromUpload = uploadActions.getByRole('button', { name: '已核对清单，下一步：字段映射与规则' });
+    assert.ok((await nextFromUpload.getAttribute('class')).includes('is-primary'), 'next step remains the primary footer action');
+    await nextFromUpload.click();
     await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
     assert.equal(await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).count(), 1);
     assert.equal(await drawer.locator('.dcAgentError').count(), 0);
+    assert.equal(await picker.count(), 0, 'returning to the import step keeps intake controls collapsed');
+    await reimport.click();
+    assert.equal(await picker.count(), 1);
+    assert.equal(await picker.inputValue(), '', 'native chooser reset permits selecting the same file; status comes from dataset');
     await picker.setInputFiles({ ...file, name: 'broken.xlsx' });
     await page.waitForFunction(() => !window.store.getSnapshot().busy && Boolean(window.store.getSnapshot().error));
     assert.equal(await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).count(), 1, 'failed replacement preserves loaded data');
+    assert.equal(await picker.count(), 1, 'failed replacement keeps reimport controls available for retry');
     await picker.setInputFiles(file);
     await page.waitForFunction(() => !window.store.getSnapshot().busy && !window.store.getSnapshot().error);
     assert.equal(parseCalls, 3, 'same file can be selected again after reset');
+    assert.equal(await picker.count(), 0, 'successful replacement collapses reimport controls');
+    await reimport.click();
     await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).fill('待解析的新名单');
     assert.equal(await drawer.getByRole('button', { name: '已核对清单，下一步：字段映射与规则' }).isDisabled(), true);
     await drawer.getByRole('button', { name: '解析数据', exact: true }).click();
     await page.waitForFunction(() => !window.store.getSnapshot().busy && window.store.getSnapshot().dataset?.rowCount === 1);
-    assert.equal(await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).inputValue(), '');
+    assert.equal(await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).count(), 0, 'successful paste replacement collapses reimport controls');
     assert.equal(parseCalls, 3, 'plain entity list is parsed locally');
+    await reimport.click();
     await picker.setInputFiles(file);
     await page.waitForFunction(() => !window.store.getSnapshot().busy && window.store.getSnapshot().dataset?.rowCount === 23);
+    const datasetReview = drawer.locator('.dcAgentDatasetPreview[aria-label="导入原始清单"]');
+    assert.equal(await datasetReview.count(), 1, 'imported data uses the dedicated dataset surface');
+    const assertDatasetLayout = async (expectedMode) => {
+      const layout = await datasetReview.evaluate(section => {
+        const rect = el => { const box = el.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width }; };
+        const workbench = section.closest('.dcAgentWorkbenchContent');
+        const tableViewport = section.querySelector('.dcAgentPreviewTable');
+        const pagination = section.querySelector('.dcAgentDatasetPagination');
+        const downloads = section.querySelector('.dcAgentDatasetDownloads');
+        const footer = section.querySelector('.dcAgentDatasetFooter');
+        const indexCell = section.querySelector('.dcAgentTable th:first-child');
+        return {
+          workbenchWidth: workbench.clientWidth,
+          section: rect(section), tableViewport: rect(tableViewport), pagination: rect(pagination), downloads: rect(downloads),
+          indexWidth: rect(indexCell).width,
+          tableOverflow: getComputedStyle(tableViewport).overflow,
+          footerFits: footer.scrollWidth <= footer.clientWidth + 1,
+          sectionFits: section.scrollWidth <= section.clientWidth + 1,
+        };
+      });
+      assert.equal(layout.tableOverflow, 'auto');
+      assert.ok(layout.indexWidth >= 71 && layout.indexWidth <= 73, 'dataset index column stays compact');
+      assert.ok(layout.tableViewport.left >= layout.section.left - 1 && layout.tableViewport.right <= layout.section.right + 1, 'dataset table stays inside its section');
+      assert.ok(layout.footerFits && layout.sectionFits, 'dataset controls do not overflow');
+      if (expectedMode === 'row') {
+        assert.ok(Math.abs(layout.pagination.top - layout.downloads.top) <= 1, 'pagination and downloads share one footer row');
+      } else {
+        assert.ok(layout.downloads.top >= layout.pagination.bottom, 'narrow dataset footer stacks by action group');
+      }
+      return layout;
+    };
+    await assertDatasetLayout((await datasetReview.evaluate(section => section.closest('.dcAgentWorkbenchContent').clientWidth)) <= 520 ? 'stacked' : 'row');
+    if (width >= 1200) {
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width = '728px'; });
+      assert.ok((await assertDatasetLayout('row')).workbenchWidth > 520);
+      await datasetReview.screenshot({ path: join(out, `imported-${colorScheme}-${width}x${height}-host-wide.png`) });
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.removeProperty('width'); });
+    }
     await page.screenshot({ path: join(out, `imported-${colorScheme}-${width}x${height}.png`) });
+    await drawer.locator('.dcAgentWbBody').evaluate(body => { body.scrollTop = body.scrollHeight; });
     await drawer.getByRole('button', { name: '规则与体检', exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('.dcAgentWbBody')?.scrollTop === 0);
+    const bodyRhythm = await drawer.locator('.dcAgentWbBody').evaluate(body => {
+      const children = Array.from(body.children);
+      return {
+        display: getComputedStyle(body).display,
+        gap: getComputedStyle(body).gap,
+        adjacentGaps: children.slice(1).map((child, index) => child.getBoundingClientRect().top - children[index].getBoundingClientRect().bottom),
+      };
+    });
+    assert.equal(bodyRhythm.display, 'flex');
+    assert.equal(bodyRhythm.gap, '14px');
+    assert.ok(bodyRhythm.adjacentGaps.every(gap => gap >= 13), 'top-level workbench regions keep visual separation');
+    const singleMappingSection = drawer.locator('.dcAgentMappingSection[aria-label="字段映射"]');
+    assert.equal(await singleMappingSection.count(), 1, 'field mapping uses the dedicated structured surface');
+    const assertMappingSectionLayout = async (expectedMode) => {
+      const layout = await singleMappingSection.evaluate(section => {
+        const rect = el => { const box = el.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, left: box.left, right: box.right }; };
+        const workbench = section.closest('.dcAgentWorkbenchContent');
+        const header = section.querySelector('.dcAgentMappingHeader');
+        const headerCopy = header.firstElementChild;
+        const progress = section.querySelector('.dcAgentMappingProgress');
+        const toolbar = section.querySelector('.dcAgentMappingToolbar');
+        const legend = section.querySelector('.dcAgentMappingLegend');
+        const auto = section.querySelector('.dcAgentMappingAuto');
+        const listHead = section.querySelector('.dcAgentMappingListHead');
+        const row = section.querySelector('.dcAgentMappingSummary');
+        return {
+          workbenchWidth: workbench.clientWidth,
+          sectionFits: section.scrollWidth <= section.clientWidth + 1,
+          headerCopy: rect(headerCopy), progress: rect(progress), toolbar: rect(toolbar), legend: rect(legend), auto: rect(auto),
+          listHeadDisplay: getComputedStyle(listHead).display,
+          rowColumns: getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length,
+        };
+      });
+      assert.equal(layout.sectionFits, true, 'field mapping surface does not overflow');
+      if (expectedMode === 'row') {
+        assert.ok(Math.abs(layout.headerCopy.top - layout.progress.top) <= 1, 'mapping progress shares the header row');
+        assert.ok(Math.abs((layout.legend.top + layout.legend.bottom) - (layout.auto.top + layout.auto.bottom)) <= 2, 'mapping legend and action align on the toolbar row');
+        assert.notEqual(layout.listHeadDisplay, 'none');
+        assert.equal(layout.rowColumns, 3);
+      } else {
+        assert.ok(layout.progress.top >= layout.headerCopy.bottom, 'mapping progress stacks below header copy');
+        assert.ok(layout.auto.top >= layout.legend.bottom, 'mapping action stacks below legend');
+        assert.equal(layout.listHeadDisplay, 'none');
+        assert.equal(layout.rowColumns, 1);
+      }
+      return layout;
+    };
+    const mappingMode = (await singleMappingSection.evaluate(section => section.closest('.dcAgentWorkbenchContent').clientWidth)) <= 520 ? 'stacked' : 'row';
+    await assertMappingSectionLayout(mappingMode);
+    await singleMappingSection.screenshot({ path: join(out, `mapping-section-${colorScheme}-${width}x${height}.png`) });
+    if (width >= 1200) {
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width = '728px'; });
+      assert.ok((await assertMappingSectionLayout('row')).workbenchWidth > 520);
+      await singleMappingSection.screenshot({ path: join(out, `mapping-section-${colorScheme}-${width}x${height}-host-wide.png`) });
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.removeProperty('width'); });
+    }
+    await page.evaluate(() => {
+      window.store.actions.setProfile({ rowCount: 1, columnCount: 2, columns: [
+        { name: '企业名称', present: 1, missing: 0, distinct: 1 },
+        { name: '统一社会信用代码', present: 1, missing: 0, distinct: 1 },
+      ] });
+      window.store.actions.setStep('profile');
+    });
+    const profileSurface = drawer.locator('.dcAgentProfileSurface[aria-label="质量体检报告"]');
+    const profileLayout = await profileSurface.evaluate(surface => {
+      const rect = el => { const box = el.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width }; };
+      const tableWrap = surface.querySelector('.dcAgentProfileTableWrap');
+      const actions = surface.querySelector('.dcAgentProfileActions');
+      const button = actions.querySelector('button');
+      return {
+        surface: rect(surface), tableWrap: rect(tableWrap), actions: rect(actions), button: rect(button),
+        display: getComputedStyle(surface).display,
+        tableOverflow: getComputedStyle(tableWrap).overflow,
+        fits: surface.scrollWidth <= surface.clientWidth + 1,
+      };
+    });
+    assert.equal(profileLayout.display, 'flex');
+    assert.equal(profileLayout.tableOverflow, 'auto');
+    assert.equal(profileLayout.fits, true, 'quality report stays inside the workbench');
+    assert.ok(profileLayout.tableWrap.left >= profileLayout.surface.left && profileLayout.tableWrap.right <= profileLayout.surface.right + 1, 'quality table stays inside the report');
+    assert.ok(profileLayout.button.right <= profileLayout.actions.right + 1 && profileLayout.button.right >= profileLayout.actions.right - 1, 'quality report action aligns right');
+    assert.equal(await drawer.getByRole('button', { name: '质量体检报告', exact: true }).getAttribute('aria-pressed'), 'true');
+    await profileSurface.screenshot({ path: join(out, `profile-${colorScheme}-${width}x${height}.png`) });
+    if (width >= 1200) {
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width = '728px'; });
+      await profileSurface.screenshot({ path: join(out, `profile-${colorScheme}-${width}x${height}-host-wide.png`) });
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.removeProperty('width'); });
+    }
+    await drawer.getByRole('button', { name: '字段映射与规则', exact: true }).click();
     await drawer.locator('.dcAgentExtraFields > summary').click();
     const fieldSearch = drawer.getByRole('searchbox', { name: '查找补全字段' });
     await fieldSearch.fill('实控人');
@@ -388,21 +546,51 @@ try {
     assert.equal(await drawer.locator('.dcAgentMappingRow').count(), 9);
     await drawer.getByLabel('法定代表人 推荐映射', { exact: true }).getByRole('button', { name: '推荐：法定代表人', exact: true }).click();
     await drawer.getByLabel('法定代表人（重复列 2） 推荐映射', { exact: true }).getByRole('button').click();
-    assert.equal(await drawer.getByLabel('法定代表人（重复列 2） 当前映射',{exact:true}).textContent(),'法定代表人');
+    assert.equal(await drawer.getByLabel('法定代表人（重复列 2） 当前映射',{exact:true}).locator('.dcAgentMappingValue').textContent(),'法定代表人');
     await drawer.getByLabel('地址 推荐映射', { exact: true }).getByRole('button', { name: '推荐：注册地址', exact: true }).click();
     await drawer.getByLabel('网址 推荐映射', { exact: true }).getByRole('button').click();
     await drawer.getByLabel('开业时间 推荐映射', { exact: true }).getByRole('button').click();
     await drawer.getByLabel('地址 当前映射', { exact: true }).click();
     await drawer.getByLabel('地址 搜索映射字段', { exact: true }).fill('通信');
-    const addressSelect = drawer.getByLabel('地址 字段映射', { exact: true });
-    assert.equal(await addressSelect.inputValue(), 'registered_address', 'filter must preserve current value');
-    await addressSelect.selectOption('mailing_address');
-    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).textContent(), '通信地址');
+    const addressMappingRow = drawer.locator('.dcAgentMappingRow:has(.dcAgentMappingSource[title="地址"])');
+    const assertExpandedMappingLayout = async (expectedMode) => {
+      const layout = await addressMappingRow.evaluate(row => {
+        const rect = el => { const box = el.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width }; };
+        const panel = row.querySelector('.dcAgentMappingPickerPanel');
+        const search = row.querySelector('input');
+        const category = row.querySelector('select:not([size])');
+        const options = row.querySelector('.dcAgentMappingOptionGroups');
+        return {
+          workbenchWidth: row.closest('.dcAgentWorkbenchContent').clientWidth,
+          open: row.querySelector('details').open,
+          row: rect(row), panel: rect(panel), search: rect(search), category: rect(category), options: rect(options),
+          panelFits: panel.scrollWidth <= panel.clientWidth + 1,
+        };
+      });
+      assert.equal(layout.open, true);
+      assert.ok(Math.abs(layout.panel.width - layout.row.width) <= 1, 'expanded mapping panel uses the full mapping row');
+      assert.equal(layout.panelFits, true, 'expanded mapping controls do not overflow');
+      assert.ok(layout.options.left >= layout.panel.left && layout.options.right <= layout.panel.right + 1, 'mapping options stay inside the expanded panel');
+      if (expectedMode === 'row') assert.ok(Math.abs(layout.search.top - layout.category.top) <= 1, 'mapping search and category share one toolbar row');
+      else assert.ok(layout.category.top >= layout.search.bottom, 'narrow mapping filters stack');
+      return layout;
+    };
+    await assertExpandedMappingLayout((await addressMappingRow.evaluate(row => row.closest('.dcAgentWorkbenchContent').clientWidth)) <= 520 ? 'stacked' : 'row');
+    if (width >= 1200) {
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width = '728px'; });
+      assert.ok((await assertExpandedMappingLayout('row')).workbenchWidth > 520);
+      await addressMappingRow.screenshot({ path: join(out, `mapping-picker-open-${colorScheme}-${width}x${height}-host-wide.png`) });
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.removeProperty('width'); });
+    }
+    const addressOptions = drawer.getByRole('radiogroup', { name: '地址 字段映射', exact: true });
+    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).locator('.dcAgentMappingValue').textContent(), '注册地址', 'filter must preserve current value');
+    await addressOptions.locator('input[type="radio"][value="mailing_address"]').check();
+    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).locator('.dcAgentMappingValue').textContent(), '通信地址');
     await drawer.getByRole('button', { name: '补充自动映射（保留已有选择）' }).click();
-    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).textContent(), '通信地址');
+    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).locator('.dcAgentMappingValue').textContent(), '通信地址');
     await drawer.getByLabel('地址 当前映射', { exact: true }).click();
     await drawer.getByLabel('地址 搜索映射字段', { exact: true }).fill('不存在的字段');
-    assert.equal(await addressSelect.inputValue(), 'mailing_address');
+    assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).locator('.dcAgentMappingValue').textContent(), '通信地址');
     await drawer.getByLabel('地址 搜索映射字段', { exact: true }).press('Escape');
     assert.equal(await drawer.getByLabel('地址 当前映射', { exact: true }).evaluate(el => document.activeElement === el), true);
     assert.equal(await page.evaluate(() => {
@@ -412,6 +600,20 @@ try {
     await drawer.getByLabel('地址 当前映射', { exact: true }).click();
     await drawer.getByLabel('地址 搜索映射字段', { exact: true }).fill('');
     assert.ok(await drawer.locator('.dcAgentMappingRow').evaluateAll(rows => rows.every(row => row.scrollWidth <= row.clientWidth + 1)), 'mapping picker fits narrow panel');
+    const narrowMappingLayout = await drawer.evaluate(root => {
+      const workbench = root.closest('.dcAgentWorkbenchContent') || root.querySelector('.dcAgentWorkbenchContent');
+      const row = root.querySelector('.dcAgentMappingSummary');
+      const rules = root.querySelector('.dcAgentRulesGrid');
+      return {
+        workbenchWidth: workbench.clientWidth,
+        columns: getComputedStyle(row).gridTemplateColumns.trim().split(/\s+/).length,
+        rulesColumns: getComputedStyle(rules).gridTemplateColumns.trim().split(/\s+/).length,
+      };
+    });
+    if (narrowMappingLayout.workbenchWidth <= 520) {
+      assert.equal(narrowMappingLayout.columns, 1, 'mapping row becomes one column at narrow workbench width');
+      assert.equal(narrowMappingLayout.rulesColumns, 1, 'mapping list becomes one column at narrow workbench width');
+    }
     await page.screenshot({ path: join(out, `mapping-${colorScheme}-${width}x${height}.png`) });
     await page.screenshot({ path: join(out, `workbench-${colorScheme}-${width}x${height}.png`) });
     await page.evaluate(() => {
@@ -426,8 +628,44 @@ try {
     assert.equal(await drawer.getByRole('button', { name: '检测企查查连接', exact: true }).count(), 0);
     assert.equal(await drawer.getByRole('button', { name: '估算调用量', exact: true }).count(), 0);
     assert.equal(await drawer.getByRole('checkbox').count(), 0);
+    const matchSurface = drawer.locator('.dcAgentMatchSurface[aria-label="主体匹配执行准备"]');
+    const assertMatchLayout = async (expectedMode) => {
+      const layout = await matchSurface.evaluate(surface => {
+        const rect = el => { const box = el.getBoundingClientRect(); return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width }; };
+        const content = surface.querySelector('.dcAgentMatchContent');
+        const blocks = Array.from(content.children, rect);
+        const actions = surface.querySelector('.dcAgentMatchActions');
+        const button = actions.querySelector('button');
+        return {
+          workbenchWidth: surface.closest('.dcAgentWorkbenchContent').clientWidth,
+          surface: rect(surface), content: rect(content), blocks, actions: rect(actions), button: rect(button),
+          columns: getComputedStyle(content).gridTemplateColumns.trim().split(/\s+/).length,
+          fits: surface.scrollWidth <= surface.clientWidth + 1,
+        };
+      });
+      assert.equal(layout.fits, true, 'match preparation stays inside the workbench');
+      assert.ok(layout.button.right <= layout.actions.right + 1 && layout.button.right >= layout.actions.right - 1, 'match action aligns right');
+      if (expectedMode === 'row') {
+        assert.equal(layout.columns, 2);
+        assert.ok(Math.abs(layout.blocks[0].top - layout.blocks[1].top) <= 1, 'match preparation blocks share one row');
+      } else {
+        assert.equal(layout.columns, 1);
+        assert.ok(layout.blocks[1].top >= layout.blocks[0].bottom, 'match preparation blocks stack in narrow workbench');
+      }
+      return layout;
+    };
+    await assertMatchLayout((await matchSurface.evaluate(surface => surface.closest('.dcAgentWorkbenchContent').clientWidth)) <= 640 ? 'stacked' : 'row');
     await generateDescription.scrollIntoViewIfNeeded();
     await page.screenshot({ path: join(out, `match-${colorScheme}-${width}x${height}.png`) });
+    if (width >= 1200) {
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width = '576px'; });
+      assert.equal((await assertMatchLayout('stacked')).workbenchWidth, 576);
+      await page.screenshot({ path: join(out, `match-${colorScheme}-${width}x${height}-host-default.png`) });
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width = '728px'; });
+      assert.ok((await assertMatchLayout('row')).workbenchWidth > 640);
+      await page.screenshot({ path: join(out, `match-${colorScheme}-${width}x${height}-host-wide.png`) });
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.removeProperty('width'); });
+    }
     oldHost = true;
     await generateDescription.click();
     await drawer.getByText('页面与 Host 版本不一致。请保存任务后升级并完整重启 DSH；当前 Host 不支持自动生成结果文件。', { exact: true }).waitFor();
@@ -481,7 +719,7 @@ try {
       await row.locator('summary').click();
       await row.getByRole('combobox', {name: sourceField + ' 映射大类', exact:true}).selectOption('company_registration');
       await row.getByRole('textbox').fill('');
-      await row.getByRole('listbox', {name: sourceField + ' 字段映射', exact:true}).selectOption(targetField);
+      await row.locator(`input[type="radio"][value="${targetField}"]`).check();
     };
     for (const [column,field] of [['注册资本','reg_capital'],['注册资本（重复列 2）','reg_capital'],['法定代表人','legal_rep'],['法定代表人（重复列 2）','legal_rep'],['企业状态','reg_status'],['所属行业','industry_category']]) await choose(column,field);
     assert.equal(await dialog.locator('[data-status=confirmed]').count(),15);
@@ -490,13 +728,17 @@ try {
     const revenueRow = dialog.locator('.dcAgentMappingRow').filter({has:page.getByTitle('主营业务收入',{exact:true})});
     await revenueRow.locator('summary').click();
     await revenueRow.getByRole('textbox').fill('营业');
-    const revenueList = revenueRow.getByRole('listbox');
-    assert.equal(await revenueList.locator('option[value=financial_total_revenue]').count(),1);
+    const revenueList = revenueRow.getByRole('radiogroup');
+    assert.equal(await revenueList.locator('input[value=financial_total_revenue]').count(),1);
     assert.equal(await revenueList.isVisible(),true);
     await revenueRow.getByRole('combobox').selectOption('company_registration');
-    assert.equal(await revenueList.locator('option[value=financial_total_revenue]').count(),0);
+    assert.equal(await revenueList.locator('input[value=financial_total_revenue]').count(),0);
     await revenueRow.getByRole('combobox').selectOption('');
-    assert.equal(await revenueList.locator('option[value=financial_total_revenue]').count(),1);
+    assert.equal(await revenueList.locator('input[value=financial_total_revenue]').count(),1);
+    await revenueRow.getByRole('textbox').fill('工商');
+    const registrationGroup = revenueList.locator('[data-mapping-group="company_registration"]');
+    assert.equal(await registrationGroup.count(), 1, 'dimension name search exposes the matching group');
+    assert.ok(await registrationGroup.locator('input[type="radio"]').count() > 10, 'dimension search exposes all group children');
     await page.screenshot({path:join(out,`mapping-search-${colorScheme}-${width}x${height}.png`)});
     await revenueRow.locator('summary').click();
     await page.screenshot({path:join(out,`bank-mapping-${colorScheme}-${width}x${height}.png`)});
@@ -520,6 +762,38 @@ try {
     assert.equal(await page.evaluate(() => window.store.getSnapshot().open), true, '执行后自动打开工作台');
     await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
+    const resultGridLayout = await drawer.locator('.dcAgentGrid').evaluate(grid => {
+      const cards = Array.from(grid.children, card => card.getBoundingClientRect());
+      return { width: grid.getBoundingClientRect().width, workbenchWidth: grid.closest('.dcAgentWorkbenchContent').clientWidth,
+        cardWidths: cards.map(card => card.width), cardTops: cards.map(card => card.top) };
+    });
+    if (resultGridLayout.workbenchWidth <= 520) {
+      assert.ok(Math.abs(resultGridLayout.cardWidths.at(-1) - resultGridLayout.width) <= 1, 'odd final result metric spans the narrow grid');
+    } else {
+      assert.ok(resultGridLayout.cardTops.every(top => Math.abs(top - resultGridLayout.cardTops[0]) <= 1), 'five result metrics share one wide row');
+    }
+    await page.screenshot({ path: join(out, `results-${colorScheme}-${width}x${height}.png`) });
+    if (width >= 1200) {
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width = '576px'; });
+      const defaultHostResultLayout = await drawer.locator('.dcAgentGrid').evaluate(grid => {
+        const cards = Array.from(grid.children, card => card.getBoundingClientRect());
+        return { workbenchWidth: grid.closest('.dcAgentWorkbenchContent').clientWidth,
+          cardTops: cards.map(card => card.top) };
+      });
+      assert.equal(defaultHostResultLayout.workbenchWidth, 576);
+      assert.ok(defaultHostResultLayout.cardTops.every(top => Math.abs(top - defaultHostResultLayout.cardTops[0]) <= 1), 'five result metrics share one 576px row');
+      await page.screenshot({ path: join(out, `results-${colorScheme}-${width}x${height}-host-default.png`) });
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.width = '728px'; });
+      const wideResultLayout = await drawer.locator('.dcAgentGrid').evaluate(grid => {
+        const cards = Array.from(grid.children, card => card.getBoundingClientRect());
+        return { workbenchWidth: grid.closest('.dcAgentWorkbenchContent').clientWidth,
+          cardTops: cards.map(card => card.top) };
+      });
+      assert.ok(wideResultLayout.workbenchWidth > 520);
+      assert.ok(wideResultLayout.cardTops.every(top => Math.abs(top - wideResultLayout.cardTops[0]) <= 1), 'five result metrics share one 728px row');
+      await page.screenshot({ path: join(out, `results-${colorScheme}-${width}x${height}-host-wide.png`) });
+      await page.locator('.fixtureSidebar').evaluate(el => { el.style.removeProperty('width'); });
+    }
     assert.equal(await drawer.locator('.dcAgentWbHeader, .dcAgentWbActions, .dcAgentWbClose').count(),0, 'content has no duplicate Host header controls');
     const artifactLayout = await drawer.locator('.dcAgentArtifactList').evaluate(el => {
       const link = el.querySelector('a');
