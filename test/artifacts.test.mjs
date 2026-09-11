@@ -5,6 +5,27 @@ import { ARTIFACT_STORAGE, WorkflowArtifactStore, deriveExceptionRows } from '..
 import { FIELD_CATALOG } from '../lib/workflow-contract.js';
 import { projectCompletionResult } from '../lib/engine.js';
 
+test('客户同名中文列保留；系统执行字段仅在报告中，业务 qcc_industry 不被移除', async () => {
+  const store = new WorkflowArtifactStore({ fs: memoryFs() });
+  const input = { headers: ['企业名称', '匹配状态', '数据来源'], fieldSelection: ['qcc_industry'], rows: [{
+    企业名称: '甲', 匹配状态: '客户原值', 数据来源: '客户台账', qcc_industry: '软件',
+    qcc_match_status: 'enriched', qcc_source: 'qcc-mcp', qcc_snapshot_note: '首期',
+    unselected_secret: '不应泄露到主结果',
+  }] };
+  const original = structuredClone(input);
+  const artifacts = await store.createBundle('dcw-report-0001', input);
+  assert.deepEqual(artifacts.map(a => a.kind), ['complete', 'report']);
+  assert.ok(artifacts.every(a => a.format === 'xlsx'));
+  const read = async a => { const book = XLSX.read(await store.read('dcw-report-0001', a), { type: 'buffer' }); return XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]], { defval: '' }); };
+  const [row] = await read(artifacts[0]);
+  assert.deepEqual(row, { 企业名称: '甲', 匹配状态: '客户原值', 数据来源: '客户台账', 企查查行业: '软件' });
+  const [report] = await read(artifacts[1]);
+  assert.equal(report['匹配状态（补全）'], '已匹配并补全');
+  assert.match(report['数据来源（补全）'], /历史记录未保存/);
+  assert.equal(report.取值口径与报告期, '首期');
+  assert.deepEqual(input, original);
+});
+
 test('补全回填已映射原列，仅补空，CSV/XLSX/异常清单一致且原始结果不变', async () => {
   const input = {
     headers: ['企业名称', '法定代表人', '法定代表人（重复列 2）', '统一社会信用代码', '地址', '网址', '注册资本', '开业时间'],
@@ -43,8 +64,8 @@ test('补全回填已映射原列，仅补空，CSV/XLSX/异常清单一致且�
     const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: '' });
     assert.deepEqual(matrix[0].slice(0, 8), input.headers);
     assert.equal(matrix[0].some((key) => key.includes('（补全')), false);
-    assert.equal(matrix[1][1], artifact.kind === 'complete' ? '张三' : '');
-    assert.equal(matrix[1][2], artifact.kind === 'complete' ? '张三' : '');
+    assert.equal(matrix[1][1], artifact.kind !== 'review' ? '张三' : '');
+    assert.equal(matrix[1][2], artifact.kind !== 'review' ? '张三' : '');
     if (artifact.kind === 'complete') assert.equal(matrix[1][3], '001234567890123456');
   }
 });
@@ -90,21 +111,26 @@ test('Host 生成可校验的 CSV、真实 XLSX 与异常清单四件套', async
     headers: ['企业名称', 'qcc_match_status', '法定代表人'],
     baseName: '供应商/补全结果',
   });
-  assert.equal(artifacts.length, 4);
+  assert.equal(artifacts.length, 3);
   assert.deepEqual(artifacts.map((item) => `${item.kind}:${item.format}`), [
-    'complete:csv', 'complete:xlsx', 'review:csv', 'review:xlsx',
+    'complete:xlsx', 'report:xlsx', 'review:xlsx',
   ]);
   assert.ok(artifacts.every((item) => item.checksum.startsWith('sha256:')));
   assert.ok(artifacts.every((item) => !item.fileName.includes('/')));
 
-  const resultWorkbookBytes = await store.read('dcw-test-0001', artifacts[1]);
+  const resultWorkbookBytes = await store.read('dcw-test-0001', artifacts[0]);
   const resultWorkbook = XLSX.read(resultWorkbookBytes, { type: 'buffer' });
   assert.deepEqual(resultWorkbook.SheetNames, ['清洗补全结果']);
   const resultRows = XLSX.utils.sheet_to_json(resultWorkbook.Sheets['清洗补全结果'], { defval: '' });
   assert.equal(resultRows.length, 2);
   assert.equal(resultRows[0].企业名称, '甲公司');
 
-  const exceptionBytes = await store.read('dcw-test-0001', artifacts[3]);
+  assert.equal(Object.hasOwn(resultRows[0], '匹配状态'), false);
+  const reportBytes = await store.read('dcw-test-0001', artifacts[1]);
+  const reportBook = XLSX.read(reportBytes, { type: 'buffer' });
+  const report = XLSX.utils.sheet_to_json(reportBook.Sheets['任务结果报告']);
+  assert.equal(report[0].匹配状态, '精确匹配');
+  const exceptionBytes = await store.read('dcw-test-0001', artifacts[2]);
   const exceptionWorkbook = XLSX.read(exceptionBytes, { type: 'buffer' });
   const exceptionRows = XLSX.utils.sheet_to_json(exceptionWorkbook.Sheets['异常清单'], { defval: '' });
   assert.equal(exceptionRows.length, 1);
@@ -193,7 +219,7 @@ test('制品路径拒绝任意路径与非 Host 生成标识', async () => {
   );
 });
 
-test('CSV 中的外部文本不会被表格软件解释为公式', async () => {
+test('XLSX 中的外部文本不会被表格软件解释为公式', async () => {
   const store = new WorkflowArtifactStore({
     fs: memoryFs(),
     idFactory: (() => { let id = 0; return () => `dca-safe-000${++id}`; })(),
@@ -202,10 +228,12 @@ test('CSV 中的外部文本不会被表格软件解释为公式', async () => {
     headers: ['企业名称', '=危险表头'],
     rows: [{ 企业名称: '=HYPERLINK("https://example.invalid")', '=危险表头': '+1+1' }],
   });
-  const csv = (await store.read('dcw-safe-0001', artifacts[0])).toString('utf8');
-  assert.match(csv, /'=危险表头/);
-  assert.match(csv, /'=HYPERLINK/);
-  assert.match(csv, /'\+1\+1/);
+  const book = XLSX.read(await store.read('dcw-safe-0001', artifacts[0]), { type: 'buffer' });
+  const sheet = book.Sheets[book.SheetNames[0]];
+  assert.equal(sheet.A2.t, 's');
+  assert.equal(sheet.B2.v, '+1+1');
+  assert.equal(sheet.A2.f, undefined);
+  assert.equal(sheet.B2.f, undefined);
 });
 
 test('XLSX Base64 存储读取上限覆盖 4/3 编码膨胀', () => {
@@ -221,7 +249,7 @@ test('数组与对象字段以 JSON 文本写入真实 XLSX', async () => {
     headers: ['企业名称', '来源'],
     rows: [{ 企业名称: '示例企业', 来源: [{ tool: 'mcp__company__get_base_info' }] }],
   });
-  const bytes = await store.read('dcw-json-0001', artifacts[1]);
+  const bytes = await store.read('dcw-json-0001', artifacts[0]);
   const workbook = XLSX.read(bytes, { type: 'buffer' });
   const rows = XLSX.utils.sheet_to_json(workbook.Sheets['清洗补全结果'], { defval: '' });
   assert.equal(rows[0].来源, '[{"tool":"mcp__company__get_base_info"}]');
