@@ -82,13 +82,15 @@ test('Session controller shares one descriptor, isolates stores and survives Tab
   try {
     const { exports } = loadClient();
     let registered = 0, removed = 0, subscribed = 0, opens = 0;
+    const hostTabs = new Set();
+    let collapsed = false;
     const service = {
       features: ['targetedOpen','stateSubscription'],
       registerTab(descriptor) { assert.equal(descriptor.single,true); registered++; return ()=>removed++; },
       subscribeState() { subscribed++; return ()=>subscribed--; },
       getSnapshot: ()=>({sessionId:'s1'}),
       isTabEnabled: ()=>true,
-      openTab(seed,scope) { assert.equal(seed.type,'dsh-data-cleaning-agent:workbench'); assert.ok(scope.sessionId); opens++; },
+      openTab(seed,scope) { assert.equal(seed.type,'dsh-data-cleaning-agent:workbench'); assert.ok(scope.sessionId); hostTabs.add(scope.sessionId + ':' + seed.type); collapsed = false; opens++; },
     };
     globalThis.fetch = () => assert.fail('Shortcuts and Tab lifecycle must not create, cancel or delete tasks');
     const release1 = exports.__testing.installSessionWorkbench({betterSidebar:service});
@@ -102,6 +104,16 @@ test('Session controller shares one descriptor, isolates stores and survives Tab
       assert.equal(first.getSnapshot().step,step);
     }
     assert.equal(registered,2); assert.equal(opens,10);
+    assert.equal(hostTabs.size, 1, '重复流程入口复用 Session 单例 Tab');
+    hostTabs.clear(); // 模拟宿主 Tab X：仅移除容器，不销毁业务 store。
+    controller.open('s1', 'history');
+    assert.equal(hostTabs.size, 1);
+    assert.equal(controller.storeFor('s1'), first);
+    collapsed = true; // 宿主收起不改变插件业务状态。
+    controller.open('s1', 'history');
+    assert.equal(collapsed, false);
+    assert.equal(hostTabs.size, 1);
+    assert.equal(first.getSnapshot().workflowTask.id, 'dcw-kept');
     assert.equal(second.getSnapshot().input,'乙企业');
     assert.equal(second.getSnapshot().open,false);
     assert.equal(first.getSnapshot().workflowTask.id,'dcw-kept');
