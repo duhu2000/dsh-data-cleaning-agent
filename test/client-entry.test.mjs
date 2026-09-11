@@ -2067,7 +2067,13 @@ test('T8 下载页使用 Host 耐久 CSV/XLSX 制品并支持最近任务 taskId
     assert.ok(findNode(panel, (node) => node.props?.['aria-label'] === '下载 结果.xlsx'));
     assert.ok(findNode(panel, (node) => node.children?.includes('下载清洗补全结果 XLSX · 2 行')));
     assert.ok(!findNode(panel, (node) => node.children?.includes('异常清单 CSV · 1 行')));
-    assert.ok(findNode(panel, node => node.children?.includes('下载任务结果报告 XLSX · 2 行')));
+    const summary = findNode(panel, node => node.props?.className === 'dcAgentResultSummary');
+    const reportLink = findNode(summary, node => node.type === 'a' && node.children?.includes('下载任务结果报告'));
+    assert.equal(reportLink?.props.href, '/data-cleaning/api/workflow/tasks/dcw-test-artifacts/artifacts/dca-test-report');
+    assert.equal(reportLink.props.download, '任务结果报告.xlsx');
+    const resultList = findNode(panel, node => node.props?.className === 'dcAgentArtifactList');
+    assert.ok(!findNode(resultList, node => node.props?.href?.includes('dca-test-report')), '报告不占结果预览栏');
+    assert.ok(!findNode(resultList, node => node.children?.includes('任务结果报告.xlsx')));
     const fileCard = findNode(panel, node => node.props?.className === 'dcAgentCard'
       && findNode(node, child => child.props?.['aria-label'] === '下载 结果.xlsx'));
     assert.ok(findNode(fileCard, node => node.type === 'a' && node.children?.includes('预览 / 打开')), '同一文件的预览和下载在同一卡片');
