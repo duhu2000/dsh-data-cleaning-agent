@@ -826,7 +826,7 @@ try {
     assert.equal(await page.getByRole('button', { name: '发送', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor), nativeSendStyle);
     // Root ownership notifications may precede a separately-mounted Session slot.
     await page.evaluate(() => window.show('session-dsh-data-cleaning-agent-11111111-1111-4111-8111-111111111111'));
-    await page.locator('.dcAgentExperience').waitFor();
+    await page.locator('.dcAgentExperience').waitFor({ state: 'attached' });
     await page.locator('[data-composer-seat]').evaluate(el => el.setAttribute('data-phase', 'hero'));
     await page.locator('.dcAgentHomeSummary').waitFor();
     assert.equal(await page.locator('[data-dc-agent-hero-title]').textContent(), '数据清洗补全智能体');
