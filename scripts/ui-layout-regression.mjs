@@ -187,7 +187,7 @@ try {
                 h('span', { className: 'fixture_headlineText' }, '探索未至之境'),
                 h('span', { className: 'fixture_previewBadge' }, '预览版')),
               h('div', { 'data-slot': 'conversation.input.dock' },
-                h('div', null, h(Experience, { sessionId, session: { composerPhase: phase } })),
+                h('div', null, h(Experience, { sessionId, session: { blank: phase === 'blank', openState: 'open' } })),
                 h('div', { id: 'foreign' }, '其他插件槽位')),
               h('div', { id: 'inputBranch' }, h('div', { 'data-composer-card': true },
                 h('textarea', { id: 'native', value: draft, onChange: (event) => setDraft(event.target.value) }),
@@ -210,6 +210,8 @@ try {
     assert.equal(await page.locator('.dcAgentHeroLogo').count(), 0);
     await page.locator('[data-composer-seat]').evaluate(el => el.setAttribute('data-phase', 'hero'));
     await page.locator('.dcAgentHeroLogo').waitFor();
+    assert.equal(await page.locator('.dcAgentExperience.is-home').count(), 1);
+    assert.equal(await page.locator('.dcAgentHomeSummary').count(), 1);
     assert.equal(await page.locator('[data-dc-agent-hero-title]').textContent(), '数据清洗补全智能体');
     const logo = await page.locator('.dcAgentHeroLogo').boundingBox();
     const title = await page.locator('[data-dc-agent-hero-title]').boundingBox();
@@ -822,6 +824,14 @@ try {
     assert.equal(await page.locator('[data-dc-agent-hero-row]').count(), 0);
     assert.equal(await page.locator('.fixture_previewBadge').isVisible(), true);
     assert.equal(await page.getByRole('button', { name: '发送', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor), nativeSendStyle);
+    // Root ownership notifications may precede a separately-mounted Session slot.
+    await page.evaluate(() => window.show('session-dsh-data-cleaning-agent-11111111-1111-4111-8111-111111111111'));
+    await page.locator('.dcAgentExperience').waitFor();
+    await page.locator('[data-composer-seat]').evaluate(el => el.setAttribute('data-phase', 'hero'));
+    await page.locator('.dcAgentHomeSummary').waitFor();
+    assert.equal(await page.locator('[data-dc-agent-hero-title]').textContent(), '数据清洗补全智能体');
+    await page.evaluate(() => window.show('ordinary'));
+    await page.locator('.dcAgentExperience').waitFor({ state: 'detached' });
     assert.deepEqual(errors, []);
     assert.deepEqual(unexpectedRequests, [], 'all requests stay inside isolated fixture contract');
     results.push({ colorScheme, width, height, pass: true });

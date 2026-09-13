@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+## [0.9.11] - 2026-09-13
+
+- 修正真实 Host 首页判断：Session 并不提供 composerPhase；改为观察当前清洗会话 DOM 的真实 data-phase，确保标题替换实际启用。
+- 回归夹具移除虚构 composerPhase 字段，覆盖 settling/hero/active、普通会话隔离与卸载恢复。
+
 ## [0.9.10] - 2026-09-13
 
 - 修复首页先挂载于 settling 阶段导致 Logo 与标题替换被跳过的问题；监听宿主阶段及文本节点变化，显示“数据清洗补全智能体”。
