@@ -214,6 +214,25 @@ test('缺少 storageDomain 时任务 API 明确返回 503', async () => {
   app.dispose();
 });
 
+test('Session-scoped task HTTP writes require matching origin; Profile history remains readable', async () => {
+  const app = harness({ storageDomain: memoryStorageDomain() });
+  const route = '/data-cleaning/api/workflow/tasks';
+  const origin = {originSessionId:'session-A',originWorkspaceId:'workspace-A'};
+  const created = await invoke(app,route,{method:'POST',url:route,body:{...origin,title:'合成来源任务'}});
+  const task = created.json().task;
+  for (const originSessionId of ['session-B',undefined]) {
+    const res = await invoke(app,route,{method:'PATCH',url:`${route}/${task.id}`,body:{originSessionId,originWorkspaceId:'workspace-A',title:'不可覆盖',expectedRevision:1}});
+    assert.equal(res.status,409);
+    assert.equal(res.json().code,'DC_WORKFLOW_SCOPE');
+  }
+  const ok = await invoke(app,route,{method:'PATCH',url:`${route}/${task.id}`,body:{...origin,title:'来源会话编辑',expectedRevision:1}});
+  assert.equal(ok.status,200);
+  const history = await invoke(app,route,{method:'GET',url:route});
+  assert.equal(history.json().tasks[0].originSessionId,'session-A');
+  assert.equal(history.json().tasks[0].title,'来源会话编辑');
+  app.dispose();
+});
+
 test('Host 导出制品可跨插件重挂载恢复并下载真实 XLSX', async () => {
   const storageDomain = memoryStorageDomain();
   const fs = memoryFs();

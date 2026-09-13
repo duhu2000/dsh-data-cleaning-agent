@@ -33,6 +33,47 @@ import { dirname, join } from 'node:path';
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8');
 
+test('history is read-only: Session B selection preserves task, rows, rules and command; old sources stay unknown', async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    const { exports } = loadClient();
+    const api = exports.__testing;
+    const store = api.createWorkbenchStore().create();
+    const a = { id: 'dcw-history-a', originSessionId: 'session-A', originWorkspaceId: 'workspace-A', revision: 3,
+      title: 'A 任务', state: 'completed', source: { rowCount: 1 }, artifacts: [{id:'dca-a',kind:'complete',format:'xlsx',fileName:'A.xlsx'}] };
+    const b = { ...a, id: 'dcw-current-b', originSessionId: 'session-B', title: 'B 任务', fieldSelection: ['credit_no'], mappings: [] };
+    store.actions.setActiveSession('session-B');
+    api.cacheWorkflowTask(store.actions, 'session-B', b);
+    store.actions.setDataset({headers:['B'],rowCount:1});
+    store.actions.setInput('B 草稿');
+    store.actions.setCommandProgress({taskId:b.id,completedUnique:1,totalUnique:1});
+    store.actions.setWorkflowTasks([a,b]);
+    store.actions.setStep('history');
+    const before = structuredClone(store.getSnapshot());
+    const calls = [];
+    globalThis.fetch = async (url, options) => {
+      calls.push([url, options?.method]);
+      return {ok:true,json:async()=>({task:a})};
+    };
+    const view = () => flattenElement(render(api.WorkbenchContent, {}, store));
+    await findNode(view(), n => n.props?.className === 'dcAgentHistoryTask').props.onClick();
+    const after = store.getSnapshot();
+    for (const key of ['workflowTask','dataset','input','mappings','matchRules','fieldSelection','commandProgress','step','activeSessionId']) assert.deepEqual(after[key],before[key],key);
+    assert.equal(after.historyTask.id,a.id);
+    assert.equal(calls.length,1);
+    assert.ok(findNode(view(),n=>n.props?.download==='A.xlsx'));
+    assert.ok(findNode(view(),n=>n.props?.['aria-label']==='历史任务只读详情'));
+    assert.equal(api.taskBelongsToSession(a,'session-B'),false);
+    assert.throws(()=>api.cacheWorkflowTask(store.actions,'session-B',a),/不属于/);
+    assert.equal(api.workflowOriginLabel({id:'old'}),'历史版本未保存来源');
+    assert.equal(await api.refreshHostedTask(store.actions,'session-B',a.id),null);
+    assert.deepEqual(store.getSnapshot().workflowTask,b);
+    store.actions.setHistoryTask(b);
+    store.actions.refreshHistoryTask(a);
+    assert.equal(store.getSnapshot().historyTask.id,b.id,'late history fetch must not replace newer selection');
+  } finally { globalThis.fetch=previousFetch; cleanupGlobals(); }
+});
+
 /**
  * 最小 defineStore，忠实复刻 dsh-client-runtime 的 `{ spec, create }` 契约：
  * create() 返回 { actions, getSnapshot, subscribe, store }；actions 以可变
@@ -43,6 +84,37 @@ function sessionFixture(exports, sessionId) {
   const store = document[Symbol.for('dsh.data-cleaning.session-workbench')].controller.storeFor(sessionId);
   return { options: { store: { create: () => store } }, component: exports.__testing.WorkbenchContent };
 }
+
+test('restart rejects stale B-to-A binding and legacy origin; source-session navigation never binds history', async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    const {exports} = loadClient();
+    const api = exports.__testing;
+    const a='session-dsh-data-cleaning-agent-11111111-1111-4111-8111-111111111111', b='session-dsh-data-cleaning-agent-22222222-2222-4222-8222-222222222222';
+    let bindings=JSON.stringify({[b]:'dcw-a'}), posts=0, opened=null;
+    window.localStorage={getItem:()=>bindings,setItem:(_key,value)=>{bindings=value;}};
+    globalThis.fetch=async (_url, options) => ({ok:true,json:async()=>options?.method==='POST'
+      ? (posts++, {task:{id:'dcw-b',revision:1,...JSON.parse(options.body)}})
+      : {task:{id:'dcw-a',revision:1,originSessionId:a,originWorkspaceId:'ws-A'}}});
+    const instance=api.createWorkbenchStore().create();
+    const task=await api.ensureWorkflowTask(instance.actions,b);
+    assert.equal(task.id,'dcw-b'); assert.equal(task.originSessionId,b); assert.equal(posts,1);
+    assert.equal(api.taskBelongsToSession({id:'legacy'},b),false);
+    const release=api.installSessionWorkbench({
+      sessions:{open:id=>{opened=id;},list:{getSnapshot:()=>({byId:{[a]:{workspaceId:'ws-A',title:'会话 A'}}})}},
+      workspaces:{list:{getSnapshot:()=>({items:[{workspaceId:'ws-A',name:'工作区 A',sessionIds:[a]}]})}},
+    });
+    const controller=document[Symbol.for('dsh.data-cleaning.session-workbench')].controller;
+    const history={id:'dcw-a',originSessionId:a,originWorkspaceId:'ws-A'};
+    const before=bindings;
+    assert.equal(controller.originFor(a).originWorkspaceName,'工作区 A');
+    controller.openOrigin(history);
+    assert.equal(opened,a); assert.equal(bindings,before);
+    assert.equal(controller.canOpenOrigin({...history,originWorkspaceId:'ws-wrong'}),false);
+    assert.equal(controller.canOpenOrigin({id:'legacy'}),false);
+    release();
+  } finally {globalThis.fetch=previousFetch;cleanupGlobals();}
+});
 
 function contentFixture(exports) {
   return { options: { store: exports.__testing.createWorkbenchStore() }, component: exports.__testing.WorkbenchContent };
@@ -1883,6 +1955,7 @@ test('同一会话并发创建只产生一个 Host taskId，后续写操作保�
         status: 200,
         json: async () => ({ task: {
           id: 'dcw-race-safe', revision: 0, title: '竞态测试',
+          originSessionId: 'session-race',
           objectives: [], fieldSelection: [], mappings: [],
         } }),
       };
@@ -1926,6 +1999,7 @@ test('已完成任务再录入名单时自动创建新 taskId', async () => {
         status: 201,
         json: async () => ({ task: {
           id: `dcw-fresh-${sequence}`,
+          originSessionId: 'session-fresh',
           revision: 0,
           state: sequence === 1 ? 'completed' : 'draft',
           title: `任务 ${sequence}`,

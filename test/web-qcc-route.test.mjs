@@ -857,7 +857,7 @@ for (const fault of [
     assert.equal(failedAudit.attempt, 1);
     assert.equal(failedAudit.upstreamCode, fault.upstreamCode);
     assert.deepEqual(Object.keys(failedAudit).sort(), [
-      'at', 'attempt', 'callId', 'code', 'durationMs', 'event', 'outcome', 'toolName', 'upstreamCode',
+      'at', 'attempt', 'callId', 'code', 'durationMs', 'event', 'outcome', 'providerState', 'toolName', 'upstreamCode',
     ]);
     assert.doesNotMatch(JSON.stringify(payload.audit), /fault-injection-secret|敏感企业原名|9132WEBMOCK/);
 
