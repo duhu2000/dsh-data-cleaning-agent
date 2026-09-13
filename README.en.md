@@ -10,7 +10,9 @@ Related agents: [数据清洗补全](https://github.com/duhu2000/dsh-data-cleani
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.9.9** (stable release)
+> Current source version / 当前源码版本: **0.9.10** (stable release)
+
+0.9.10 observes the Host settling-to-hero transition so the database logo and product title appear even after delayed layout. Unknown structures do not trigger global headline rewriting. Rollback version: 0.9.9.
 
 0.9.9 restores the “数据清洗补全智能体” native home title when newer Host builds place the plugin marker and Hero headline in sibling composer branches. The bridge remains reversible and isolated from other business plugins. The 0.9.8 read-only Profile history and origin Workspace/Session guarantees remain unchanged. Rollback: `dsh plugin --profile web add dsh-data-cleaning-agent@0.9.8`. Live DSH A/B verification remains a post-install user check.
 

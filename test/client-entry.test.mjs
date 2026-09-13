@@ -1924,6 +1924,38 @@ test('清洗 hero 在第三方全局标题与尽调 dock 存在时仍保持会�
   }
 });
 
+test('首页 settling 转 hero 后替换标题，兼容未知文案并在离开时恢复', () => {
+  const previousObserver = globalThis.MutationObserver;
+  try {
+    const { rewriteHeroChrome } = loadClient().exports.__testing;
+    let phase = 'settling', notify, observed, disconnected = false;
+    const headline = {dataset:{},textContent:'探索未知之境',style:{}};
+    const hero = {getAttribute:()=>phase,querySelectorAll:()=>[headline],querySelector:()=>null};
+    const marker = {dataset:{sessionId:'cleaning-hero'},closest:selector=>
+      selector === '[data-phase="settling"]' ? hero : null};
+    globalThis.document = {querySelectorAll:()=>[marker]};
+    globalThis.MutationObserver = class {
+      constructor(callback) { notify=callback; }
+      observe(target,options) { observed={target,options}; }
+      disconnect() { disconnected=true; }
+    };
+    const restore = rewriteHeroChrome('cleaning-hero',true);
+    assert.equal(headline.textContent,'探索未知之境','settling does not paint early');
+    assert.equal(observed.target,hero);
+    assert.ok(observed.options.attributeFilter.includes('data-phase'));
+    assert.equal(observed.options.characterData,true);
+    phase='hero'; notify();
+    assert.equal(headline.textContent,'数据清洗补全智能体');
+    headline.textContent='探索未知之境'; notify();
+    assert.equal(headline.textContent,'数据清洗补全智能体','Host text-node refresh is corrected');
+    restore();
+    assert.equal(disconnected,true);
+    assert.equal(headline.textContent,'探索未知之境');
+    rewriteHeroChrome('ordinary',false);
+    assert.equal(headline.textContent,'探索未知之境');
+  } finally { globalThis.MutationObserver=previousObserver; cleanupGlobals(); }
+});
+
 test('字段搜索支持维度、中文字段及工具名，不改变原始目录', () => {
   try {
     const { visibleCatalogFields, DatabaseLogo } = loadClient().exports.__testing;
