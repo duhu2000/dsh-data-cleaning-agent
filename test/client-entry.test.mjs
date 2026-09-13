@@ -858,7 +858,7 @@ test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工�
     render(overlayReg.component, {}, instance); // 挂载 root scope 事件桥（关闭态返回 null）。
     let bar = expandElementTree(render(capabilityReg.component, {
       sessionId: 'session-3',
-      session: { composerPhase: 'blank', openState: 'open' },
+      session: { blank: true, openState: 'open' },
     }, instance));
     const buttons = [];
     collectNodes(bar, (n) => n.props && ['导入名单', '质量体检', '匹配核验', '字段补全', '任务历史'].includes(n.props['aria-label']), buttons);
@@ -873,7 +873,7 @@ test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工�
   }
 });
 
-test('blank 清洗会话渲染业务首页，普通会话不注入业务内容', () => {
+test('清洗会话等待真实宿主首页信号，普通会话不注入业务内容', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -895,15 +895,24 @@ test('blank 清洗会话渲染业务首页，普通会话不注入业务内容',
     const store = overlayReg.options.store.create();
     assert.equal(render(dockReg.component, {
       sessionId: 'ordinary-session',
-      session: { composerPhase: 'blank', openState: 'open' },
+      session: { blank: true, openState: 'open' },
     }, store), null, '普通会话不应出现业务首页');
+
+    const restored = expandElementTree(render(dockReg.component, {
+      sessionId: 'session-dsh-data-cleaning-agent-11111111-1111-4111-8111-111111111111',
+      session: { blank: true, openState: 'open' },
+    }, store));
+    assert.ok(findNode(restored, (n) => n.props?.['aria-label'] === '数据清洗补全智能体能力'),
+      'A late Session slot must restore explicit namespace ownership without an earlier root event');
 
     exports.__testing.markCleaningSession('cleaning-home');
     const home = expandElementTree(render(dockReg.component, {
       sessionId: 'cleaning-home',
-      session: { composerPhase: 'blank', openState: 'open' },
+      session: { blank: true, openState: 'open' },
     }, store));
-    assert.ok(findNode(home, (n) => n.props?.className === 'dcAgentHomeSummary'));
+    assert.equal(findNode(home, (n) => n.props?.className === 'dcAgentHomeSummary'), null,
+      'Session.blank alone cannot establish the rendered Host phase');
+    assert.ok(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全智能体能力'));
     assert.equal(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全产品介绍'), null);
     assert.equal(findNode(home, (n) => n.props?.['aria-label'] === '数据清洗补全工作流'), null);
     assert.equal(findNode(home, (n) => n.children?.includes('最近任务')), null);
@@ -1954,6 +1963,32 @@ test('首页 settling 转 hero 后替换标题，兼容未知文案并在离开�
     rewriteHeroChrome('ordinary',false);
     assert.equal(headline.textContent,'探索未知之境');
   } finally { globalThis.MutationObserver=previousObserver; cleanupGlobals(); }
+});
+
+test('首页模式取自当前会话 DOM 而非不存在的 Session composerPhase', () => {
+  const previousObserver=globalThis.MutationObserver;
+  try {
+    const {observeHomePhase}=loadClient().exports.__testing;
+    let phase='settling', notify, disconnected=false;
+    const values=[];
+    const root={getAttribute:()=>phase};
+    const marker={dataset:{sessionId:'cleaning-phase'},closest:()=>root};
+    globalThis.document={querySelectorAll:()=>[marker]};
+    globalThis.MutationObserver=class {
+      constructor(callback){notify=callback;}
+      observe(target,options){assert.equal(target,root);assert.deepEqual(options.attributeFilter,['data-phase']);}
+      disconnect(){disconnected=true;}
+    };
+    const release=observeHomePhase('cleaning-phase',true,value=>values.push(value));
+    assert.equal(values.at(-1),false);
+    phase='hero';notify();assert.equal(values.at(-1),true);
+    phase='active';notify();assert.equal(values.at(-1),false);
+    release();assert.equal(disconnected,true);
+    observeHomePhase('ordinary',true,value=>values.push(value));
+    assert.equal(values.at(-1),false,'another Session cannot adopt this marker');
+    observeHomePhase('cleaning-phase',false,value=>values.push(value));
+    assert.equal(values.at(-1),false);
+  } finally {globalThis.MutationObserver=previousObserver;cleanupGlobals();}
 });
 
 test('字段搜索支持维度、中文字段及工具名，不改变原始目录', () => {
