@@ -180,7 +180,7 @@ try {
         const [draft, setDraft] = R.useState('');
         window.writeDraft = setDraft;
         return h('div', { className:'fixtureLayout' }, h('div', { 'data-conversation-scroll': '', className:'fixtureConversation' },
-          h('div', { 'data-composer-seat': '', 'data-phase': phase === 'blank' ? 'hero' : 'active' },
+          h('div', { 'data-composer-seat': '', 'data-phase': phase === 'blank' ? 'settling' : 'active' },
             h('div', { className: 'fixture_composerStack' },
               h('div', { className: 'fixture_headline' },
                 h('span', { className: 'fixture_fishHitbox' }, h('svg', { width: 34, height: 34, 'data-native-logo': true })),
@@ -205,7 +205,12 @@ try {
     const menu = await page.locator('.dcAgentCapabilityMount').boundingBox();
     assert.ok(menu.y >= card.y + card.height, 'menu must sit below native composer');
     assert.equal(await page.locator('.dcAgentProductHome').count(), 0);
+    // Real Host mounts the blank-session slot before its layout phase becomes hero.
+    // No Session prop change follows, so the branding must observe that transition.
+    assert.equal(await page.locator('.dcAgentHeroLogo').count(), 0);
+    await page.locator('[data-composer-seat]').evaluate(el => el.setAttribute('data-phase', 'hero'));
     await page.locator('.dcAgentHeroLogo').waitFor();
+    assert.equal(await page.locator('[data-dc-agent-hero-title]').textContent(), '数据清洗补全智能体');
     const logo = await page.locator('.dcAgentHeroLogo').boundingBox();
     const title = await page.locator('[data-dc-agent-hero-title]').boundingBox();
     assert.ok(logo.x + logo.width <= title.x, 'database logo is left of title');
