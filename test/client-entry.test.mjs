@@ -1896,13 +1896,15 @@ test('清洗 hero 在第三方全局标题与尽调 dock 存在时仍保持会�
     ownDock.parentElement = composerStack;
     foreignPrompt.parentElement = ownDock;
     const hero = {
+      parentElement: null,
       querySelectorAll: (selector) => selector === 'span' ? [headline] : [],
       querySelector: (selector) => selector === '[class*="headlineText"]' ? headline : null,
     };
+    composerStack.parentElement = hero;
     const marker = {
       dataset: { sessionId: 'cleaning-collision' },
       parentElement: ownDock,
-      closest: (selector) => selector === '[data-phase="hero"]' ? hero : null,
+      closest: (selector) => selector === '[data-composer-seat]' ? ownDock : null,
     };
     globalThis.document = {
       querySelectorAll: (selector) => selector === '.dcAgentExperience' ? [marker] : [],
