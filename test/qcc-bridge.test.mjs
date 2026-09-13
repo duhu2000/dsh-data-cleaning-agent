@@ -264,7 +264,7 @@ test('调用审计只记录安全元数据，不记录参数或工具响应', as
   await bridge.call(QCC_TOOL_NAMES.registration, { searchKey: '敏感企业名称' }, { onAudit: (event) => audit.push(event) });
   assert.equal(audit.length, 1);
   assert.deepEqual(Object.keys(audit[0]).sort(), [
-    'at', 'attempt', 'callId', 'code', 'durationMs', 'event', 'outcome', 'toolName', 'upstreamCode',
+    'at', 'attempt', 'callId', 'code', 'durationMs', 'event', 'outcome', 'providerState', 'toolName', 'upstreamCode',
   ]);
   assert.equal(JSON.stringify(audit).includes('敏感企业名称'), false);
   assert.equal(JSON.stringify(audit).includes('9132SECRET'), false);

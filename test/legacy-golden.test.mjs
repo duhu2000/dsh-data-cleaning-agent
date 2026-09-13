@@ -17,21 +17,23 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
   Object.assign(golden.contract.unchanged, {
     // v0.8.17: Host finalizes workbench artifacts; partial remains retryable.
     // Image drafts retain sanitized source metadata, without advancing upload state.
-    'lib/workflow.js': 'b61016e1d31ed380f9b8c6d332c10f79783d0f65ef63a706e85c631ecdb1f491',
+    // v0.9.8: reviewed immutable origin guards and safe Provider audit metadata.
+    'lib/workflow.js': '68544fe18efdaad99f42533e3cdbc20f45dc82749cbdfd851325ec7efaac9d30',
     'lib/skill-enrich.js': '245f5b2b099d2242f1ddb4cafb6db3bb1d612911f929f3eb1f64e850dba9941b',
     // Confirmed output mappings allow fan-out; identity anchors remain unique.
-    'lib/workflow-contract.js': '3147387a10f4fdc6b295b9bd8c4e3877fd2b36ec4778d7c58cae07c8f5ce58f8',
+    'lib/workflow-contract.js': '9816db761ddbb273f6e48307887e7d82710b60d7730db2325ac613583fb77acc',
     // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
     // Additive Host capability flags prevent new-client/old-Host staging errors.
     // v0.8.21: derive artifact origin from actual browser request.
     // Authorized image continuation binds a confirmed draft revision before Agent execution.
     // Read-only artifact preview now uses a compact scroll grid with fixed headers.
-    'lib/web.js': '6318ba469fb6fb5cac87771dbe681307c434fd90079ccbba3459f90951387e67',
+    'lib/web.js': '42ab153371903fdbca565d0cd8e24f07898c871619e78268fa5e212cbed0f20d',
     // v0.8.20: normal absence notes are separate from actionable field issues.
     'lib/artifacts.js': '0ce08d0fba95d4c46b017caa3a7d4773482fa9f4397fd3ae2a592bca48d78e49',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
     // Failed rows now retain normalized error identifiers for exception exports.
-    'lib/qcc.js': 'c2413987a2eb8ac36bd4020a2969fae71ca96281dcc4f521896ef2eee066d71e',
+    'lib/qcc.js': '1a74b7288d94b2d446e7f25353aa820dfa2d9cb65971cb13f78348761bcb8769',
+    'lib/qcc-safety.js': '57267a973ea369ca1ea0affd831bfccf334123054b31cac18a85803d3399fb68',
     'lib/qcc-field-catalog.js': '7055dd390c40e8e3b5090d5122770c57485225b32f8ae8f010cd3246d287aaf3',
   });
   // Audited additive controller contract; all pre-existing labels/tools/cases remain frozen.

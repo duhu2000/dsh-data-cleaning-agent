@@ -2,6 +2,40 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DataCleaningWorkflowStore, WORKFLOW_STORAGE } from '../lib/workflow.js';
 
+test('origin persists across restart, stays immutable and rejects cross-Session mutations', async () => {
+  const storage = memoryStorageDomain();
+  const store = await createStore(storage);
+  const origin = { originSessionId: 'session-A', originWorkspaceId: 'workspace-A',
+    originSessionName: '来源会话', originWorkspaceName: '来源工作区' };
+  const task = await store.create({ ...origin, title: '合成任务' });
+  await store.updateDraft(task.id, { originSessionId: 'session-B', title: '已更新', expectedRevision: 1 });
+  const restored = await createStore(storage);
+  const saved = await restored.require(task.id);
+  for (const key of Object.keys(origin)) assert.equal(saved[key], origin[key]);
+  await restored.assertRequestOrigin(task.id, origin);
+  await assert.rejects(restored.assertRequestOrigin(task.id, { ...origin, originSessionId: 'session-B' }), { code: 'DC_WORKFLOW_SCOPE' });
+  await assert.rejects(restored.assertRequestOrigin(task.id, { ...origin, originWorkspaceId: 'workspace-B' }), { code: 'DC_WORKFLOW_SCOPE' });
+  await assert.rejects(restored.assertRequestOrigin(task.id, {}), { code: 'DC_WORKFLOW_SCOPE' });
+  const results = await Promise.allSettled([
+    restored.updateDraft(task.id, { expectedRevision: saved.revision, title: '并发一' }),
+    restored.updateDraft(task.id, { expectedRevision: saved.revision, title: '并发二' }),
+  ]);
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal((await restored.require(task.id)).originSessionId, 'session-A');
+});
+
+test('legacy records expose unknown origin without guessing or rewriting storage', async () => {
+  const storage = memoryStorageDomain();
+  const store = await createStore(storage);
+  const task = await store.create({ title: '旧任务' });
+  const raw = storage.domains.get(WORKFLOW_STORAGE.domain).get(WORKFLOW_STORAGE.table).get(task.id);
+  for (const key of Object.keys(raw).filter(k => k.startsWith('origin'))) delete raw[key];
+  const restored = await createStore(storage);
+  assert.equal((await restored.require(task.id)).originSessionId, null);
+  assert.equal((await restored.list())[0].originWorkspaceId, null);
+  assert.equal(Object.hasOwn(raw, 'originSessionId'), false);
+});
+
 function memoryStorageDomain() {
   const domains = new Map();
   return {
@@ -149,6 +183,10 @@ test('Host 工作流完成五步闭环并仅持久化安全元数据', async () 
   });
   assert.equal(task.state, 'completed');
   assert.equal(task.artifacts.length, 1);
+  for (const action of ['startMatch','startEnrichment','recordFailure','recordUpload','recordQuality']) {
+    await assert.rejects(store[action](task.id, {expectedRevision:task.revision}));
+    assert.equal((await store.require(task.id)).state, 'completed', 'terminal result cannot regress on late updates');
+  }
   assert.equal(Object.hasOwn(task.artifacts[0], 'rows'), false);
 
   const persisted = JSON.stringify(storage.domains.get(WORKFLOW_STORAGE.domain).get(WORKFLOW_STORAGE.table).get(task.id));

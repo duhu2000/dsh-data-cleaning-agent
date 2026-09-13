@@ -10,7 +10,9 @@ Related agents: [数据清洗补全](https://github.com/duhu2000/dsh-data-cleani
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.9.7** (stable release)
+> Current source version / 当前源码版本: **0.9.8** (stable release)
+
+0.9.8 makes Profile history read-only and persists origin Workspace/Session metadata. Legacy records remain explicitly unattributed and cannot become the current Session task. Open-origin navigation is capability-gated; existing XLSX artifacts remain downloadable without MCP calls. Rollback: `dsh plugin --profile web add dsh-data-cleaning-agent@0.9.7` (reintroduces the old history-binding risk). Live DSH A/B verification is unverified because the local Web session requires authentication; see the release checklist.
 
 This release refines workbench hierarchy, spacing, and responsive behavior across imported lists, field mapping, quality profiling, and entity matching. File, image, and pasted-data inputs collapse after a successful import and return through the explicit reimport action. Field mapping uses grouped choices, and searching a dimension exposes all fields in that group. Preparing a draft does not query QCC; sending starts execution. Fully restart DSH after upgrading. Existing download artifacts are not rewritten.
 
