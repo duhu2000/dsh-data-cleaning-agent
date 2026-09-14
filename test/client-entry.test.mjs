@@ -392,6 +392,7 @@ function loadClient() {
     react: {
       createElement: (type, props, ...children) => ({ type, props, children }),
       useState: (initial) => [initial, () => {}],
+      useRef: (initial) => ({ current: initial }),
       useEffect: (effect) => effect(),
     },
     'react-dom': { createPortal: () => { throw new Error('unused'); } },
@@ -552,7 +553,7 @@ test('入口按钮：数据库图标与业务名称同排，点击只启动中�
     assert.ok(findNode(wideTree, (n) => n.type === 'svg' && n.props.className === 'dcAgentDatabaseLogo'));
     assert.ok(findNode(wideTree, (n) => n.type === 'span' && n.children?.includes('数据清洗补全')));
 
-    await wideEl.props.onClick();
+    await Promise.all([wideEl.props.onClick(), wideEl.props.onClick()]);
     assert.equal(instance.getSnapshot().open, false, '初始业务页不应强制展开右侧工作台');
     assert.equal(instance.getSnapshot().step, 'upload');
     assert.equal(instance.getSnapshot().activeSessionId, 'session-cleaning-1');
@@ -1873,15 +1874,11 @@ test('工作台关闭态 guard 位于所有 store hooks 之后，避免 React #3
   assert.equal(guardIndex, -1, 'Tab 关闭由 Host 卸载，内容不得再按私有 open flag 隐藏');
 });
 
-test('中央业务首页以独立 React 元素渲染，避免 hero 切换破坏 Hooks 顺序', () => {
-  const componentStart = source.indexOf('function DataCleaningExperience(props)');
-  const componentEnd = source.indexOf('function extractPromptEntries', componentStart);
-  const componentSource = source.slice(componentStart, componentEnd);
-  assert.match(componentSource, /hero \? h\(ProductHome, \{ sessionId \}\) : null/);
-  assert.doesNotMatch(componentSource, /hero \? ProductHome\(/);
+test('首页无介绍副标题、占位或专属样式，保留原生会话布局', () => {
+  assert.doesNotMatch(source, /dcAgentHomeSummary|function ProductHome|h\(ProductHome/);
 });
 
-test('清洗 hero 在第三方全局标题与尽调 dock 存在时仍保持会话级隔离，并可逆恢复', () => {
+test('清洗 hero 不抢占其他业务标题，也不隐藏第三方 dock', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -1920,9 +1917,9 @@ test('清洗 hero 在第三方全局标题与尽调 dock 存在时仍保持会�
     };
 
     const restore = rewriteHeroChrome('cleaning-collision', true);
-    assert.equal(headline.textContent, '数据清洗补全智能体');
-    assert.equal(foreignDock.style.display, 'none');
-    assert.equal(foreignPrompt.style.display, 'none');
+    assert.equal(headline.textContent, '访前尽调智能体');
+    assert.equal(foreignDock.style.display, '');
+    assert.equal(foreignPrompt.style.display, '');
 
     restore();
     assert.equal(headline.textContent, '访前尽调智能体');
@@ -1957,6 +1954,9 @@ test('首页 settling 转 hero 后替换标题，兼容未知文案并在离开�
     assert.equal(headline.textContent,'数据清洗补全智能体');
     headline.textContent='探索未知之境'; notify();
     assert.equal(headline.textContent,'数据清洗补全智能体','Host text-node refresh is corrected');
+    headline.textContent='用户保存的名称'; notify();
+    assert.equal(headline.textContent,'用户保存的名称','observer does not overwrite an external title change');
+    headline.textContent='数据清洗补全智能体';
     restore();
     assert.equal(disconnected,true);
     assert.equal(headline.textContent,'探索未知之境');
