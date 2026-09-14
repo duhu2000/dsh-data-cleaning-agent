@@ -9,7 +9,7 @@
 数据清洗补全智能体：面向 Excel/CSV/JSON 企业名单，提供数据清洗、表格清洗、清洗补全、去重、企业数据补全与字段补全，支持企查查 MCP 和结果导出。
 
 ```sh
-dsh plugin --profile web add dsh-data-cleaning-agent@0.9.11
+dsh plugin --profile web add dsh-data-cleaning-agent@0.9.12
 ```
 
 请先满足下文的 DSH、连接器及侧边栏依赖要求；安装后完整停止并重启对应 Profile。
@@ -27,9 +27,9 @@ dsh plugin --profile web add dsh-data-cleaning-agent@0.9.11
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.9.11**（正式版本）
+> 当前源码版本 / Current source version: **0.9.12**（正式版本）
 
-0.9.11 修正真实 Host 的首页状态接口：不再依赖 Session.composerPhase，按当前清洗会话所在宿主根节点的 data-phase 显示 Logo 与标题，并在离开首页时恢复。
+0.9.12 统一简洁首页：移除副标题与占位，保留原生工作区、模式和输入框。菜单名称固定并防止重复创建；品牌标题仅在所属首页生效，任务记录与模型运行状态明确区分。保留 0.9.11 的真实 Host 阶段与会话切换修复。
 
 0.9.10 补齐首页 settling → hero 阶段监听，避免首次挂载漏掉 Logo 与标题替换；兼容“探索未知之境”，未知结构不做全局标题改写。回滚版本为 0.9.9。
 

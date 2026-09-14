@@ -211,7 +211,7 @@ try {
     await page.locator('[data-composer-seat]').evaluate(el => el.setAttribute('data-phase', 'hero'));
     await page.locator('.dcAgentHeroLogo').waitFor();
     assert.equal(await page.locator('.dcAgentExperience.is-home').count(), 1);
-    assert.equal(await page.locator('.dcAgentHomeSummary').count(), 1);
+    assert.equal(await page.locator('.dcAgentHomeSummary').count(), 0);
     assert.equal(await page.locator('[data-dc-agent-hero-title]').textContent(), '数据清洗补全智能体');
     const logo = await page.locator('.dcAgentHeroLogo').boundingBox();
     const title = await page.locator('[data-dc-agent-hero-title]').boundingBox();
@@ -828,7 +828,7 @@ try {
     await page.evaluate(() => window.show('session-dsh-data-cleaning-agent-11111111-1111-4111-8111-111111111111'));
     await page.locator('.dcAgentExperience').waitFor({ state: 'attached' });
     await page.locator('[data-composer-seat]').evaluate(el => el.setAttribute('data-phase', 'hero'));
-    await page.locator('.dcAgentHomeSummary').waitFor();
+    await page.locator('.dcAgentHeroLogo').waitFor();
     assert.equal(await page.locator('[data-dc-agent-hero-title]').textContent(), '数据清洗补全智能体');
     await page.evaluate(() => window.show('ordinary'));
     await page.locator('.dcAgentExperience').waitFor({ state: 'detached' });
