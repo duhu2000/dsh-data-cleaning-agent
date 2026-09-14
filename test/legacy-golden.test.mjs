@@ -23,9 +23,9 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     // while origin metadata stays immutable and identity anchors stay unique.
     'lib/workflow-contract.js': 'ffee0ef6b7e6e97bd12b14f30e01e21b955c1a9b8018cfaa7764ee773c898b08',
     // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
-    // Workflow routes enforce both source ownership and Host action permissions;
-    // local delivery commits only after artifacts persist.
-    'lib/web.js': 'ce257541f7a47c2e04ab16937f9dcddda16ac55ad9b0f007a5cb8a884fd8fd61',
+    // Workflow routes enforce source ownership and Host action permissions;
+    // refresh cache verification is read-only, while delivery still commits after artifacts persist.
+    'lib/web.js': 'f5ee2a69dfd4dcb0252df21f8b8932bd59679ff44533b900a39683f798550256',
     // v0.8.20: normal absence notes are separate from actionable field issues.
     'lib/artifacts.js': '0ce08d0fba95d4c46b017caa3a7d4773482fa9f4397fd3ae2a592bca48d78e49',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.

@@ -1855,7 +1855,7 @@ test('历史规则页与 locked 页面不挂载业务写操作', () => {
     instance.actions.setDataset({ rowCount: 1, headers: ['企业名称'], preview: [] });
     instance.actions.setWorkflowTask(flowTask({
       id: 'dcw-read-only', state: 'diagnosed', title: '只读规则',
-      source: { rowCount: 2, fileName: 'source.csv' },
+      source: { rowCount: 2, fileName: 'source.csv', type: 'csv', checksum: 'sha256-canonical-rows-v1:test:read-only' },
       objectives: ['complete_fields'], fieldSelection: ['legal_rep'],
       mappings: [{ sourceField: '企业名称', targetField: 'company_name' }],
     }, 'match', ['prepare-qcc-command'], { upload: 'read', rules: 'read' }));
@@ -1867,7 +1867,8 @@ test('历史规则页与 locked 页面不挂载业务写操作', () => {
 
     instance.actions.setStep('upload');
     panel = flattenElement(render(registration.component, {}, instance));
-    assert.ok(findNode(panel, node => node.children?.includes('当前页面只保留 Host 来源摘要；已有制品可从结果下载或任务历史获取。')));
+    assert.ok(findNode(panel, node => node.children?.includes('重新载入原任务数据')));
+    assert.ok(findNode(panel, node => node.props?.['aria-label'] === '重新载入原任务文件'));
     assert.equal(findNode(panel, node => node.children?.includes('数据已导入。请核对下方完整名单；需要替换来源时点击“重新导入”。')), null);
 
     instance.actions.setStep('download');
@@ -1878,16 +1879,23 @@ test('历史规则页与 locked 页面不挂载业务写操作', () => {
     instance.actions.setDataset(null);
     instance.actions.setWorkflowTask(flowTask({
       id: 'dcw-completed-history', state: 'completed', title: '已完成任务',
-      source: { rowCount: 2, fileName: 'source.csv' },
+      source: { rowCount: 2, columnCount: 2, fileName: 'source.csv', type: 'csv', checksum: 'sha256-canonical-rows-v1:test:completed' },
       objectives: ['complete_fields'], fieldSelection: ['legal_rep'],
       mappings: [{ sourceField: '企业名称', targetField: 'company_name' }],
+      qualitySummary: { total: 2, valid: 2, missingAnchor: 0, duplicates: 0, invalidCreditNo: 0, invalidPhone: 0, emptyFields: 1 },
+      matchSummary: { total: 2, exact: 2, candidate: 0, confirmed: 0, unresolved: 0, failed: 0, reviewRequired: 0 },
+      enrichmentSummary: { total: 2, completed: 2, unchanged: 0, failed: 0, reviewRequired: 0, callsUsed: 2 },
       artifacts: [{ id: 'dca-complete', kind: 'complete', format: 'xlsx', fileName: '结果.xlsx', rowCount: 2 }],
     }, 'download', [], { upload: 'read', rules: 'read', match: 'read', enrich: 'read' }));
     instance.actions.setStep('upload');
     panel = flattenElement(render(registration.component, {}, instance));
-    assert.ok(findNode(panel, node => node.props?.['aria-label'] === '当前导入数据'),
-      'runtime 丢失后仍展示 Host 保存的来源摘要');
-    assert.ok(findNode(panel, node => node.children?.includes('当前页面只保留 Host 来源摘要；已有制品可从结果下载或任务历史获取。')));
+    assert.ok(findNode(panel, node => node.children?.includes('重新载入原任务数据')),
+      '已完成任务允许通过 checksum 恢复只读名单');
+
+    instance.actions.setStep('profile');
+    panel = flattenElement(render(registration.component, {}, instance));
+    assert.ok(JSON.stringify(panel).includes('以下为 Host 保存的体检摘要'));
+    assert.ok(JSON.stringify(panel).includes('有效主体'));
 
     instance.actions.setStep('match');
     panel = flattenElement(render(registration.component, {}, instance));
@@ -1895,7 +1903,103 @@ test('历史规则页与 locked 页面不挂载业务写操作', () => {
     collectNodes(panel, node => node.props?.className === 'dcAgentMatchScope', matchScopes);
     assert.ok(matchScopes.some(node => node.children?.[0]?.children?.includes(2) && node.children?.includes('条记录')),
       'runtime 丢失时历史匹配页回退使用 Host 来源行数');
+    assert.ok(findNode(panel, node => node.props?.['aria-label'] === '主体匹配结果摘要'));
+
+    instance.actions.setStep('enrich');
+    panel = flattenElement(render(registration.component, {}, instance));
+    assert.ok(findNode(panel, node => node.props?.['aria-label'] === '字段补全结果摘要'));
   } finally { cleanupGlobals(); }
+});
+
+test('刷新后从当前页签临时缓存恢复导入原始清单', () => {
+  const values = new Map();
+  const sessionStorage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: (key) => values.delete(key),
+  };
+  const task = flowTask({
+    id: 'dcw-refresh-runtime', state: 'completed', title: '刷新恢复原始清单',
+    source: {
+      rowCount: 2, columnCount: 2, fileName: 'source.csv', type: 'csv',
+      checksum: 'sha256-canonical-rows-v1:test:refresh-runtime',
+    },
+    objectives: ['complete_fields'], fieldSelection: ['legal_rep'],
+    mappings: [{ sourceField: '企业名称', targetField: 'company_name' }],
+  }, 'download', [], { upload: 'read', rules: 'read', match: 'read', enrich: 'read' });
+  const result = {
+    fmt: 'csv', headers: ['企业名称', '统一社会信用代码'], rowCount: 2,
+    checksum: task.source.checksum,
+    rows: [
+      { 企业名称: '示例企业甲', 统一社会信用代码: '91320000123456789A' },
+      { 企业名称: '示例企业乙', 统一社会信用代码: '91110000123456789B' },
+    ],
+  };
+
+  try {
+    const first = loadClient().exports.__testing;
+    window.sessionStorage = sessionStorage;
+    const firstStore = first.createWorkbenchStore().create();
+    first.restoreParsedRuntime(result, firstStore.actions, task, { type: 'csv', fileName: 'source.csv' });
+    cleanupGlobals();
+
+    const second = loadClient().exports.__testing;
+    window.sessionStorage = sessionStorage;
+    assert.deepEqual(second.runtimeFor(task.id, false, task.source.checksum)?.rows, result.rows,
+      '第二次加载必须先从同一页签缓存恢复 task runtime');
+    const secondStore = second.createWorkbenchStore().create();
+    secondStore.actions.setWorkflowTask(task);
+    secondStore.actions.setStep('upload');
+    const panel = expandElementTree(render(second.WorkbenchContent, {}, secondStore));
+    assert.ok(findNode(panel, node => node.props?.['aria-label'] === '导入原始清单'));
+    assert.ok(JSON.stringify(panel).includes('示例企业甲'));
+    assert.ok(JSON.stringify(panel).includes('示例企业乙'));
+    assert.equal(findNode(panel, node => node.children?.includes('重新载入原任务数据')), null);
+  } finally {
+    cleanupGlobals();
+  }
+});
+
+test('页签缓存恢复的数据在业务写操作前必须通过 Host 同源验签', async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    const api = loadClient().exports.__testing;
+    const instance = api.createWorkbenchStore().create();
+    const task = {
+      id: 'dcw-verify-restored-runtime',
+      originSessionId: 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012',
+      originWorkspaceId: 'workspace-verify',
+      source: { checksum: 'sha256-canonical-rows-v1:test:verify' },
+    };
+    const runtime = {
+      restoredFromSession: true,
+      headers: ['企业名称'],
+      rows: [{ 企业名称: '示例企业甲' }],
+      sourceRows: [{ 企业名称: '示例企业甲' }],
+    };
+    let request;
+    globalThis.fetch = async (url, options) => {
+      request = { url, body: JSON.parse(options.body) };
+      return { ok: true, status: 200, json: async () => ({ ok: true, verified: true }) };
+    };
+    await api.verifyRestoredRuntime(instance.actions, task.originSessionId, task, runtime);
+    assert.equal(runtime.restoredFromSession, false);
+    assert.equal(request.url, `/data-cleaning/api/workflow/tasks/${task.id}/verify-source`);
+    assert.deepEqual(request.body.rows, runtime.sourceRows);
+    assert.equal(request.body.originWorkspaceId, task.originWorkspaceId);
+
+    runtime.restoredFromSession = true;
+    instance.actions.setDataset({ rowCount: 1, headers: runtime.headers });
+    globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({ ok: true, verified: false }) });
+    await assert.rejects(
+      api.verifyRestoredRuntime(instance.actions, task.originSessionId, task, runtime),
+      /刷新缓存与原任务不一致/,
+    );
+    assert.equal(instance.getSnapshot().dataset, null);
+  } finally {
+    globalThis.fetch = previousFetch;
+    cleanupGlobals();
+  }
 });
 
 test('顶部入口实现只依赖 sidebar.workspaces data-slot Portal，并保留 footer 降级', () => {
@@ -2060,7 +2164,7 @@ test('工作台 header 仅保留标题和控制按钮，状态集中在紧凑任
     assert.ok(!contextText.includes('回看'));
 
     // 本次导入完成后保留结果核验页，并提供明确进入规则页的动作。
-    instance.actions.setWorkflowTask({
+    const uploadedTask = {
       id: 'dcw-uploaded', state: 'uploaded', revision: 2,
       source: { rowCount: 2, type: 'csv' }, fieldSelection: ['company_name', 'credit_no'],
       flow: {
@@ -2069,8 +2173,12 @@ test('工作台 header 仅保留标题和控制按钮，状态集中在紧凑任
         stageAccess: { upload: 'read', rules: 'current', match: 'locked', enrich: 'locked', download: 'locked' },
         allowedActions: ['edit-rules', 'confirm-rules'],
       },
-    });
-    instance.actions.setDataset({ rowCount: 2, headers: ['企业名称', '统一社会信用代码'], preview: [] });
+    };
+    exports.__testing.restoreParsedRuntime({
+      fmt: 'csv', headers: ['企业名称', '统一社会信用代码'], rowCount: 2,
+      rows: [{ 企业名称: '示例企业甲' }, { 企业名称: '示例企业乙' }], preview: [],
+    }, instance.actions, uploadedTask, { type: 'csv' });
+    instance.actions.setWorkflowTask(uploadedTask);
     instance.actions.setStep('upload');
     panel = flattenElement(render(overlayReg.component, {}, instance));
     taskContext = expandElementTree(findNode(panel, n => n.props?.className === 'dcAgentTaskContext'));
@@ -2439,9 +2547,9 @@ test('上传解析进入 taskId runtime，字段映射在规则确认页完成',
     '导入响应必须使用专用 reason，先保留完整结果核验页');
   assert.match(applyParsedSource, /runtimeFor\(taskId\)/);
   assert.match(source, /navigate\('rules'\)/);
-  assert.match(source, /const \[intakeEditorOpen, setIntakeEditorOpen\] = react\.useState\(\(\) => dataset == null\)/);
+  assert.match(source, /const \[intakeEditorOpen, setIntakeEditorOpen\] = react\.useState\(\(\) => storedDataset == null\)/);
   assert.match(source, /const showIntakeEditor = canAction\('import-data'\) && \(!dataset \|\| intakeEditorOpen\)/);
-  assert.match(source, /setIntakeEditorOpen\(dataset == null\)/, '成功导入后必须收起来源输入，数据缺失时重新展开');
+  assert.match(source, /setIntakeEditorOpen\(storedDataset == null\)/, '成功导入后必须收起来源输入，数据缺失时重新展开');
   assert.match(source, /required: nameField \? \[nameField\] : \[\]/);
   assert.match(source, /dedupeOn: nameField \|\| null/);
   assert.match(source, /options: localCleanOptions/);

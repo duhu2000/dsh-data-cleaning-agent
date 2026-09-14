@@ -455,8 +455,13 @@ acceptWorkflowTask(incoming, reason)
 - 历史上传页不挂载文件、粘贴或图片输入；只读摘要旁可以提供阶段中立的“新建任务”入口。
 - “新建任务并复用配置”只复制 objectives、fieldSelection、matchRules 和可读任务名。新来源 headers 完全一致时可把旧 mappings 作为待确认建议，否则重新推荐映射；不得复制旧 revision、确认状态、qccRunId、摘要或 artifacts。
 
-中途任务因刷新或 Host 重启丢失 `runtime.rows` 时，重新加载同一源数据属于运行时恢复，不是流程回退。
-该操作显示在当前节点的阻塞提示中，而不是开放历史上传页。
+中途任务因刷新丢失 `runtime.rows` 时，当前浏览器页签可以按 `taskId` 临时缓存已由 Host 解析并成功登记的
+原始 rows、headers 和来源 verifier，用于刷新后恢复列表。该缓存使用受限容量的 `sessionStorage`，不进入
+Host `storageDomain`、模型上下文或跨页签历史兼容；关闭页签、清理站点数据、缓存超限或条目淘汰后不承诺恢复。
+缓存仅提供页面恢复，不能仅凭其中声明的 checksum 获得业务写权限。
+
+当页签缓存不存在，或 Host 重启、历史任务等场景丢失 `runtime.rows` 时，重新加载同一源数据仍属于运行时恢复，
+不是流程回退。该操作显示在缺失数据的上传回看页或当前节点阻塞提示中，不开放已确认规则的修改权限。
 
 `source.checksum` 已存在于 Workflow 数据结构。新任务应使用一个共享的、带算法版本和随机盐的 canonical
 rows verifier，例如 `sha256-canonical-rows-v1:<salt>:<hex>`。首次导入由 Host 生成至少 128 bit 随机盐；
@@ -471,6 +476,9 @@ Host 请求和 Workflow 元数据，不进入模型上下文，不能据此获�
 
 恢复时：
 
+- 页签缓存命中：可恢复原始列表显示；在确认规则、执行本地处理、生成制品或生成 Agent 高层命令前，Client
+  必须把实际 headers/rows 交给同源 Host，Host 使用任务 verifier 重新计算并确认一致。验证失败立即丢弃缓存，
+  不推进 Workflow、不生成 commandId、不发起 QCC 调用。
 - checksum 一致：只恢复 Client runtime，Host `state/stage` 不变。
 - checksum 不一致：拒绝覆盖，提示新建任务。
 - 旧任务缺少 checksum：文件名、行数和表头不足以证明同源；本期不恢复原任务的写能力，只允许查看、下载或新建任务并复用配置。
@@ -505,7 +513,8 @@ Host 异常恢复矩阵处理。
 
 - Workflow schema 保持版本 2。
 - `flow` 和 `runtimeCapabilities` 是派生字段，不进入 `storageDomain`。
-- 原始行、企业名单、候选详情和 QCC 返回仍不持久化。
+- 原始行、企业名单、候选详情和 QCC 返回仍不进入 Host 持久化。仅允许当前浏览器页签使用受限容量的
+  `sessionStorage` 缓存已成功导入的原始 rows，以支持刷新恢复；不承诺跨页签或历史会话恢复。
 - canonical rows checksum 只作为同源恢复校验元数据，不返回 Agent、不允许据此获取原始名单。
 - 已有耐久制品及下载 URL 不改变；重试产生的新制品使用新 artifact id，UI 默认展示每个 kind 最新项。
 - 旧任务的错误 stage 通过读取时投影修正，不批量重写历史记录。

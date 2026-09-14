@@ -196,6 +196,71 @@ test('工作流任务 API 按 taskId 创建、推进、读取和恢复元数据'
   app.dispose();
 });
 
+test('刷新缓存必须由 Host 按任务 checksum 重新验签且不推进 Workflow', async () => {
+  const app = harness({ storageDomain: memoryStorageDomain() });
+  const collectionRoute = '/data-cleaning/api/workflow/tasks';
+  const parseRoute = '/data-cleaning/api/mvp/parse';
+  const origin = {
+    originSessionId: 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012',
+    originWorkspaceId: 'workspace-verify-source',
+  };
+
+  let res = await invoke(app, parseRoute, {
+    method: 'POST', url: parseRoute,
+    body: { filename: 'companies.csv', content: '企业名称\n示例企业甲\n示例企业乙' },
+  });
+  assert.equal(res.status, 200);
+  const parsed = res.json();
+
+  res = await invoke(app, collectionRoute, {
+    method: 'POST', url: collectionRoute,
+    body: { ...origin, objectives: ['complete_fields'], fieldSelection: ['legal_rep'] },
+  });
+  let task = res.json().task;
+  res = await invoke(app, collectionRoute, {
+    method: 'POST', url: `${collectionRoute}/${task.id}/actions/upload`,
+    body: {
+      ...origin,
+      expectedRevision: task.revision,
+      source: {
+        type: 'csv', fileName: 'companies.csv', rowCount: parsed.rowCount,
+        headers: parsed.headers, checksum: parsed.checksum,
+      },
+    },
+  });
+  task = res.json().task;
+  const revision = task.revision;
+
+  res = await invoke(app, collectionRoute, {
+    method: 'POST', url: `${collectionRoute}/${task.id}/verify-source`,
+    body: { ...origin, headers: parsed.headers, rows: parsed.rows },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json().marker, 'data-cleaning-source-verifier-v1');
+  assert.equal(res.json().verified, true);
+
+  res = await invoke(app, collectionRoute, {
+    method: 'POST', url: `${collectionRoute}/${task.id}/verify-source`,
+    body: { ...origin, headers: parsed.headers, rows: [{ 企业名称: '被篡改企业' }, ...parsed.rows.slice(1)] },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json().verified, false);
+
+  res = await invoke(app, collectionRoute, {
+    method: 'POST', url: `${collectionRoute}/${task.id}/verify-source`,
+    body: { ...origin, originSessionId: 'session-dsh-data-cleaning-agent-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', headers: parsed.headers, rows: parsed.rows },
+  });
+  assert.equal(res.status, 409);
+
+  res = await invoke(app, collectionRoute, {
+    method: 'GET', url: `${collectionRoute}/${task.id}`,
+  });
+  assert.equal(res.json().task.revision, revision);
+  assert.equal(res.json().task.state, 'uploaded');
+  assert.equal(app.toolCalls.length, 0);
+  app.dispose();
+});
+
 test('工作流任务 API 拒绝跨站请求和过期 revision', async () => {
   const app = harness({ storageDomain: memoryStorageDomain() });
   const route = '/data-cleaning/api/workflow/tasks';
