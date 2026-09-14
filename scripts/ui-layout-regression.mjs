@@ -377,7 +377,11 @@ try {
     assert.equal(await taskContext.count(), 1, 'compact task context replaces the old progress card');
     assert.equal(await taskStatus.getByText('主体匹配', { exact: true }).count(), 1);
     assert.equal(await taskStatus.getByText('体检完成', { exact: true }).count(), 1);
-    assert.equal(await taskStatus.getByText('2026/9/11 16:38', { exact: true }).count(), 1);
+    const fixtureTimestamp = await page.evaluate(() => new Date('2026-09-11T16:38:00+08:00').toLocaleString('zh-CN', {
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }));
+    assert.equal(await taskStatus.getByText(fixtureTimestamp, { exact: true }).count(), 1);
     assert.equal(await taskStatus.getByText('文本粘贴', { exact: true }).count(), 1);
     assert.equal(await taskStatus.getByText('处理结果', { exact: true }).count(), 0, 'result metrics stay hidden before Host produces a summary');
     assert.equal(await taskStatus.locator('.dcAgentTaskMetricGroup').count(), 1, 'pre-execution status only shows task scope');
