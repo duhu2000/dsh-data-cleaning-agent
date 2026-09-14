@@ -1999,6 +1999,10 @@ test('工作台 header 仅保留标题和控制按钮，状态集中在紧凑任
 
     const instance = overlayReg.options.store.create();
     instance.actions.open();
+    const fixtureTimestamp = new Date('2026-09-11T16:38:00+08:00').toLocaleString('zh-CN', {
+      year: 'numeric', month: 'numeric', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    });
 
     // 无任务：idle + 「无后台任务」。
     let panel = flattenElement(render(overlayReg.component, {}, instance));
@@ -2030,7 +2034,7 @@ test('工作台 header 仅保留标题和控制按钮，状态集中在紧凑任
     let contextText = JSON.stringify(taskContext);
     assert.ok(contextText.includes('主体匹配'));
     assert.ok(contextText.includes('匹配中'), '状态区保留真实任务状态');
-    assert.ok(contextText.includes('2026/9/11 16:38'));
+    assert.ok(contextText.includes(fixtureTimestamp));
     assert.ok(contextText.includes('企业名单.xlsx'));
     assert.ok(contextText.includes('任务范围'));
     assert.ok(contextText.includes('企业 '));
@@ -2094,7 +2098,7 @@ test('工作台 header 仅保留标题和控制按钮，状态集中在紧凑任
     panel = flattenElement(render(overlayReg.component, {}, instance));
     taskContext = expandElementTree(findNode(panel, n => n.props?.className === 'dcAgentTaskContext'));
     contextText = JSON.stringify(taskContext);
-    assert.ok(contextText.includes('2026/9/11 16:38'));
+    assert.ok(contextText.includes(fixtureTimestamp));
     assert.ok(contextText.includes('文本粘贴'));
     assert.ok(contextText.includes('处理结果'));
     assert.ok(contextText.includes('2/2 条'));

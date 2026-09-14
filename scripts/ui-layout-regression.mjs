@@ -48,12 +48,12 @@ try {
         assert.equal(input.workflowOwned, true);
         assert.equal(input.expectedRevision, fixtureTask.revision);
         assert.deepEqual(input.fieldSelection, fixtureTask.fieldSelection);
-        const commandId = `dcq-ui-${fixtureTask.id}`;
+        const commandId = `dcq-11111111-1111-4111-8111-${String(taskCreates).padStart(12, '0')}`;
         fixtureCommand = { commandId, taskId: fixtureTask.id, state: 'prepared', prompt: `请执行已在「数据清洗补全工作台」确认的企业数据任务。安全任务凭证：${commandId}。调用 data_cleaning_qcc_run，生成新的 XLSX。` };
         fixtureCommands.set(commandId, fixtureCommand);
         return route.fulfill({ json: { command: fixtureCommand } });
       }
-      if (url.pathname.startsWith('/data-cleaning/api/g5/commands/dcq-ui-')) {
+      if (url.pathname.startsWith('/data-cleaning/api/g5/commands/dcq-')) {
         return route.fulfill({ json: { command: fixtureCommands.get(url.pathname.split('/').pop()) } });
       }
       if (url.pathname === base + '/' + fixtureTask?.id && request.method() === 'GET') return route.fulfill({ json: { task: taskView(fixtureTask) } });
@@ -868,10 +868,10 @@ try {
     assert.equal(await drawer.isVisible(), false, 'completion cannot undo manual collapse');
     await page.getByRole('button', {name:'任务历史',exact:true}).click();
     await drawer.waitFor({state:'visible'});
+    await drawer.getByRole('button', {name: '当前任务', exact: true}).click();
     assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('处理结果', { exact: true }).count(), 1);
     assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('1/1 条', { exact: true }).count(), 1);
     assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('0 条', { exact: true }).count(), 2);
-    await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
     const resultGridLayout = await drawer.locator('.dcAgentGrid').evaluate(grid => {
       const cards = Array.from(grid.children, card => card.getBoundingClientRect());
