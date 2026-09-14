@@ -192,6 +192,27 @@ function contentFixture(exports) {
   return { options: { store: exports.__testing.createWorkbenchStore() }, component: exports.__testing.WorkbenchContent };
 }
 
+function flowTask(task, currentStage, allowedActions = [], access = {}) {
+  return {
+    ...task,
+    stage: task.stage || currentStage,
+    flow: {
+      flowVersion: 1,
+      currentStage,
+      stageAccess: {
+        upload: 'locked', rules: 'locked', match: 'locked', enrich: 'locked', download: 'locked',
+        ...access,
+        [currentStage]: 'current',
+      },
+      allowedActions,
+      nextAction: allowedActions[0] || null,
+    },
+    runtimeCapabilities: task.runtimeCapabilities || {
+      activeCommand: false, liveRunAvailable: false, retryableFailuresAvailable: false,
+    },
+  };
+}
+
 test('optional provider arrival/removal does not unload business state or read an ungranted service', () => {
   try {
     const { exports } = loadClient();
@@ -242,7 +263,9 @@ test('Session controller shares one descriptor, isolates stores and survives Tab
     const controller = document[Symbol.for('dsh.data-cleaning.session-workbench')].controller;
     const first = controller.storeFor('s1'), second = controller.storeFor('s2');
     first.actions.setInput('甲企业'); second.actions.setInput('乙企业');
-    first.actions.setWorkflowTask({id:'dcw-kept',state:'enriching'});
+    first.actions.setWorkflowTask(flowTask({id:'dcw-kept',state:'enriching'}, 'enrich', [], {
+      upload: 'read', rules: 'read', match: 'read',
+    }));
     for (const step of ['upload','rules','match','enrich','history']) {
       controller.open('s1',step); controller.open('s1',step);
       assert.equal(first.getSnapshot().step,step);
@@ -939,7 +962,7 @@ test('原生 composer 下方渲染五个 Mockup 能力按钮并定位右侧工�
     const review = buttons.find((button) => button.props['aria-label'] === '匹配核验');
     review.props.onClick();
     assert.equal(instance.getSnapshot().open, true);
-    assert.equal(instance.getSnapshot().step, 'match');
+    assert.equal(instance.getSnapshot().step, 'upload', '没有 Host task 时未来能力入口必须回到导入节点');
     assert.equal(instance.getSnapshot().activeSessionId, 'session-3');
   } finally {
     cleanupGlobals();
@@ -1728,6 +1751,7 @@ test('流程导航拒绝跳过导入、规则与匹配，历史制品无需重�
     const { exports } = loadClient();
     const issue = exports.__testing.workflowNavigationIssue;
     assert.equal(issue('history', null, false), null);
+    assert.equal(issue('history', flowTask({ state: 'completed' }, 'download'), false), null);
     assert.match(issue('match', null, false), /载入并核对/);
     assert.match(issue('match', { state: 'uploaded' }, true), /确认字段映射/);
     assert.match(issue('match', { state: 'rules_confirmed' }, true), /生成质量体检/);
@@ -1743,6 +1767,134 @@ test('流程导航拒绝跳过导入、规则与匹配，历史制品无需重�
     assert.match(issue('download', local, true, {}, null, false), /先完成/);
     assert.match(issue('download', { ...local, objectives: ['complete_fields'] }, true, {}, null, true), /先完成/);
     assert.equal(issue('download', { state: 'export_ready' }, true), null);
+  } finally { cleanupGlobals(); }
+});
+
+test('Client 只解释 Host stageAccess，并支持非线性只读页面', () => {
+  try {
+    const api = loadClient().exports.__testing;
+    const task = flowTask({ id: 'dcw-flow-access', state: 'review_required' }, 'match', ['resolve-candidate'], {
+      upload: 'read', rules: 'read', enrich: 'read', download: 'read',
+    });
+    assert.equal(api.resolveStageAccess('profile', { ...task.flow, stageAccess: { ...task.flow.stageAccess, rules: 'read' } }), 'read');
+    assert.deepEqual(api.workflowDestination('download', task), { stage: 'download', access: 'read' });
+    const locked = flowTask({ id: 'dcw-flow-locked', state: 'diagnosed' }, 'match', ['prepare-qcc-command'], {
+      upload: 'read', rules: 'read',
+    });
+    assert.deepEqual(api.workflowDestination('enrich', locked), { stage: 'match', access: 'locked' });
+    assert.equal(api.lockedWorkflowNotice('enrich', locked), '流程提示：“字段补全”尚未开放，请先完成“主体匹配”。');
+  } finally { cleanupGlobals(); }
+});
+
+test('acceptWorkflowTask 防止 revision 倒退并只在跟随当前节点时自动前进', () => {
+  try {
+    const { exports } = loadClient();
+    const imported = exports.__testing.createWorkbenchStore().create();
+    imported.actions.acceptWorkflowTask(flowTask({ id: 'dcw-import', state: 'draft', revision: 1 }, 'upload', ['import-data']), 'create');
+    imported.actions.acceptWorkflowTask(flowTask({ id: 'dcw-import', state: 'uploaded', revision: 2 }, 'rules', ['edit-rules'], {
+      upload: 'read',
+    }), 'import');
+    assert.equal(imported.getSnapshot().step, 'upload', '导入后先保留完整数据核验视图');
+
+    const instance = exports.__testing.createWorkbenchStore().create();
+    instance.actions.acceptWorkflowTask(flowTask({ id: 'dcw-accept', state: 'uploaded', revision: 1 }, 'rules', ['edit-rules'], {
+      upload: 'read',
+    }), 'restore');
+    assert.equal(instance.getSnapshot().step, 'rules');
+    instance.actions.setStep('upload');
+    instance.actions.acceptWorkflowTask(flowTask({ id: 'dcw-accept', state: 'diagnosed', revision: 2 }, 'match', ['prepare-qcc-command'], {
+      upload: 'read', rules: 'read',
+    }));
+    assert.equal(instance.getSnapshot().step, 'upload', '历史回看不被后台推进打断');
+    instance.actions.setStep('match');
+    instance.actions.acceptWorkflowTask(flowTask({ id: 'dcw-accept', state: 'completed', revision: 3 }, 'download', [], {
+      upload: 'read', rules: 'read', match: 'read', enrich: 'read',
+    }));
+    assert.equal(instance.getSnapshot().step, 'download');
+    instance.actions.acceptWorkflowTask(flowTask({ id: 'dcw-accept', state: 'diagnosed', revision: 2 }, 'match'));
+    assert.equal(instance.getSnapshot().workflowTask.revision, 3);
+    const sameRevision = flowTask({ id: 'dcw-accept', state: 'completed', revision: 3,
+      runtimeCapabilities: { activeCommand: false, liveRunAvailable: true, retryableFailuresAvailable: false } }, 'download');
+    instance.actions.acceptWorkflowTask(sameRevision);
+    assert.equal(instance.getSnapshot().workflowTask.runtimeCapabilities.liveRunAvailable, true);
+  } finally { cleanupGlobals(); }
+});
+
+test('刷新时首次 Host task 响应可绑定到尚无内存缓存的当前 session', async () => {
+  const previousFetch = globalThis.fetch;
+  try {
+    const { exports } = loadClient();
+    const sessionId = 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012';
+    const task = flowTask({
+      id: 'dcw-refresh-bind', state: 'uploaded', revision: 3, title: '刷新恢复任务',
+      originSessionId: sessionId,
+      objectives: ['deduplicate'], fieldSelection: [], mappings: [], matchRules: {},
+    }, 'rules', ['edit-rules'], { upload: 'read' });
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ task }),
+    });
+    const instance = exports.__testing.createWorkbenchStore().create();
+    exports.__testing.markCleaningSession(sessionId);
+    await exports.__testing.refreshHostedTask(instance.actions, sessionId, task.id, null, 'restore');
+    assert.equal(instance.getSnapshot().workflowTask.id, task.id);
+    assert.equal(instance.getSnapshot().step, 'rules');
+  } finally {
+    globalThis.fetch = previousFetch;
+    cleanupGlobals();
+  }
+});
+
+test('历史规则页与 locked 页面不挂载业务写操作', () => {
+  try {
+    const { exports } = loadClient();
+    const registration = contentFixture(exports);
+    const instance = registration.options.store.create();
+    instance.actions.open();
+    instance.actions.setDataset({ rowCount: 1, headers: ['企业名称'], preview: [] });
+    instance.actions.setWorkflowTask(flowTask({
+      id: 'dcw-read-only', state: 'diagnosed', title: '只读规则',
+      source: { rowCount: 2, fileName: 'source.csv' },
+      objectives: ['complete_fields'], fieldSelection: ['legal_rep'],
+      mappings: [{ sourceField: '企业名称', targetField: 'company_name' }],
+    }, 'match', ['prepare-qcc-command'], { upload: 'read', rules: 'read' }));
+    instance.actions.setStep('rules');
+    let panel = flattenElement(render(registration.component, {}, instance));
+    assert.equal(findNode(panel, node => node.type === 'input' && node.props?.className === 'dcAgentField'), null);
+    assert.equal(findNode(panel, node => node.children?.includes('保存草稿')), null);
+    assert.equal(findNode(panel, node => node.children?.includes('确认规则并运行质量体检')), null);
+
+    instance.actions.setStep('upload');
+    panel = flattenElement(render(registration.component, {}, instance));
+    assert.ok(findNode(panel, node => node.children?.includes('当前页面只保留 Host 来源摘要；已有制品可从结果下载或任务历史获取。')));
+    assert.equal(findNode(panel, node => node.children?.includes('数据已导入。请核对下方完整名单；需要替换来源时点击“重新导入”。')), null);
+
+    instance.actions.setStep('download');
+    panel = flattenElement(render(registration.component, {}, instance));
+    assert.ok(findNode(panel, node => node.children?.includes('该步骤尚未开放，请先完成当前流程节点。')));
+    assert.equal(findNode(panel, node => node.children?.includes('生成并下载结果 XLSX')), null);
+
+    instance.actions.setDataset(null);
+    instance.actions.setWorkflowTask(flowTask({
+      id: 'dcw-completed-history', state: 'completed', title: '已完成任务',
+      source: { rowCount: 2, fileName: 'source.csv' },
+      objectives: ['complete_fields'], fieldSelection: ['legal_rep'],
+      mappings: [{ sourceField: '企业名称', targetField: 'company_name' }],
+      artifacts: [{ id: 'dca-complete', kind: 'complete', format: 'xlsx', fileName: '结果.xlsx', rowCount: 2 }],
+    }, 'download', [], { upload: 'read', rules: 'read', match: 'read', enrich: 'read' }));
+    instance.actions.setStep('upload');
+    panel = flattenElement(render(registration.component, {}, instance));
+    assert.ok(findNode(panel, node => node.props?.['aria-label'] === '当前导入数据'),
+      'runtime 丢失后仍展示 Host 保存的来源摘要');
+    assert.ok(findNode(panel, node => node.children?.includes('当前页面只保留 Host 来源摘要；已有制品可从结果下载或任务历史获取。')));
+
+    instance.actions.setStep('match');
+    panel = flattenElement(render(registration.component, {}, instance));
+    const matchScopes = [];
+    collectNodes(panel, node => node.props?.className === 'dcAgentMatchScope', matchScopes);
+    assert.ok(matchScopes.some(node => node.children?.[0]?.children?.includes(2) && node.children?.includes('条记录')),
+      'runtime 丢失时历史匹配页回退使用 Host 来源行数');
   } finally { cleanupGlobals(); }
 });
 
@@ -1825,7 +1977,7 @@ test('M3 toolview：DataToolCard 把三工具摘要渲染为可读卡片（状�
   }
 });
 
-test('工作台 header 仅保留标题和控制按钮，状态集中在进度卡', () => {
+test('工作台 header 仅保留标题和控制按钮，状态集中在紧凑任务状态区', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -1853,20 +2005,106 @@ test('工作台 header 仅保留标题和控制按钮，状态集中在进度卡
     let pill = findNode(panel, (n) => n.props && n.props.className === 'dcAgentJobsPill');
     assert.ok(!pill, 'header 不重复展示状态');
 
-    // 有运行中任务：running + 「运行中」。
+    // 有运行中任务：状态、时间、文件名和任务摘要集中在紧凑区域。
     instance.actions.setJobs([{ id: 'unrelated', state: 'completed' }]);
-    instance.actions.setWorkflowTask({ id: 'dcw-current', state: 'matching', source: { rowCount: 28, type: 'xlsx' }, fieldSelection: [] });
+    instance.actions.setWorkflowTask({
+      id: 'dcw-current', state: 'matching', revision: 2,
+      createdAt: '2026-09-11T16:38:00+08:00',
+      source: { rowCount: 28, type: 'xlsx', fileName: '企业名单.xlsx' },
+      fieldSelection: ['legalRepresentative', 'registeredCapital'],
+      flow: {
+        flowVersion: 1,
+        currentStage: 'match',
+        stageAccess: { upload: 'read', rules: 'read', match: 'current', enrich: 'locked', download: 'locked' },
+        allowedActions: [],
+      },
+    });
+    instance.actions.setStep('match');
     panel = flattenElement(render(overlayReg.component, {}, instance));
     pill = findNode(panel, (n) => n.props && n.props.className === 'dcAgentJobsPill');
     assert.ok(!pill);
     const header = findNode(panel, n => n.props?.className === 'dcAgentWbHeader');
     assert.ok(!JSON.stringify(header).includes('dcw-current'));
     assert.ok(!JSON.stringify(header).includes('dcAgentQccBadge'));
-    assert.ok(JSON.stringify(panel).includes('匹配中'), '进度区保留真实任务状态');
-    assert.ok(!JSON.stringify(panel).includes('已补全 undefined'));
-    instance.actions.setWorkflowTask({ id: 'dcw-current', state: 'completed', revision: 5, source: {rowCount:28} });
+    let taskContext = expandElementTree(findNode(panel, n => n.props?.className === 'dcAgentTaskContext'));
+    let contextText = JSON.stringify(taskContext);
+    assert.ok(contextText.includes('主体匹配'));
+    assert.ok(contextText.includes('匹配中'), '状态区保留真实任务状态');
+    assert.ok(contextText.includes('2026/9/11 16:38'));
+    assert.ok(contextText.includes('企业名单.xlsx'));
+    assert.ok(contextText.includes('任务范围'));
+    assert.ok(contextText.includes('企业 '));
+    assert.ok(contextText.includes('字段 '));
+    assert.ok(!contextText.includes('处理结果'), '尚无 Host 结果摘要时不显示无意义占位');
+    assert.ok(!contextText.includes('失败 —'));
+    assert.ok(contextText.includes('使用说明和任务流程'));
+    assert.ok(contextText.includes('发送说明或显式重试时'));
+    assert.ok(!contextText.includes('已补全 undefined'));
+
+    // 历史节点仅说明该节点已完成，并给出真实当前节点和返回入口。
+    instance.actions.setStep('upload');
+    panel = flattenElement(render(overlayReg.component, {}, instance));
+    taskContext = expandElementTree(findNode(panel, n => n.props?.className === 'dcAgentTaskContext'));
+    contextText = JSON.stringify(taskContext);
+    assert.ok(contextText.includes('导入与核验'));
+    assert.ok(contextText.includes('已完成'));
+    assert.ok(contextText.includes('当前节点'));
+    assert.ok(contextText.includes('主体匹配'));
+    assert.ok(contextText.includes('回到当前节点'));
+    assert.ok(!contextText.includes('正在只读查看历史步骤'));
+    assert.ok(!contextText.includes('只读回看'));
+    assert.ok(!contextText.includes('回看'));
+
+    // 本次导入完成后保留结果核验页，并提供明确进入规则页的动作。
+    instance.actions.setWorkflowTask({
+      id: 'dcw-uploaded', state: 'uploaded', revision: 2,
+      source: { rowCount: 2, type: 'csv' }, fieldSelection: ['company_name', 'credit_no'],
+      flow: {
+        flowVersion: 1,
+        currentStage: 'rules',
+        stageAccess: { upload: 'read', rules: 'current', match: 'locked', enrich: 'locked', download: 'locked' },
+        allowedActions: ['edit-rules', 'confirm-rules'],
+      },
+    });
+    instance.actions.setDataset({ rowCount: 2, headers: ['企业名称', '统一社会信用代码'], preview: [] });
+    instance.actions.setStep('upload');
+    panel = flattenElement(render(overlayReg.component, {}, instance));
+    taskContext = expandElementTree(findNode(panel, n => n.props?.className === 'dcAgentTaskContext'));
+    contextText = JSON.stringify(taskContext);
+    assert.ok(!contextText.includes('确认名单，进入规则与体检'), '导入确认不能放在顶部状态栏');
+    assert.ok(!contextText.includes('回到当前节点'), '导入核验使用页面底部的专属主操作');
+    const importConfirm = findNode(panel, n => n.type === 'button' && n.children?.includes('确认名单，进入规则与体检'));
+    assert.ok(importConfirm);
+    assert.equal(importConfirm.props.className, 'dcAgentButton is-primary');
+
+    // 无上传文件名的文本录入即使解析为 CSV，也明确显示为“文本粘贴”。
+    instance.actions.setWorkflowTask({
+      id: 'dcw-text', state: 'completed', revision: 3,
+      updatedAt: '2026-09-11T16:38:00+08:00',
+      source: { rowCount: 2, type: 'csv' }, fieldSelection: [],
+      enrichmentSummary: { completed: 2, reviewRequired: 0, failed: 0 },
+      flow: {
+        flowVersion: 1,
+        currentStage: 'download',
+        stageAccess: { upload: 'read', rules: 'read', match: 'read', enrich: 'read', download: 'current' },
+        allowedActions: [],
+      },
+    });
+    instance.actions.setStep('download');
+    panel = flattenElement(render(overlayReg.component, {}, instance));
+    taskContext = expandElementTree(findNode(panel, n => n.props?.className === 'dcAgentTaskContext'));
+    contextText = JSON.stringify(taskContext);
+    assert.ok(contextText.includes('2026/9/11 16:38'));
+    assert.ok(contextText.includes('文本粘贴'));
+    assert.ok(contextText.includes('处理结果'));
+    assert.ok(contextText.includes('2/2 条'));
+    assert.ok(contextText.includes('待核验'));
+    assert.ok(contextText.includes('0 条'));
+    assert.ok(contextText.includes('失败'));
+
+    instance.actions.setWorkflowTask({ id: 'dcw-text', state: 'completed', revision: 5, source: {rowCount:28} });
     assert.equal(instance.getSnapshot().workflowTasks[0].state,'completed');
-    instance.actions.setWorkflowTasks([{id:'dcw-current',state:'diagnosed',revision:2}]);
+    instance.actions.setWorkflowTasks([{id:'dcw-text',state:'diagnosed',revision:2}]);
     assert.equal(instance.getSnapshot().workflowTasks[0].state,'completed');
   } finally {
     cleanupGlobals();
@@ -1916,7 +2154,15 @@ test('Session Tab 内容：五步导航，无容器控制和中央让位', () =>
       assert.equal(children[0].props.className, 'dcAgentStepIcon');
       assert.equal(children[1].props.className, 'dcAgentStepLabel');
       assert.equal(children[1].children[0], button.props['aria-label']);
-      assert.equal(button.props.title, button.props['aria-label'], '截断时仍能读取完整标题');
+      const locked = button.props['data-access'] === 'locked';
+      assert.equal(Boolean(button.props.disabled), false, '未来节点保留聚焦和点击反馈能力');
+      assert.equal(button.props['aria-disabled'], locked ? 'true' : undefined);
+      if (locked) {
+        assert.match(button.props.title, /尚未开放，请先完成“导入与核验”/);
+        assert.equal(button.props['aria-description'], button.props.title);
+      } else {
+        assert.equal(button.props.title, button.props['aria-label'], '开放节点截断时仍能读取完整标题');
+      }
       const icon = findNode(expandElementTree(children[0]), n => n.type === 'svg');
       assert.ok(icon, '每个阶段都有线性 SVG 图标');
       assert.equal(icon.props['aria-hidden'], true);
@@ -2087,16 +2333,19 @@ test('同一会话并发创建只产生一个 Host taskId，后续写操作保�
   let loaded;
   const previousFetch = globalThis.fetch;
   let createCalls = 0;
+  let createBody = null;
+  const sessionId = 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012';
   try {
-    globalThis.fetch = async () => {
+    globalThis.fetch = async (_path, options) => {
       createCalls += 1;
+      createBody = JSON.parse(options.body);
       await new Promise((resolve) => setTimeout(resolve, 5));
       return {
         ok: true,
         status: 200,
         json: async () => ({ task: {
           id: 'dcw-race-safe', revision: 0, title: '竞态测试',
-          originSessionId: 'session-race',
+          originSessionId: sessionId,
           objectives: [], fieldSelection: [], mappings: [],
         } }),
       };
@@ -2105,10 +2354,11 @@ test('同一会话并发创建只产生一个 Host taskId，后续写操作保�
     const { ensureWorkflowTask, queueWorkflowOperation } = loaded.exports.__testing;
     const actions = new Proxy({}, { get: () => () => {} });
     const tasks = await Promise.all([
-      ensureWorkflowTask(actions, 'session-race', { title: '任务 A' }),
-      ensureWorkflowTask(actions, 'session-race', { title: '任务 B' }),
+      ensureWorkflowTask(actions, sessionId, { title: '任务 A' }),
+      ensureWorkflowTask(actions, sessionId, { title: '任务 B' }),
     ]);
     assert.equal(createCalls, 1);
+    assert.equal(createBody.originSessionId, sessionId);
     assert.deepEqual(tasks.map((task) => task.id), ['dcw-race-safe', 'dcw-race-safe']);
 
     const order = [];
@@ -2181,10 +2431,12 @@ test('上传解析进入 taskId runtime，字段映射在规则确认页完成',
   const applyParsedEnd = source.indexOf('function WorkbenchContent', applyParsedStart);
   const applyParsedSource = source.slice(applyParsedStart, applyParsedEnd);
   assert.doesNotMatch(applyParsedSource, /setStep\('profile'\)/, '解析后必须留在上传映射页供用户确认字段');
+  assert.match(applyParsedSource, /workflowAction\([\s\S]*?'upload'[\s\S]*?'import'\)/,
+    '导入响应必须使用专用 reason，先保留完整结果核验页');
   assert.match(applyParsedSource, /runtimeFor\(taskId\)/);
-  assert.match(source, /actions\.setStep\('rules'\)/);
+  assert.match(source, /navigate\('rules'\)/);
   assert.match(source, /const \[intakeEditorOpen, setIntakeEditorOpen\] = react\.useState\(\(\) => dataset == null\)/);
-  assert.match(source, /const showIntakeEditor = !dataset \|\| intakeEditorOpen/);
+  assert.match(source, /const showIntakeEditor = canAction\('import-data'\) && \(!dataset \|\| intakeEditorOpen\)/);
   assert.match(source, /setIntakeEditorOpen\(dataset == null\)/, '成功导入后必须收起来源输入，数据缺失时重新展开');
   assert.match(source, /required: nameField \? \[nameField\] : \[\]/);
   assert.match(source, /dedupeOn: nameField \|\| null/);
@@ -2216,7 +2468,9 @@ test('T3 匹配核验页直接生成说明，不依赖手动检测估算或额�
     instance.actions.open();
     instance.actions.setStep('match');
     instance.actions.setDataset({ rowCount: 1, headers: ['name'], preview: [] });
-    instance.actions.setWorkflowTask({ id: 'dcw-match-test', state: 'diagnosed' });
+    instance.actions.setWorkflowTask(flowTask({ id: 'dcw-match-test', state: 'diagnosed' }, 'match', ['prepare-qcc-command'], {
+      upload: 'read', rules: 'read',
+    }));
     let panel = flattenElement(render(overlayReg.component, {}, instance));
 
     assert.ok(findNode(panel, (n) => n.children && n.children.includes('准备任务说明')));
@@ -2261,6 +2515,9 @@ test('规则页展示 40/58 两批字段并支持按工具维度全选与清空'
     instance.actions.open();
     instance.actions.setStep('rules');
     instance.actions.setDataset({ rowCount: 1, headers: ['name'], preview: [] });
+    instance.actions.setWorkflowTask(flowTask({ id: 'dcw-rules-test', state: 'uploaded' }, 'rules', ['edit-rules', 'confirm-rules'], {
+      upload: 'read',
+    }));
     const panel = flattenElement(render(overlayReg.component, {}, instance));
     assert.ok(findNode(panel, (n) => n.children && n.children.includes('第一批 40')));
     assert.ok(findNode(panel, (n) => n.children && n.children.includes('第二批 58')));

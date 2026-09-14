@@ -15,19 +15,17 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
   // Audited source changes: pass confirmed mappings, project empty-cell backfill,
   // preserve nonempty canonical input keys. Other source hashes remain frozen.
   Object.assign(golden.contract.unchanged, {
-    // v0.8.17: Host finalizes workbench artifacts; partial remains retryable.
-    // Image drafts retain sanitized source metadata, without advancing upload state.
-    // v0.9.8: reviewed immutable origin guards and safe Provider audit metadata.
-    'lib/workflow.js': '68544fe18efdaad99f42533e3cdbc20f45dc82749cbdfd851325ec7efaac9d30',
+    // v0.9.8 immutable origin guards are preserved alongside narrow workflow
+    // delivery/retry mutations; no generic transition API is introduced.
+    'lib/workflow.js': 'b9a0c09c9a57679c903ac8b4807fd1047077d53a79f4c1b783645cd886e5d92b',
     'lib/skill-enrich.js': '245f5b2b099d2242f1ddb4cafb6db3bb1d612911f929f3eb1f64e850dba9941b',
-    // Confirmed output mappings allow fan-out; identity anchors remain unique.
-    'lib/workflow-contract.js': '9816db761ddbb273f6e48307887e7d82710b60d7730db2325ac613583fb77acc',
+    // The versioned Host projection defines stage access and allowed actions,
+    // while origin metadata stays immutable and identity anchors stay unique.
+    'lib/workflow-contract.js': 'ffee0ef6b7e6e97bd12b14f30e01e21b955c1a9b8018cfaa7764ee773c898b08',
     // v0.8.14: draft-only staging drops billing checkbox; execution/legacy gates remain.
-    // Additive Host capability flags prevent new-client/old-Host staging errors.
-    // v0.8.21: derive artifact origin from actual browser request.
-    // Authorized image continuation binds a confirmed draft revision before Agent execution.
-    // Read-only artifact preview now uses a compact scroll grid with fixed headers.
-    'lib/web.js': '42ab153371903fdbca565d0cd8e24f07898c871619e78268fa5e212cbed0f20d',
+    // Workflow routes enforce both source ownership and Host action permissions;
+    // local delivery commits only after artifacts persist.
+    'lib/web.js': 'ce257541f7a47c2e04ab16937f9dcddda16ac55ad9b0f007a5cb8a884fd8fd61',
     // v0.8.20: normal absence notes are separate from actionable field issues.
     'lib/artifacts.js': '0ce08d0fba95d4c46b017caa3a7d4773482fa9f4397fd3ae2a592bca48d78e49',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.

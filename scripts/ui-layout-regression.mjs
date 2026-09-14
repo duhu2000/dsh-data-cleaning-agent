@@ -5,6 +5,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import assert from 'node:assert/strict';
+import { deriveWorkflowFlow } from '../lib/workflow-contract.js';
 const deps = resolve(process.env.DCQ_UI_DEPS || 'node_modules');
 const { build } = await import(pathToFileURL(join(deps, 'esbuild/lib/main.js')));
 const { chromium } = await import(pathToFileURL(join(resolve(process.env.DCQ_PLAYWRIGHT || join(deps, 'playwright')), 'index.mjs')));
@@ -28,7 +29,13 @@ try {
     let parseCalls = 0;
     let oldHost = false;
     let fixtureCommand = null;
+    const fixtureCommands = new Map();
+    let taskCreates = 0;
     const unexpectedRequests = [];
+    const taskView = task => task ? { ...task, flow: deriveWorkflowFlow(task), runtimeCapabilities: {
+      activeCommand: fixtureCommand?.state === 'prepared' || fixtureCommand?.state === 'running',
+      liveRunAvailable: Boolean(task.qccRunId), retryableFailuresAvailable: false,
+    } } : task;
     await page.route('**/*', async (route) => {
       const request = route.request();
       const url = new URL(request.url());
@@ -41,36 +48,57 @@ try {
         assert.equal(input.workflowOwned, true);
         assert.equal(input.expectedRevision, fixtureTask.revision);
         assert.deepEqual(input.fieldSelection, fixtureTask.fieldSelection);
-        fixtureCommand = { commandId: 'dcq-11111111-1111-4111-8111-111111111111', taskId: fixtureTask.id, state: 'prepared', prompt: '请执行已在「数据清洗补全工作台」确认的企业数据任务。安全任务凭证：dcq-11111111-1111-4111-8111-111111111111。调用 data_cleaning_qcc_run，生成新的 XLSX。' };
+        const commandId = `dcq-ui-${fixtureTask.id}`;
+        fixtureCommand = { commandId, taskId: fixtureTask.id, state: 'prepared', prompt: `请执行已在「数据清洗补全工作台」确认的企业数据任务。安全任务凭证：${commandId}。调用 data_cleaning_qcc_run，生成新的 XLSX。` };
+        fixtureCommands.set(commandId, fixtureCommand);
         return route.fulfill({ json: { command: fixtureCommand } });
       }
-      if (url.pathname === '/data-cleaning/api/g5/commands/dcq-11111111-1111-4111-8111-111111111111') return route.fulfill({ json: { command: fixtureCommand } });
-      if (url.pathname === base + '/dcw-ui-fixture' && request.method() === 'GET') return route.fulfill({ json: { task: fixtureTask } });
+      if (url.pathname.startsWith('/data-cleaning/api/g5/commands/dcq-ui-')) {
+        return route.fulfill({ json: { command: fixtureCommands.get(url.pathname.split('/').pop()) } });
+      }
+      if (url.pathname === base + '/' + fixtureTask?.id && request.method() === 'GET') return route.fulfill({ json: { task: taskView(fixtureTask) } });
       if (url.pathname === '/data-cleaning/api/mvp/parse') {
         parseCalls++;
         const data = request.postDataJSON();
         if (data.filename === 'broken.xlsx') return route.fulfill({ json: { ok: false, message: '测试文件无法解析' } });
+        if (data.filename === 'data.json') {
+          const rows = JSON.parse(data.content);
+          const headers = rows.length ? Object.keys(rows[0]) : [];
+          return route.fulfill({ json: { ok: true, fmt: 'json', headers, rows, preview: rows.slice(0, 5), rowCount: rows.length,
+            checksum: data.previousChecksum || 'sha256-canonical-rows-v1:00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000' } });
+        }
         if (data.filename === 'bank-template.xlsx') {
           const headers = ['公司名称','统一社会信用代码','注册号','企业类型','经营范围','注册资本','核准日期 YYYY-MM-DD','法定代表人','成立日期','企业状态','所属省份','所属市','所属区县','所属行业','注册地址','企业划型','主营业务','法定代表人（重复列 2）','邮编','主营业务收入','注册资本（重复列 2）','从业人数','实际控制人'];
           const rows = [Object.fromEntries(headers.map((key, i) => [key, i === 0 ? '合成测试企业' : '']))];
-          return route.fulfill({ json: { ok: true, fmt: 'xlsx', headers, rows, preview: rows, rowCount: 1 } });
+          return route.fulfill({ json: { ok: true, fmt: 'xlsx', headers, rows, preview: rows, rowCount: 1,
+            checksum: data.previousChecksum || 'sha256-canonical-rows-v1:00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000' } });
         }
         assert.equal(Buffer.from(data.content, 'base64').toString(), 'synthetic-xlsx-fixture');
         const rows = Array.from({ length: 23 }, (_, i) => ({ 企业名称: `合成企业${i + 1}` }));
-        return route.fulfill({ json: { ok: true, fmt: 'xlsx', headers: ['企业名称'], rowCount: 23, rows, preview: rows.slice(0, 5) } });
+        return route.fulfill({ json: { ok: true, fmt: 'xlsx', headers: ['企业名称'], rowCount: 23, rows, preview: rows.slice(0, 5),
+          checksum: data.previousChecksum || 'sha256-canonical-rows-v1:00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000' } });
       }
-      if (url.pathname === base && request.method() === 'GET') return route.fulfill({ json: { tasks: fixtureTask ? [fixtureTask] : [] } });
+      if (url.pathname === base && request.method() === 'GET') return route.fulfill({ json: { tasks: fixtureTask ? [taskView(fixtureTask)] : [] } });
+      if (url.pathname === base && request.method() === 'POST') {
+        const data = request.postDataJSON() || {};
+        taskCreates += 1;
+        fixtureTask = { id: taskCreates === 1 ? 'dcw-ui-fixture' : `dcw-ui-fixture-${taskCreates}`,
+          state: 'draft', stage: 'upload', artifacts: [],
+          createdAt: '2026-09-11T16:38:00+08:00', updatedAt: '2026-09-11T16:38:00+08:00',
+          ...data, revision: 1 };
+        return route.fulfill({ json: { task: taskView(fixtureTask) } });
+      }
       if (url.pathname.startsWith(base) && ['POST', 'PATCH'].includes(request.method())) {
         const data = request.postDataJSON() || {};
         fixtureTask = { id: 'dcw-ui-fixture', state: 'draft', stage: 'upload', artifacts: [], ...fixtureTask, ...data, revision: (fixtureTask?.revision || 0) + 1 };
         if (url.pathname.endsWith('/actions/upload')) fixtureTask.state = 'uploaded';
         if (url.pathname.endsWith('/actions/rules')) fixtureTask.state = 'rules_confirmed';
         if (url.pathname.endsWith('/actions/quality')) { fixtureTask.state = 'diagnosed'; fixtureTask.stage = 'match'; }
-        return route.fulfill({ json: { task: fixtureTask } });
+        return route.fulfill({ json: { task: taskView(fixtureTask) } });
       }
       if (url.pathname === '/data-cleaning/api/workflow/contract') return route.fulfill({ json: { contract: {} } });
       if (url.pathname === '/data-cleaning/api/mvp/jobs') return route.fulfill({ json: { jobs: [] } });
-      unexpectedRequests.push(request.url());
+      unexpectedRequests.push(`${request.method()} ${request.url()} (current=${fixtureTask?.id || 'none'})`);
       return route.abort();
     });
     await page.goto('http://dcq-ui.test/');
@@ -270,6 +298,8 @@ try {
     await page.getByRole('button', { name: '任务历史', exact: true }).click();
     const drawer = page.getByRole('region', { name: '数据清洗补全工作台' });
     assert.equal(await drawer.getByRole('navigation', { name: '清洗流程' }).count(), 0);
+    assert.equal(await drawer.getByRole('button', { name: '刷新任务历史', exact: true }).count(), 1);
+    assert.equal(await drawer.getByText('该步骤尚未开放，请先完成当前流程节点。', { exact: true }).count(), 0);
     await drawer.getByRole('button', { name: '当前任务', exact: true }).click();
     assert.equal(await drawer.getByRole('navigation', { name: '清洗流程' }).getByRole('button').count(), 5);
     const stageNav = drawer.getByRole('navigation', { name: '清洗流程' });
@@ -284,6 +314,12 @@ try {
             const label = button.querySelector('.dcAgentStepLabel');
             return { ...rect(button), icon: rect(icon), label: rect(label),
               text: button.textContent, name: button.getAttribute('aria-label'),
+              access: button.dataset.access,
+              nativeDisabled: button.disabled,
+              ariaDisabled: button.getAttribute('aria-disabled'),
+              title: button.getAttribute('title'),
+              cursor: getComputedStyle(button).cursor,
+              lockBody: getComputedStyle(icon, '::before').content,
               labelWhiteSpace: getComputedStyle(label).whiteSpace,
               children: button.children.length, svgCount: icon.querySelectorAll('svg').length,
               separator: getComputedStyle(button).borderRightWidth,
@@ -304,6 +340,15 @@ try {
         assert.equal(button.svgCount, 1);
         assert.equal(button.labelWhiteSpace, layout.workbenchWidth <= 520 ? 'normal' : 'nowrap');
         assert.equal(button.separator, index === 4 ? '0px' : '1px');
+        assert.equal(button.nativeDisabled, false, 'locked stages remain explainable and focusable');
+        if (button.access === 'locked') {
+          assert.equal(button.ariaDisabled, 'true');
+          assert.match(button.title, /尚未开放，请先完成/);
+          assert.equal(button.cursor, 'not-allowed');
+          assert.notEqual(button.lockBody, 'none', 'locked stage has a visible lock marker');
+        } else {
+          assert.equal(button.ariaDisabled, null);
+        }
         if (button.active) {
           assert.equal(button.underlineHeight, '3px');
           assert.equal(button.underline, colorScheme === 'light' ? 'rgb(8, 117, 209)' : 'rgb(130, 195, 255)');
@@ -327,57 +372,93 @@ try {
     await assertStageNavigation('normal');
     await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'diagnosed');
     assert.equal(await drawer.locator('.dcAgentError').count(), 0, 'fixture Host metadata successfully loaded');
+    const taskContext = drawer.locator('.dcAgentTaskContext');
+    const taskStatus = taskContext.locator('.dcAgentTaskStatus');
+    assert.equal(await taskContext.count(), 1, 'compact task context replaces the old progress card');
+    assert.equal(await taskStatus.getByText('主体匹配', { exact: true }).count(), 1);
+    assert.equal(await taskStatus.getByText('体检完成', { exact: true }).count(), 1);
+    assert.equal(await taskStatus.getByText('2026/9/11 16:38', { exact: true }).count(), 1);
+    assert.equal(await taskStatus.getByText('文本粘贴', { exact: true }).count(), 1);
+    assert.equal(await taskStatus.getByText('处理结果', { exact: true }).count(), 0, 'result metrics stay hidden before Host produces a summary');
+    assert.equal(await taskStatus.locator('.dcAgentTaskMetricGroup').count(), 1, 'pre-execution status only shows task scope');
+    const taskContextLayout = await taskContext.evaluate((context) => {
+      const status = context.querySelector('.dcAgentTaskStatus');
+      return {
+        contextFits: context.scrollWidth <= context.clientWidth + 1,
+        statusFits: status.scrollWidth <= status.clientWidth + 1,
+        statusHeight: status.getBoundingClientRect().height,
+        workbenchWidth: context.closest('.dcAgentWorkbenchContent').clientWidth,
+      };
+    });
+    assert.equal(taskContextLayout.contextFits, true, 'task context does not overflow horizontally');
+    assert.equal(taskContextLayout.statusFits, true, 'task status does not overflow horizontally');
+    assert.ok(taskContextLayout.statusHeight <= (taskContextLayout.workbenchWidth <= 520 ? 150 : 112), 'task status remains compact');
+    const workflowGuide = taskContext.locator('.dcAgentWorkflowGuide');
+    assert.equal(await workflowGuide.evaluate((guide) => guide.open), false, 'workflow guide is collapsed by default');
+    await workflowGuide.locator('summary').click();
+    assert.equal(await workflowGuide.evaluate((guide) => guide.open), true);
+    assert.equal(await workflowGuide.locator('.dcAgentWorkflowGuideStep').count(), 5);
+    assert.equal(await workflowGuide.getByText(/发送说明或显式重试时/).count(), 1);
+    assert.equal(await workflowGuide.evaluate((guide) => guide.scrollWidth <= guide.clientWidth + 1), true, 'expanded workflow guide does not overflow');
+    await workflowGuide.locator('summary').click();
+    await page.locator('.dcAgentCapabilityMount').getByRole('button', { name: '字段补全', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.store.getSnapshot().step), 'match', 'locked shortcut returns to the Host current stage');
+    assert.equal(await drawer.getByText('流程提示：“字段补全”尚未开放，请先完成“主体匹配”。', { exact: true }).count(), 1);
+    assert.equal(await drawer.locator('.dcAgentNavigationNotice').count(), 1, 'locked navigation uses an informational notice');
+    await page.locator('.dcAgentCapabilityMount').getByRole('button', { name: '匹配核验', exact: true }).click();
+    assert.equal(await drawer.locator('.dcAgentError').count(), 0, 'opening the current stage clears the navigation warning');
     await stageNav.getByRole('button', { name: '导入与核验', exact: true }).click();
     assert.equal(await drawer.locator('.dcAgentTable th').first().evaluate(el => getComputedStyle(el).backgroundColor), colorScheme === 'light' ? 'rgb(242, 249, 252)' : 'rgb(23, 44, 59)');
+    assert.equal(await drawer.getByRole('button', { name: '重新导入', exact: true }).count(), 0, 'historical upload is strictly read-only');
+    assert.equal(await drawer.getByLabel('选择数据文件', { exact: true }).count(), 0);
+    assert.equal(await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).count(), 0);
+    assert.equal(await taskStatus.locator('.dcAgentTaskStageTitle').getByText('导入与核验', { exact: true }).count(), 1);
+    assert.equal(await taskStatus.locator('.dcAgentTaskState').getByText('已完成', { exact: true }).count(), 1);
+    assert.equal(await taskStatus.locator('.dcAgentTaskCurrent').getByText('主体匹配', { exact: true }).count(), 1);
+    assert.equal(await taskStatus.getByRole('button', { name: '回到当前节点', exact: true }).count(), 1);
+    assert.equal(await drawer.getByText(/正在只读查看历史步骤|只读回看|回看/).count(), 0);
+    assert.equal(await stageNav.getByRole('button', { name: '字段补全', exact: true }).getAttribute('aria-disabled'), 'true');
+    assert.equal(await stageNav.getByRole('button', { name: '结果下载', exact: true }).getAttribute('aria-disabled'), 'true');
+    await taskStatus.getByRole('button', { name: '回到当前节点', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.store.getSnapshot().step), 'match', 'return action restores the Host current stage');
+
+    // A new dataset creates a fresh task; source replacement remains available only on its current rules page.
+    await page.evaluate(() => {
+      const rows = Array.from({ length: 23 }, (_, i) => ({ 企业名称: `合成企业${i + 1}` }));
+      document.dispatchEvent(new CustomEvent('dsh:data-cleaning-workbench-dataset', {
+        cancelable: true,
+        detail: { sessionId: 'fixture', result: { ok: true, fmt: 'xlsx', headers: ['企业名称'],
+          rowCount: rows.length, rows, preview: rows.slice(0, 5),
+          checksum: 'sha256-canonical-rows-v1:00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000' },
+          source: { type: 'xlsx', fileName: '测试名单.xlsx' } },
+      }));
+    });
+    await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'uploaded'
+      && window.store.getSnapshot().dataset?.rowCount === 23);
+    assert.equal(await page.evaluate(() => window.store.getSnapshot().step), 'upload', 'import keeps the full result review visible');
+    const confirmImport = drawer.locator('.dcAgentUploadActions').getByRole('button', { name: '确认名单，进入规则与体检', exact: true });
+    assert.equal(await confirmImport.count(), 1);
+    assert.equal(await taskStatus.getByRole('button', { name: '确认名单，进入规则与体检', exact: true }).count(), 0);
+    const importedReview = drawer.locator('.dcAgentDatasetPreview[aria-label="导入原始清单"]');
+    assert.equal(await importedReview.count(), 1);
+    const [reviewBox, confirmBox] = await Promise.all([importedReview.evaluate(el => el.getBoundingClientRect().toJSON()), confirmImport.evaluate(el => el.getBoundingClientRect().toJSON())]);
+    assert.ok(confirmBox.top >= reviewBox.bottom - 1, 'import confirmation stays after the full data preview');
+    await confirmImport.click();
+    assert.equal(await page.evaluate(() => window.store.getSnapshot().step), 'rules');
     const reimport = drawer.getByRole('button', { name: '重新导入', exact: true });
-    assert.equal(await drawer.getByLabel('选择数据文件', { exact: true }).count(), 0, 'restored data keeps intake controls collapsed');
-    assert.equal(await reimport.count(), 1);
+    assert.equal(await reimport.count(), 1, 'source replacement is on the current rules page');
     await reimport.click();
-    // File bytes are a synthetic Host fixture; this checks input/remount wiring,
-    // not XLSX decoding (covered separately by engine tests).
     const picker = drawer.getByLabel('选择数据文件', { exact: true });
     const file = { name: '测试名单.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('synthetic-xlsx-fixture') };
-    await picker.setInputFiles(file);
-    await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).waitFor();
-    await page.waitForFunction(() => !window.store.getSnapshot().busy);
-    assert.equal(parseCalls, 1);
-    assert.deepEqual(await page.evaluate(() => window.store.getSnapshot().workflowTask.fieldSelection), ['company_name'], 'uploaded columns define the saved completion scope, not the old default five');
-    assert.equal(await drawer.getByLabel('选择数据文件', { exact: true }).count(), 0, 'file picker hides after successful import');
-    assert.equal(await drawer.getByRole('button', { name: '图片识别（粘贴 / 选择）', exact: true }).count(), 0, 'image intake hides after successful import');
-    assert.equal(await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).count(), 0, 'paste intake hides after successful import');
-    assert.equal(await drawer.getByRole('button', { name: '解析数据', exact: true }).count(), 0, 'paste action hides with the intake editor');
-    assert.ok((await drawer.getByLabel('当前导入数据').textContent()).includes('测试名单.xlsx'));
-    assert.equal(await reimport.count(), 1, 'successful import exposes a single reimport entry');
-    const uploadActions = drawer.locator('.dcAgentUploadActions');
-    assert.equal(await uploadActions.getByRole('button').count(), 2, 'imported state keeps reimport and next step as two footer actions');
-    const nextFromUpload = uploadActions.getByRole('button', { name: '已核对清单，下一步：字段映射与规则' });
-    assert.ok((await nextFromUpload.getAttribute('class')).includes('is-primary'), 'next step remains the primary footer action');
-    await nextFromUpload.click();
-    await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
-    assert.equal(await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).count(), 1);
-    assert.equal(await drawer.locator('.dcAgentError').count(), 0);
-    assert.equal(await picker.count(), 0, 'returning to the import step keeps intake controls collapsed');
-    await reimport.click();
-    assert.equal(await picker.count(), 1);
-    assert.equal(await picker.inputValue(), '', 'native chooser reset permits selecting the same file; status comes from dataset');
     await picker.setInputFiles({ ...file, name: 'broken.xlsx' });
     await page.waitForFunction(() => !window.store.getSnapshot().busy && Boolean(window.store.getSnapshot().error));
-    assert.equal(await drawer.getByRole('heading', { name: '已解析 23 条数据', exact: true }).count(), 1, 'failed replacement preserves loaded data');
-    assert.equal(await picker.count(), 1, 'failed replacement keeps reimport controls available for retry');
+    assert.equal(await page.evaluate(() => window.store.getSnapshot().dataset.rowCount), 23, 'failed replacement preserves loaded data');
+    assert.equal(await picker.count(), 1);
     await picker.setInputFiles(file);
     await page.waitForFunction(() => !window.store.getSnapshot().busy && !window.store.getSnapshot().error);
-    assert.equal(parseCalls, 3, 'same file can be selected again after reset');
-    assert.equal(await picker.count(), 0, 'successful replacement collapses reimport controls');
-    await reimport.click();
-    await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).fill('待解析的新名单');
-    assert.equal(await drawer.getByRole('button', { name: '已核对清单，下一步：字段映射与规则' }).isDisabled(), true);
-    await drawer.getByRole('button', { name: '解析数据', exact: true }).click();
-    await page.waitForFunction(() => !window.store.getSnapshot().busy && window.store.getSnapshot().dataset?.rowCount === 1);
-    assert.equal(await drawer.getByRole('textbox', { name: '粘贴数据', exact: true }).count(), 0, 'successful paste replacement collapses reimport controls');
-    assert.equal(parseCalls, 3, 'plain entity list is parsed locally');
-    await reimport.click();
-    await picker.setInputFiles(file);
-    await page.waitForFunction(() => !window.store.getSnapshot().busy && window.store.getSnapshot().dataset?.rowCount === 23);
+    await drawer.locator('.dcAgentTaskMeta').getByText('测试名单.xlsx', { exact: true }).waitFor();
+    assert.ok(parseCalls >= 3, 'text import and replacement both use the Host parser');
+    await stageNav.getByRole('button', { name: '导入与核验', exact: true }).click();
     const datasetReview = drawer.locator('.dcAgentDatasetPreview[aria-label="导入原始清单"]');
     assert.equal(await datasetReview.count(), 1, 'imported data uses the dedicated dataset surface');
     const assertDatasetLayout = async (expectedMode) => {
@@ -519,10 +600,16 @@ try {
     assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 136);
     await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
     const beforeNavigation = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
-    for (const name of ['主体匹配', '字段补全', '结果下载', '导入与核验']) {
-      await stageNav.getByRole('button', { name, exact: true }).click();
-      assert.equal(await stageNav.getByRole('button', { name, exact: true }).getAttribute('aria-current'), 'step');
+    for (const name of ['主体匹配', '字段补全', '结果下载']) {
+      assert.equal(await stageNav.getByRole('button', { name, exact: true }).getAttribute('aria-disabled'), 'true', `${name} stays locked`);
     }
+    await stageNav.getByRole('button', { name: '结果下载', exact: true }).click({ force: true });
+    assert.equal(await page.evaluate(() => window.store.getSnapshot().step), 'rules', 'locked stage click keeps the Host current stage');
+    assert.equal(await drawer.getByText('流程提示：“结果下载”尚未开放，请先完成“规则与体检”。', { exact: true }).count(), 1);
+    await stageNav.getByRole('button', { name: '导入与核验', exact: true }).click();
+    assert.equal(await stageNav.getByRole('button', { name: '导入与核验', exact: true }).getAttribute('aria-current'), 'step');
+    await stageNav.getByRole('button', { name: '规则与体检', exact: true }).click();
+    assert.equal(await stageNav.getByRole('button', { name: '规则与体检', exact: true }).getAttribute('aria-current'), 'step');
     assert.equal(await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask)), beforeNavigation, 'navigation does not mutate or execute Host task');
     const taskBeforeHostChanges = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
     assert.equal(await drawer.getByRole('separator').count(), 0);
@@ -630,7 +717,12 @@ try {
       const snapshot = window.store.getSnapshot();
       document.dispatchEvent(new CustomEvent('dsh:data-cleaning-workbench-open', { detail: {
         sessionId: snapshot.activeSessionId, step: 'match',
-        task: { ...snapshot.workflowTask, id: 'dcw-ui-fixture', state: 'diagnosed', fieldSelection: snapshot.fieldSelection, mappings: snapshot.mappings },
+        task: { ...snapshot.workflowTask, state: 'diagnosed', stage: 'match',
+          fieldSelection: snapshot.fieldSelection, mappings: snapshot.mappings,
+          flow: { flowVersion: 1, currentStage: 'match',
+            stageAccess: { upload: 'read', rules: 'read', match: 'current', enrich: 'locked', download: 'locked' },
+            allowedActions: ['prepare-qcc-command'], nextAction: 'prepare-qcc-command' },
+          runtimeCapabilities: { activeCommand: false, liveRunAvailable: false, retryableFailuresAvailable: false } },
       } }));
     });
     const generateDescription = drawer.getByRole('button', { name: '生成可编辑任务说明', exact: true });
@@ -771,10 +863,14 @@ try {
       artifacts: [{ id: 'dca-ui-fixture', kind: 'complete', format: 'xlsx', fileName: '清洗补全结果.xlsx', rowCount: 1 }] };
     fixtureCommand = { ...fixtureCommand, state: 'completed',
       run: { runId: 'g5-ui-fixture', rows: [{ 公司名称: '合成测试企业' }], summary: { totalRows: 1, enriched: 1 } } };
+    fixtureCommands.set(fixtureCommand.commandId, fixtureCommand);
     await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'completed');
     assert.equal(await drawer.isVisible(), false, 'completion cannot undo manual collapse');
     await page.getByRole('button', {name:'任务历史',exact:true}).click();
     await drawer.waitFor({state:'visible'});
+    assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('处理结果', { exact: true }).count(), 1);
+    assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('1/1 条', { exact: true }).count(), 1);
+    assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('0 条', { exact: true }).count(), 2);
     await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
     const resultGridLayout = await drawer.locator('.dcAgentGrid').evaluate(grid => {

@@ -2,9 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FIELD_CATALOG,
+  FLOW_VERSION,
   INPUT_ONLY_MAPPING_FIELDS,
+  WORKFLOW_ACTIONS,
   WORKFLOW_STAGES,
+  WORKFLOW_STATES,
   assertWorkflowTransition,
+  deriveWorkflowFlow,
   normalizeWorkflowDraft,
   publicWorkflowContract,
   validateMappings,
@@ -117,6 +121,49 @@ test('工作流状态转换阻止跳过上传与规则确认', () => {
     () => assertWorkflowTransition('draft', 'matched'),
     { code: 'DC_WORKFLOW_TRANSITION' },
   );
+  assert.throws(
+    () => assertWorkflowTransition('rules_confirmed', 'matching'),
+    { code: 'DC_WORKFLOW_TRANSITION' },
+  );
+});
+
+test('Host flow 投影覆盖全部状态并由 objectives 决定 diagnosed 分流', () => {
+  const base = { stage: 'upload', objectives: [], artifacts: [] };
+  for (const state of WORKFLOW_STATES) {
+    const flow = deriveWorkflowFlow({ ...base, state });
+    assert.equal(flow.flowVersion, FLOW_VERSION);
+    assert.ok(WORKFLOW_STAGES.some((stage) => stage.id === flow.currentStage), state);
+    assert.equal(flow.stageAccess[flow.currentStage], 'current', state);
+  }
+
+  const rules = deriveWorkflowFlow({ ...base, state: 'rules_confirmed', stage: 'match' });
+  assert.equal(rules.currentStage, 'rules');
+  assert.deepEqual(rules.allowedActions, [WORKFLOW_ACTIONS.RUN_QUALITY]);
+
+  const qcc = deriveWorkflowFlow({ ...base, state: 'diagnosed', objectives: ['complete_fields'] });
+  assert.equal(qcc.currentStage, 'match');
+  assert.deepEqual(qcc.allowedActions, [WORKFLOW_ACTIONS.PREPARE_QCC_COMMAND]);
+
+  const local = deriveWorkflowFlow({ ...base, state: 'diagnosed', objectives: ['deduplicate'], fieldSelection: ['legal_rep'] });
+  assert.equal(local.currentStage, 'enrich', '残留 fieldSelection 不能把本地任务分到 QCC');
+  assert.equal(local.stageAccess.match, 'locked');
+});
+
+test('stageAccess 支持非线性只读页面，不由当前节点序号推导', () => {
+  const flow = deriveWorkflowFlow({
+    state: 'review_required', stage: 'match', objectives: ['complete_fields'],
+    source: { rowCount: 1 }, matchSummary: { reviewRequired: 1 },
+    enrichmentSummary: { completed: 0, failed: 1 }, qccRunId: 'g5-test',
+    artifacts: [{ id: 'dca-existing' }],
+  });
+  assert.equal(flow.currentStage, 'match');
+  assert.equal(flow.stageAccess.match, 'current');
+  assert.equal(flow.stageAccess.enrich, 'read');
+  assert.equal(flow.stageAccess.download, 'read');
+  assert.deepEqual(flow.allowedActions, [WORKFLOW_ACTIONS.RESOLVE_CANDIDATE]);
+  const contract = publicWorkflowContract();
+  assert.equal(contract.flowVersion, FLOW_VERSION);
+  assert.deepEqual(contract.stageAccessModes, ['current', 'read', 'locked']);
 });
 
 test('任务草稿只接受受支持的目标和字段', () => {

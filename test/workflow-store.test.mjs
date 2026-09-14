@@ -99,6 +99,8 @@ test('Host 工作流完成五步闭环并仅持久化安全元数据', async () 
   const storage = memoryStorageDomain();
   const store = await createStore(storage);
   let task = await store.create({
+    originSessionId: 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012',
+    originWorkspaceId: 'workspace-dsh',
     title: '供应商清洗',
     rows: [{ 企业名称: '不得持久化有限公司' }],
     content: '不得持久化有限公司',
@@ -106,6 +108,8 @@ test('Host 工作流完成五步闭环并仅持久化安全元数据', async () 
   });
   assert.equal(task.state, 'draft');
   assert.equal(task.stage, 'upload');
+  assert.equal(task.originSessionId, 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012');
+  assert.equal(task.originWorkspaceId, 'workspace-dsh');
 
   task = await store.recordUpload(task.id, {
     expectedRevision: task.revision,
@@ -248,13 +252,9 @@ test('本地规则链路可直接进入导出，并原子登记制品清单', as
     expectedRevision: task.revision,
     summary: { total: 2, valid: 2 },
   });
-  task = await store.prepareLocalExport(task.id, {
+  task = await store.completeLocalDelivery(task.id, {
     expectedRevision: task.revision,
     summary: { total: 2, completed: 2 },
-  });
-  assert.equal(task.state, 'export_ready');
-  task = await store.recordExport(task.id, {
-    expectedRevision: task.revision,
     artifacts: [
       { id: 'dca-local-0001', kind: 'complete', format: 'csv', fileName: '结果.csv', rowCount: 2, sizeBytes: 42, checksum: 'sha256:a' },
       { id: 'dca-local-0002', kind: 'review', format: 'xlsx', fileName: '异常.xlsx', rowCount: 0, sizeBytes: 7100, checksum: 'sha256:b' },
@@ -266,35 +266,56 @@ test('本地规则链路可直接进入导出，并原子登记制品清单', as
   await store.dispose();
 });
 
-test('匹配候选确认与失败重试可从 partial 回到 export_ready', async () => {
+test('partial 通过专用提交更新结果，不伪造新的匹配与补全阶段', async () => {
   const store = await createStore(memoryStorageDomain(), ['dcw-retry-0001']);
   let task = await store.create({ title: '重试任务' });
   task = await store.recordUpload(task.id, { expectedRevision: task.revision, source: { rowCount: 3, headers: ['企业名称'] } });
   task = await store.confirmRules(task.id, {
     expectedRevision: task.revision,
     mappings: [{ sourceField: '企业名称', targetField: 'company_name' }],
+    objectives: ['complete_fields'],
   });
+  task = await store.recordQuality(task.id, { expectedRevision: task.revision, summary: { total: 3, valid: 3 } });
   task = await store.startMatch(task.id, { expectedRevision: task.revision });
-  task = await store.recordMatch(task.id, {
+  task = await store.completeQccDelivery(task.id, {
     expectedRevision: task.revision,
-    summary: { total: 3, exact: 1, candidate: 1, failed: 1, reviewRequired: 1 },
-  });
-  assert.equal(task.state, 'review_required');
-  task = await store.recordMatch(task.id, {
-    expectedRevision: task.revision,
-    summary: { total: 3, exact: 1, confirmed: 1, failed: 1, reviewRequired: 0 },
-  });
-  task = await store.startEnrichment(task.id, { expectedRevision: task.revision });
-  task = await store.recordEnrichment(task.id, {
-    expectedRevision: task.revision,
-    summary: { total: 3, completed: 2, failed: 1 },
+    qccRunId: 'g5-retry',
+    matchSummary: { total: 3, exact: 2, failed: 1, reviewRequired: 0 },
+    enrichmentSummary: { total: 3, completed: 2, failed: 1 },
+    artifacts: [{ id: 'dca-partial-0001', kind: 'complete', format: 'xlsx', fileName: '部分结果.xlsx', rowCount: 3 }],
   });
   assert.equal(task.state, 'partial');
-  task = await store.startEnrichment(task.id, { expectedRevision: task.revision });
-  task = await store.recordEnrichment(task.id, {
+  assert.equal(task.stage, 'download');
+  assert.equal(task.artifacts.length, 1);
+  await assert.rejects(() => store.startMatch(task.id, { expectedRevision: task.revision }), { code: 'DC_WORKFLOW_TRANSITION' });
+
+  task = await store.completeRetryDelivery(task.id, {
     expectedRevision: task.revision,
-    summary: { total: 3, completed: 3, failed: 0 },
+    qccRunId: 'g5-retry',
+    matchSummary: { total: 3, exact: 3, reviewRequired: 0 },
+    enrichmentSummary: { total: 3, completed: 3, failed: 0 },
+    artifacts: [{ id: 'dca-complete-0002', kind: 'complete', format: 'xlsx', fileName: '完整结果.xlsx', rowCount: 3 }],
   });
-  assert.equal(task.state, 'export_ready');
+  assert.equal(task.state, 'completed');
+  assert.equal(task.artifacts.length, 2);
+  await store.dispose();
+});
+
+test('partial 重试产生新候选时回到 match，并保留已有下载', async () => {
+  const store = await createStore(memoryStorageDomain(), ['dcw-retry-review']);
+  let task = await store.create({ title: '候选重试', objectives: ['complete_fields'], fieldSelection: ['legal_rep'] });
+  task = await store.recordUpload(task.id, { expectedRevision: task.revision, source: { rowCount: 1, headers: ['企业名称'] } });
+  task = await store.confirmRules(task.id, { expectedRevision: task.revision,
+    objectives: ['complete_fields'], mappings: [{ sourceField: '企业名称', targetField: 'company_name' }] });
+  task = await store.recordQuality(task.id, { expectedRevision: task.revision, summary: { total: 1, valid: 1 } });
+  task = await store.startMatch(task.id, { expectedRevision: task.revision });
+  task = await store.completeQccDelivery(task.id, { expectedRevision: task.revision, qccRunId: 'g5-review',
+    matchSummary: { total: 1, failed: 1 }, enrichmentSummary: { total: 1, failed: 1 },
+    artifacts: [{ id: 'dca-existing-0001', kind: 'complete', format: 'xlsx', fileName: '已有结果.xlsx', rowCount: 1 }] });
+  task = await store.recordRetryReview(task.id, { expectedRevision: task.revision, qccRunId: 'g5-review',
+    summary: { total: 1, candidate: 1, reviewRequired: 1 } });
+  assert.equal(task.state, 'review_required');
+  assert.equal(task.stage, 'match');
+  assert.equal(task.artifacts.length, 1);
   await store.dispose();
 });

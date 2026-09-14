@@ -131,7 +131,11 @@ test('工作流任务 API 按 taskId 创建、推进、读取和恢复元数据'
   let res = await invoke(app, collectionRoute, {
     method: 'POST',
     url: collectionRoute,
-    body: { title: 'UI v2 验收任务', fieldSelection: ['legal_rep'] },
+    body: {
+      title: 'UI v2 验收任务',
+      objectives: ['complete_fields'],
+      fieldSelection: ['legal_rep'],
+    },
   });
   assert.equal(res.status, 201);
   let task = res.json().task;
@@ -158,14 +162,24 @@ test('工作流任务 API 按 taskId 创建、推进、读取和恢复元数据'
   });
   task = res.json().task;
   assert.equal(task.state, 'rules_confirmed');
+  assert.equal(task.flow.currentStage, 'rules');
+
+  res = await invoke(app, collectionRoute, {
+    method: 'POST',
+    url: `${collectionRoute}/${task.id}/actions/quality`,
+    body: { expectedRevision: task.revision, summary: { total: 2, valid: 2 } },
+  });
+  task = res.json().task;
+  assert.equal(task.state, 'diagnosed');
+  assert.equal(task.flow.currentStage, 'match');
+  assert.deepEqual(task.flow.allowedActions, ['prepare-qcc-command']);
 
   res = await invoke(app, collectionRoute, {
     method: 'POST',
     url: `${collectionRoute}/${task.id}/actions/match-start`,
     body: { expectedRevision: task.revision },
   });
-  task = res.json().task;
-  assert.equal(task.state, 'matching');
+  assert.equal(res.status, 404, 'Client 不能写入 Host lifecycle 摘要状态');
 
   res = await invoke(app, collectionRoute, {
     method: 'GET',
@@ -173,7 +187,7 @@ test('工作流任务 API 按 taskId 创建、推进、读取和恢复元数据'
   });
   assert.equal(res.status, 200);
   assert.equal(res.json().task.id, task.id);
-  assert.equal(res.json().task.state, 'matching');
+  assert.equal(res.json().task.state, 'diagnosed');
 
   res = await invoke(app, collectionRoute, { method: 'GET', url: collectionRoute });
   assert.equal(res.status, 200);
@@ -230,6 +244,51 @@ test('Session-scoped task HTTP writes require matching origin; Profile history r
   const history = await invoke(app,route,{method:'GET',url:route});
   assert.equal(history.json().tasks[0].originSessionId,'session-A');
   assert.equal(history.json().tasks[0].title,'来源会话编辑');
+  app.dispose();
+});
+
+test('解析接口返回带随机盐的 canonical rows verifier，并可校验同源重载', async () => {
+  const app = harness();
+  const route = '/data-cleaning/api/mvp/parse';
+  const source = { filename: 'companies.csv', content: '企业名称\n甲公司\n乙公司' };
+  const first = await invoke(app, route, { method: 'POST', url: route, body: source });
+  assert.equal(first.status, 200);
+  const checksum = first.json().checksum;
+  assert.match(checksum, /^sha256-canonical-rows-v1:[a-f0-9]{32}:[a-f0-9]{64}$/);
+  const same = await invoke(app, route, { method: 'POST', url: route,
+    body: { ...source, previousChecksum: checksum } });
+  assert.equal(same.json().checksum, checksum);
+  const changed = await invoke(app, route, { method: 'POST', url: route,
+    body: { ...source, content: '企业名称\n甲公司\n丙公司', previousChecksum: checksum } });
+  assert.notEqual(changed.json().checksum, checksum);
+  app.dispose();
+});
+
+test('本地制品写入失败不提前推进 Workflow', async () => {
+  const fs = memoryFs();
+  fs.writeText = async () => { throw new Error('disk full'); };
+  const app = harness({ storageDomain: memoryStorageDomain(), fs });
+  const route = '/data-cleaning/api/workflow/tasks';
+  let res = await invoke(app, route, { method: 'POST', url: route,
+    body: { title: '本地原子交付', objectives: ['clean_name'] } });
+  let task = res.json().task;
+  for (const [action, body] of [
+    ['upload', { source: { type: 'csv', rowCount: 1, headers: ['企业名称'] } }],
+    ['rules', { objectives: ['clean_name'], mappings: [{ sourceField: '企业名称', targetField: 'company_name' }] }],
+    ['quality', { summary: { total: 1, valid: 1 } }],
+  ]) {
+    res = await invoke(app, route, { method: 'POST', url: `${route}/${task.id}/actions/${action}`,
+      body: { ...body, expectedRevision: task.revision } });
+    task = res.json().task;
+  }
+  const revision = task.revision;
+  res = await invoke(app, route, { method: 'POST', url: `${route}/${task.id}/artifacts`,
+    body: { expectedRevision: revision, headers: ['企业名称'], rows: [{ 企业名称: '甲公司' }], summary: { total: 1, completed: 1 } } });
+  assert.equal(res.status, 500);
+  const restored = await invoke(app, route, { method: 'GET', url: `${route}/${task.id}` });
+  assert.equal(restored.json().task.state, 'diagnosed');
+  assert.equal(restored.json().task.stage, 'enrich');
+  assert.equal(restored.json().task.revision, revision);
   app.dispose();
 });
 
