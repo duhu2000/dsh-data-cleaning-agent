@@ -85,6 +85,78 @@ function sessionFixture(exports, sessionId) {
   return { options: { store: { create: () => store } }, component: exports.__testing.WorkbenchContent };
 }
 
+test('successful submissions reveal once, preserve manual collapse and never target another Session', async () => {
+  try {
+    const { exports } = loadClient();
+    const api = exports.__testing;
+    const command = 'dcq-11111111-1111-4111-8111-111111111111';
+    const prompt = `安全任务凭证：${command}`;
+    let current = 's1', opens = 0, sends = 0, fail = false;
+    let nodes = [{ kind: 'user', text: '历史消息' }];
+    let sessionListener = () => {}, listListener = () => {};
+    const sessions = {
+      list: { getSnapshot: () => ({current}), subscribe: cb => { listListener = cb; return () => { listListener = () => {}; }; } },
+      binding: () => ({session: {getSnapshot: () => ({nodes}), subscribe: cb => { sessionListener = cb; return () => { sessionListener = () => {}; }; }}}),
+      scope: () => ({get: () => ({send: async () => { sends++; if (fail) throw new Error('send failed'); }})}),
+    };
+    const service = {features: ['targetedOpen','stateSubscription'], registerTab: () => () => {},
+      subscribeState: () => () => {}, getSnapshot: () => ({sessionId:current}),
+      isTabEnabled: () => true, openTab: () => { opens++; }};
+    api.markCleaningSession('s1');
+    const release = api.installSessionWorkbench({sessions, betterSidebar:service});
+    const controller = document[Symbol.for('dsh.data-cleaning.session-workbench')].controller;
+    sessionListener();
+    assert.equal(opens, 0, 'mount and old transcript do not open');
+    await api.sendQccAgentCommand({sessions}, 's1', prompt);
+    assert.equal(sends, 1); assert.equal(opens, 1);
+    nodes = [...nodes, {kind:'message', message:{role:'user',content:[{type:'text',text:prompt}]}}];
+    sessionListener();
+    controller.revealSubmitted('s1', command, 'match');
+    assert.equal(opens, 1, 'transcript and later polling do not undo manual collapse');
+    fail = true;
+    await assert.rejects(api.sendQccAgentCommand({sessions}, 's1', prompt.replace(/11111111/, '22222222')), /send failed/);
+    assert.equal(opens, 1);
+    current = 's2'; listListener();
+    controller.revealSubmitted('s1', 'dcq-background');
+    assert.equal(opens, 1, 'late owner response does not open in another Session');
+    current = 's1'; listListener();
+    controller.revealSubmitted('s1', 'dcq-background');
+    assert.equal(opens, 1, 'returning does not replay an old background event');
+    nodes = [...nodes, {kind:'message',message:{role:'user',content:'开始新的清洗任务'}}];
+    sessionListener();
+    assert.equal(opens, 2, 'new native user submission opens');
+    sessionListener();
+    assert.equal(opens, 2, 'unchanged state does not reopen');
+    release();
+  } finally { cleanupGlobals(); }
+});
+
+test('native admission waits for observed retirement, preserves Host callbacks and restores its method', () => {
+  try {
+    const api = loadClient().exports.__testing;
+    let submitted, opens = 0, callbacks = 0;
+    const handle = {requestId:'rpc-1'};
+    const face = {beginSubmission(input) { submitted = input; return handle; }};
+    const original = face.beginSubmission;
+    const sessions = { list:{getSnapshot:()=>({current:'native'})}, binding:()=>({session:face}) };
+    api.markCleaningSession('native');
+    const release = api.installSubmittedWorkbenchBridge({sessions}, {revealSubmitted:()=>{ opens++; }});
+    const input = {text:'开始任务', images:[], mode:'queue', onRetire:()=>{ callbacks++; }};
+    assert.equal(face.beginSubmission(input), handle);
+    assert.equal(opens, 0, 'starting submission is not acceptance');
+    submitted.onRetire({reason:'failed'});
+    assert.equal(opens, 0); assert.equal(callbacks, 1);
+    face.beginSubmission(input);
+    submitted.onRetire({reason:'observed'});
+    assert.equal(opens, 1); assert.equal(callbacks, 2);
+    submitted.onRetire({reason:'observed'});
+    assert.equal(opens, 1, 'plain submissions also reveal only once');
+    assert.equal(callbacks, 3, 'Host callback remains intact');
+    release();
+    assert.equal(face.beginSubmission, original);
+  } finally { cleanupGlobals(); }
+});
+
 test('restart rejects stale B-to-A binding and legacy origin; source-session navigation never binds history', async () => {
   const previousFetch = globalThis.fetch;
   try {

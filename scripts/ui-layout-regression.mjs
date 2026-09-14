@@ -41,10 +41,10 @@ try {
         assert.equal(input.workflowOwned, true);
         assert.equal(input.expectedRevision, fixtureTask.revision);
         assert.deepEqual(input.fieldSelection, fixtureTask.fieldSelection);
-        fixtureCommand = { commandId: 'dcq-ui-fixture', taskId: fixtureTask.id, state: 'prepared', prompt: '请执行已在「数据清洗补全工作台」确认的企业数据任务。安全任务凭证：dcq-ui-fixture。调用 data_cleaning_qcc_run，生成新的 XLSX。' };
+        fixtureCommand = { commandId: 'dcq-11111111-1111-4111-8111-111111111111', taskId: fixtureTask.id, state: 'prepared', prompt: '请执行已在「数据清洗补全工作台」确认的企业数据任务。安全任务凭证：dcq-11111111-1111-4111-8111-111111111111。调用 data_cleaning_qcc_run，生成新的 XLSX。' };
         return route.fulfill({ json: { command: fixtureCommand } });
       }
-      if (url.pathname === '/data-cleaning/api/g5/commands/dcq-ui-fixture') return route.fulfill({ json: { command: fixtureCommand } });
+      if (url.pathname === '/data-cleaning/api/g5/commands/dcq-11111111-1111-4111-8111-111111111111') return route.fulfill({ json: { command: fixtureCommand } });
       if (url.pathname === base + '/dcw-ui-fixture' && request.method() === 'GET') return route.fulfill({ json: { task: fixtureTask } });
       if (url.pathname === '/data-cleaning/api/mvp/parse') {
         parseCalls++;
@@ -140,7 +140,10 @@ try {
       window.hostCloseTab = () => { const entry = stateFor(activeSession); entry.tab = null; entry.state = {...entry.state,splits:{kind:'leaf',tabs:[]}}; emit(); };
       window.hostCollapse = () => { const entry = stateFor(activeSession); entry.state = {...entry.state,panelOpen:false}; emit(); };
       window.hostTabCount = () => stateFor(activeSession).tab ? 1 : 0;
-      plugin.apply({ conversation:{input:{shell:()=>({setDraft:prompt=>{window.writeDraft?.(prompt);return true;}})}}, sessions:{open:()=>{}},
+      const faces = new Map();
+      const faceFor = id => { if (!faces.has(id)) faces.set(id, {beginSubmission(input) { input.onRetire?.({reason:'observed',attachments:[]}); }}); return faces.get(id); };
+      const sessions = {open:()=>{}, list:{getSnapshot:()=>({current:activeSession}),subscribe(fn){hostListeners.add(fn);return()=>hostListeners.delete(fn);}},binding:id=>({session:faceFor(id)})};
+      plugin.apply({ conversation:{input:{shell:()=>({setDraft:prompt=>{window.writeDraft?.(prompt);return true;}})}}, sessions,
         inject(deps,callback) {
           if (deps.join() === 'uiWorkspace') return {dispose(){}}; // Provider absent in this layout-only fixture.
           if (deps.join() !== 'betterSidebar') throw new Error('Unexpected optional provider');
@@ -191,7 +194,7 @@ try {
                 h('div', { id: 'foreign' }, '其他插件槽位')),
               h('div', { id: 'inputBranch' }, h('div', { 'data-composer-card': true },
                 h('textarea', { id: 'native', value: draft, onChange: (event) => setDraft(event.target.value) }),
-                h('div', { className: 'nativeActions' }, h('span', null, 'Workspace Write'), h('button', { disabled: !draft }, '发送')),
+                h('div', { className: 'nativeActions' }, h('span', null, 'Workspace Write'), h('button', { disabled: !draft, onClick:()=>faceFor(sessionId).beginSubmission({text:draft}) }, '发送')),
                 h(Prompt, { sessionId, inputActions: { setDraft } })))),
           ),
           ), h(HostTab, { sessionId, setDraft }));
@@ -759,14 +762,19 @@ try {
     assert.equal(await page.evaluate(()=>new Set(window.store.getSnapshot().fieldSelection).size),13);
     await dialog.waitFor({ state: 'detached' });
     assert.match(await page.locator('#native').inputValue(), /安全任务凭证：dcq-/);
-    // Simulate the Agent-owned tool completing while the drawer is closed.
+    assert.equal(await drawer.isVisible(), false, 'draft refill does not reveal the workbench');
+    await page.getByRole('button', {name:'发送',exact:true}).click();
+    await drawer.waitFor({state:'visible'});
+    await page.evaluate(()=>window.hostCollapse());
+    // Simulate completion after the user deliberately collapses the admitted task.
     fixtureTask = { ...fixtureTask, state: 'completed', stage: 'download', qccRunId: 'g5-ui-fixture',
       artifacts: [{ id: 'dca-ui-fixture', kind: 'complete', format: 'xlsx', fileName: '清洗补全结果.xlsx', rowCount: 1 }] };
     fixtureCommand = { ...fixtureCommand, state: 'completed',
       run: { runId: 'g5-ui-fixture', rows: [{ 公司名称: '合成测试企业' }], summary: { totalRows: 1, enriched: 1 } } };
     await page.waitForFunction(() => window.store.getSnapshot().workflowTask?.state === 'completed');
-    await drawer.waitFor({ state: 'visible' });
-    assert.equal(await page.evaluate(() => window.store.getSnapshot().open), true, '执行后自动打开工作台');
+    assert.equal(await drawer.isVisible(), false, 'completion cannot undo manual collapse');
+    await page.getByRole('button', {name:'任务历史',exact:true}).click();
+    await drawer.waitFor({state:'visible'});
     await drawer.getByRole('button', {name: '结果下载', exact: true}).click();
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
     const resultGridLayout = await drawer.locator('.dcAgentGrid').evaluate(grid => {
