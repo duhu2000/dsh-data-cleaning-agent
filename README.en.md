@@ -10,7 +10,9 @@ Related agents: [数据清洗补全](https://github.com/duhu2000/dsh-data-cleani
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.9.15** (stable release)
+> Current source version / 当前源码版本: **0.9.16** (stable release)
+
+0.9.16 implements UX-49: a one-time editable native guide for new cleaning-entry Sessions, with existing text, attachment, IME and asynchronous-race guards. Clearing, refreshing or returning never restores it. Initialization does not send, call tools or open the workbench. Incomplete templates request the missing list and fields first. See the [adoption record](docs/UNIFIED-HOME-1.5.4-ADOPTION.md) for isolated DSH evidence and unverified boundaries.
 
 0.9.15 releases the Host-driven forward-only workflow across import, rules, entity matching, enrichment, and download. Future stages provide explicit locked feedback, while completed stages remain viewable without business-state mutations. Imported rows stay visible for full review before the bottom confirmation advances to rules. The compact status area reports stage, source, time, scope, and explicit result counts. The 0.9.13 submission-admission, background-session isolation, and manual-collapse guarantees remain intact. Start a new cleaning Session after upgrading; legacy Session migration is outside this release's acceptance scope.
 

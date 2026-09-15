@@ -26,12 +26,114 @@ test('共享实控人字段在浏览器目录、别名推荐与原列回填中�
   } finally {cleanupGlobals();}
 });
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(join(here, '..', 'lib', 'client.js'), 'utf8');
+
+function readyInput(onWrite = () => {}) {
+  const snapshot = { draft: '', draftRev: 0, imageIds: [], occurrences: [], phase: 'plain' };
+  return { snapshot, state:{subscribe:()=>()=>{}}, setDraft(text) { snapshot.draft = text; snapshot.draftRev++; onWrite(text); } };
+}
+
+test('UX49 initial draft gates: once, empty, attachments, IME, late edits/clear, A/B and product isolation', async () => {
+  try {
+    const api = loadClient().exports.__testing;
+    let index = 0, writes = 0, current = 'ordinary';
+    const shell = readyInput(() => { writes++; });
+    let listener;
+    shell.state = { subscribe(fn) { listener = fn; return () => { listener = null; }; } };
+    const ctx = { sessions: {list: {getSnapshot: () => ({current})}},
+      get: () => ({input: {shell: () => shell}}) };
+    const attempt = (override = {}, during) => {
+      Object.assign(shell.snapshot, {draft:'',draftRev:0,imageIds:[],occurrences:[],phase:'plain'}, override);
+      const id = `session-dsh-data-cleaning-agent-12345678-1234-4123-8123-${String(++index).padStart(12,'0')}`;
+      const entry = {createdId:id, previousSession:current, interrupted:()=>false};
+      const pending = api.initializeCleaningDraft(ctx,id,entry);
+      during?.();
+      return {pending,id,entry};
+    };
+    const first = attempt();
+    assert.equal(await first.pending,true);
+    assert.equal(writes,1);
+    assert.equal(shell.snapshot.draft,api.INITIAL_DRAFT_TEMPLATE.text);
+    assert.equal(api.INITIAL_DRAFT_TEMPLATE.id,'dsh-initial-draft/data-cleaning/1');
+    assert.equal(api.INITIAL_DRAFT_TEMPLATE.fingerprint,'sha256:'+createHash('sha256').update(api.INITIAL_DRAFT_TEMPLATE.text).digest('hex'));
+    shell.setDraft('');
+    assert.equal(await api.initializeCleaningDraft(ctx,first.id,first.entry),false,'user clear never replenished');
+    const baseline = writes;
+    for (const snapshot of [
+      {draft:'用户文字'}, {draft:' '}, {imageIds:['image']}, {occurrences:[{ref:'file'}]},
+      {phase:'submitting'}, {phase:'adjudicating'}, {draftRev:2}, {imageIds:undefined}, {phase:undefined},
+    ]) assert.equal(await attempt(snapshot).pending,false,JSON.stringify(snapshot));
+    for (const during of [
+      () => { shell.snapshot.draft='晚到文字'; shell.snapshot.draftRev++; },
+      () => { shell.snapshot.draftRev += 2; },
+      () => { shell.snapshot.imageIds=['file']; },
+      () => { shell.snapshot.imageIds=['file']; listener(); shell.snapshot.imageIds=[]; listener(); },
+      () => { current='other-product'; },
+    ]) assert.equal(await attempt({},during).pending,false);
+    assert.equal(await api.initializeCleaningDraft(ctx,'ordinary',{createdId:'ordinary'}),false);
+    const release = api.installSessionOwnershipBridge(ctx);
+    document.dispatchEvent({type:'compositionstart'});
+    assert.equal(await attempt().pending,false);
+    document.dispatchEvent({type:'compositionend'});
+    release();
+    const remount = api.installSessionOwnershipBridge(ctx);
+    assert.equal(await api.initializeCleaningDraft(ctx,first.id,first.entry),false);
+    remount();
+    assert.equal(writes,baseline,'all denied paths have zero writes');
+    assert.equal(listener,null,'no polling or leftover state subscription');
+    assert.deepEqual(api.wizardListEntries(api.INITIAL_DRAFT_TEMPLATE.text),[]);
+    const edited=api.INITIAL_DRAFT_TEMPLATE.text+' 用户补充';
+    assert.equal(api.isKnownCleaningDraft(edited),false);
+    assert.deepEqual(api.wizardListEntries(edited),[edited]);
+    assert.equal(api.invalidListInstruction(['【企业名单】']),true);
+    assert.equal(api.invalidListInstruction(['例如：测试有限公司']),true);
+    assert.equal(api.invalidListInstruction(['真实测试有限公司']),false);
+    assert.deepEqual(api.extractPromptEntries({rows:[{企业名称:api.INITIAL_DRAFT_TEMPLATE.text}]}),[]);
+    assert.throws(()=>api.extractPromptEntries({rows:[{企业名称:'【企业名单】'}]}),/占位符/);
+    assert.throws(()=>api.extractPromptEntries({rows:[{企业名称:edited}]}),/任务说明/,'modified text is validated, not silently discarded');
+  } finally { cleanupGlobals(); }
+});
+
+test('UX49 entry has zero sends/tools/tasks/panel opens; late navigation and user activity abort seed', async () => {
+  const previousFetch=globalThis.fetch;
+  try {
+    globalThis.fetch=()=>{throw new Error('initial draft must not create workflow or call business APIs');};
+    const api=loadClient().exports.__testing;
+    let current='ordinary', opens=0, writes=0, createResolve;
+    const shell=readyInput(()=>writes++);
+    document.addEventListener('dsh:data-cleaning-workbench-open',()=>opens++);
+    const ctx={workspaces:{list:{getSnapshot:()=>({items:[{workspaceId:'w'}]})}},
+      sessions:{list:{getSnapshot:()=>({current})},create:({sessionId})=>new Promise(resolve=>{createResolve=()=>resolve(sessionId);}),open:id=>{current=id;}},
+      get:()=>({input:{shell:()=>shell},send:()=>{throw new Error('must not send');}})};
+    const pending=api.startCleaningSession(ctx);
+    document.dispatchEvent({type:'beforeinput'});
+    createResolve(); await pending;
+    assert.equal(writes,0);
+    assert.equal(current,'ordinary','late activity must not navigate away or steal focus');
+    current='ordinary';
+    const late=api.startCleaningSession(ctx);
+    current='tender-session'; createResolve(); await late;
+    assert.equal(current,'tender-session'); assert.equal(writes,0);
+    current='ordinary';
+    const release=api.installSessionOwnershipBridge(ctx);
+    const unmounted=api.startCleaningSession(ctx);
+    release(); createResolve(); await unmounted;
+    assert.equal(current,'ordinary'); assert.equal(writes,0,'unmounted entry cannot seed or navigate');
+    current='ordinary';
+    const success=api.startCleaningSession(ctx); createResolve(); await success;
+    assert.equal(writes,1); assert.equal(opens,0);
+    shell.setDraft('');
+    await api.startCleaningSession(ctx);
+    assert.equal(writes,2,'only explicit user clearing writes on reentry');
+    assert.equal(opens,0);
+  } finally {globalThis.fetch=previousFetch;cleanupGlobals();}
+});
 
 test('history is read-only: Session B selection preserves task, rows, rules and command; old sources stay unknown', async () => {
   const previousFetch = globalThis.fetch;
@@ -682,7 +784,7 @@ test('入口注入使用 sessions.create 显式创建带前缀的独立会话并
         open: (sessionId) => { calls.opened = sessionId; },
       },
       get: (name) => name === 'conversation' ? {
-        input: { shell: (sessionId) => ({ setDraft: (text) => { calls.draft = { sessionId, text }; } }) },
+        input: { shell: (sessionId) => readyInput((text) => { calls.draft = { sessionId, text }; }) },
       } : undefined,
       slots: {
         inject: (name, cb) => { if (name === 'sidebar.footer.action') footerReg = cb(); return () => {}; },
@@ -711,7 +813,7 @@ test('不再依赖 workspaces/uiWorkspace.connectWorkspace，直接创建独立�
     let footerReg = null;
     const calls = { create: null, draft: null, opened: null };
     const conversation = {
-      input: { shell: (sessionId) => ({ setDraft: (text) => { calls.draft = { sessionId, text }; } }) },
+      input: { shell: (sessionId) => readyInput((text) => { calls.draft = { sessionId, text }; }) },
     };
     const ctx = {
       effect: () => () => {},
@@ -760,7 +862,7 @@ test('原生 DSH Hero 工作区门：cwd-only 被禁用，workspaceId 创建解�
         },
         open: (id) => { current = id; },
       },
-      get: () => ({ input: { shell: () => ({ setDraft: (text) => { draft = text; } }) } }),
+      get: () => ({ input: { shell: () => readyInput((text) => { draft = text; }) } }),
       slots: {
         inject: (name, cb) => { if (name === 'sidebar.footer.action') entry = cb(); return () => {}; },
         register: (options, component) => ({ options, component }),
@@ -1022,7 +1124,6 @@ test('会话归属只在实际切换成功后撤销，失败点击保留清洗�
   try {
     loaded = loadClient();
     const {
-      clearCleaningDraft,
       deactivateCleaningSession,
       installSessionOwnershipBridge,
       isCleaningSession,
@@ -1051,22 +1152,21 @@ test('会话归属只在实际切换成功后撤销，失败点击保留清洗�
       textContent: '新建会话',
       closest: (selector) => selector.startsWith('.dcAgentLauncher') ? null : genericButton,
     };
-    assert.equal(clearCleaningDraft(ctx, 'stale-session', true), true);
-    assert.equal(draft, '', '升级后遗留的默认清洗文案必须清空');
+    const originalDraft = draft;
     draft = '用户正在编辑的其它任务';
-    assert.equal(clearCleaningDraft(ctx, 'ordinary-session', true), false);
     assert.equal(draft, '用户正在编辑的其它任务', '初始化不得清空用户自写草稿');
     const generatedDraft = '请执行一项企业名单数据清洗补全任务。 输入来源：手工录入。 企查查连接、套餐额度和费用均由当前用户自己的账号承担。 提供结果和待复核清单的导出。';
-    assert.equal(isKnownCleaningDraft(generatedDraft), true);
+    assert.equal(isKnownCleaningDraft(generatedDraft), false);
     draft = generatedDraft;
-    assert.equal(clearCleaningDraft(ctx, 'generated-session', true), true);
-    assert.equal(draft, '', '刷新后必须清理插件向导生成的完整任务描述');
+    assert.equal(draft, generatedDraft, '生成的任务描述不是可丢弃的初始模板');
     const executionDraft = '请执行已在「数据清洗补全工作台」确认的企业数据任务。\n\n安全任务凭证：dcq-test\n\n请调用 data_cleaning_qcc_run。';
-    assert.equal(isKnownCleaningDraft(executionDraft), true, '未发送的可编辑执行说明也属于插件草稿');
+    assert.equal(isKnownCleaningDraft(executionDraft), false);
     const imageDraft = '请识别我刚刚在向导中安全暂存的企业名单图片。\n安全图片凭证：dci-test\n请调用 data_cleaning_extract_image_companies。';
-    assert.equal(isKnownCleaningDraft(imageDraft), true, '未发送的图片识别说明也属于插件草稿');
+    assert.equal(isKnownCleaningDraft(imageDraft), false);
     assert.equal(isKnownCleaningDraft('用户要求清洗企业名单'), false, '普通用户文案不得被识别为插件草稿');
     const release = installSessionOwnershipBridge(ctx);
+    assert.equal(draft, generatedDraft, '重挂载不清理旧草稿');
+    assert.equal(isKnownCleaningDraft(originalDraft), false, '不推断历史版本模板归属');
 
     assert.equal(isCleaningSession('ordinary-session'), false);
     markCleaningSession('cleaning-owned');
@@ -1095,7 +1195,7 @@ test('会话归属只在实际切换成功后撤销，失败点击保留清洗�
     current = undefined;
     selected();
     assert.equal(isCleaningSession('cleaning-third'), false, '清除选中会话时也应退出');
-    assert.equal(draft, '', '成功退出只清理插件默认草稿');
+    assert.equal(draft, generatedDraft, '成功退出也不清理任何会话草稿');
     release();
     assert.equal(selected, null);
   } finally {
@@ -1103,7 +1203,7 @@ test('会话归属只在实际切换成功后撤销，失败点击保留清洗�
   }
 });
 
-test('会话归属 Bridge 在 DSH 异步恢复草稿后仅清理插件默认文案', () => {
+test('UX49 会话归属 Bridge 在 DSH 异步恢复草稿后不清理任何文案', () => {
   let loaded;
   const OriginalMutationObserver = globalThis.MutationObserver;
   let observerCallback = null;
@@ -1127,8 +1227,9 @@ test('会话归属 Bridge 在 DSH 异步恢复草稿后仅清理插件默认文�
     const release = installSessionOwnershipBridge(ctx);
     draft = '请帮我清洗并补全企业名单。可点击输入框左上角「提示词生成」录入名单、上传 Excel 或图片，也可直接修改本段任务说明后开始。';
     observerCallback?.([]);
-    assert.equal(draft, '', '异步恢复的默认清洗文案必须被清除');
-    assert.equal(disconnected, true, '成功清理后应停止观察，避免常驻监听');
+    assert.match(draft, /请帮我清洗并补全企业名单/);
+    assert.equal(observerCallback, null, '不安装全局草稿清理观察器');
+    assert.equal(disconnected, false);
     release();
   } finally {
     if (OriginalMutationObserver === undefined) delete globalThis.MutationObserver;
@@ -1502,7 +1603,7 @@ for (const intake of ['file', 'clipboard-items', 'wizard-text-paste', 'workbench
     };
     const removed = [];
     let draft = '';
-    let inputPhase = 'idle';
+    let inputPhase = 'plain';
     const props = {
       sessionId: 'image-feedback', inputActions: { setDraft: (value) => { draft = value; } },
       getInputSnapshot: () => ({ phase: inputPhase, draft }),
@@ -1559,7 +1660,7 @@ for (const intake of ['file', 'clipboard-items', 'wizard-text-paste', 'workbench
     assert.deepEqual(removed, []);
     tree = renderPrompt();
     assert.ok(findNode(tree, (n) => n.children?.some((child) => typeof child === 'string' && child.includes('当前对话正在提交'))));
-    inputPhase = 'idle';
+    inputPhase = 'plain';
     await findNode(tree, (n) => n.type === 'button' && n.children?.includes('回填到对话框')).props.onClick();
     await new Promise(resolve => setImmediate(resolve));
     assert.match(draft, /dci-test/);
@@ -2722,7 +2823,7 @@ test('独立清洗会话在刷新及切换回来后恢复归属，保留已生�
   } finally { cleanupGlobals(); }
 });
 
-test('点击已选清洗会话的侧栏入口只重开工作台，不创建新会话或覆盖草稿', async () => {
+test('点击已选清洗会话的侧栏入口不展开工作台，不创建新会话或覆盖草稿', async () => {
   try {
     const { exports } = loadClient();
     const current = 'session-dsh-data-cleaning-agent-12345678-1234-4123-8123-123456789012';
@@ -2741,6 +2842,6 @@ test('点击已选清洗会话的侧栏入口只重开工作台，不创建新�
       },
     });
     assert.equal(await entry.options.inject().startSession(), current);
-    assert.equal(opened, 1);
+    assert.equal(opened, 0);
   } finally { cleanupGlobals(); }
 });

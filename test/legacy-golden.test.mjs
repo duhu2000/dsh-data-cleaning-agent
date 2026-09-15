@@ -18,7 +18,9 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     // v0.9.8 immutable origin guards are preserved alongside narrow workflow
     // delivery/retry mutations; no generic transition API is introduced.
     'lib/workflow.js': 'b9a0c09c9a57679c903ac8b4807fd1047077d53a79f4c1b783645cd886e5d92b',
-    'lib/skill-enrich.js': '245f5b2b099d2242f1ddb4cafb6db3bb1d612911f929f3eb1f64e850dba9941b',
+    // UX49: input sufficiency clarification precedes every business tool (including OAuth).
+    'lib/skill-enrich.js': '2b7e3fe13e741280d33e18c88d9957503d651f303a26fc424e1793dbca49bc34',
+    'lib/skill.js': '563d352d106d4ece144b5600b86a4c652d40e0de0ccd97b36d3ed513b3541976',
     // The versioned Host projection defines stage access and allowed actions,
     // while origin metadata stays immutable and identity anchors stay unique.
     'lib/workflow-contract.js': 'ffee0ef6b7e6e97bd12b14f30e01e21b955c1a9b8018cfaa7764ee773c898b08',
