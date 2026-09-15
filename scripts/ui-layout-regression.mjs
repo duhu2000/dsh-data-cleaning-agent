@@ -208,7 +208,9 @@ try {
           h('div', {className:'fixtureTabBody'}, h(descriptor.component,{scope:{sessionId},tab:entry.tab,store:entry.store,visible:entry.state.panelOpen})));
       }
       function App({ sessionId = 'fixture', phase = 'blank' }) {
-        const [draft, setDraft] = R.useState('');
+        const [draft, updateDraft] = R.useState('');
+        const input = R.useRef({draft:'',phase:'plain',draftRev:0,imageIds:[],occurrences:[]});
+        const setDraft = value => { input.current={...input.current,draft:value,draftRev:input.current.draftRev+1}; updateDraft(value); };
         window.writeDraft = setDraft;
         return h('div', { className:'fixtureLayout' }, h('div', { 'data-conversation-scroll': '', className:'fixtureConversation' },
           h('div', { 'data-composer-seat': '', 'data-phase': phase === 'blank' ? 'settling' : 'active' },
@@ -223,7 +225,7 @@ try {
               h('div', { id: 'inputBranch' }, h('div', { 'data-composer-card': true },
                 h('textarea', { id: 'native', value: draft, onChange: (event) => setDraft(event.target.value) }),
                 h('div', { className: 'nativeActions' }, h('span', null, 'Workspace Write'), h('button', { disabled: !draft, onClick:()=>faceFor(sessionId).beginSubmission({text:draft}) }, '发送')),
-                h(Prompt, { sessionId, inputActions: { setDraft } })))),
+                h(Prompt, { sessionId, inputActions: { setDraft }, getInputSnapshot: () => input.current })))),
           ),
           ), h(HostTab, { sessionId, setDraft }));
       }
@@ -283,16 +285,19 @@ try {
     await page.screenshot({ path: join(out, `wizard-${colorScheme}-${width}x${height}.png`) });
     await page.keyboard.press('Escape');
     await dialog.waitFor({ state: 'detached' });
+    await page.locator('#native').fill('保留用户原有要求');
     await page.getByRole('button', { name: '打开提示词生成' }).click();
     await dialog.getByRole('button', { name: '1 数据来源' }).click();
     await dialog.locator('textarea').fill('示例企业甲有限公司\n示例企业乙有限公司');
     await dialog.getByRole('button', { name: '下一步', exact: true }).click();
     await dialog.getByRole('button', { name: '下一步', exact: true }).click();
     await dialog.getByRole('button', { name: '下一步', exact: true }).click();
+    await dialog.getByRole('combobox', {name:'已有草稿时的回填方式'}).selectOption('append');
     await dialog.getByRole('button', { name: '回填到对话框' }).click();
     await dialog.waitFor({ state: 'detached' });
     await page.waitForFunction(() => document.activeElement.id === 'native');
     assert.ok((await page.locator('#native').inputValue()).includes('示例企业乙有限公司'));
+    assert.ok((await page.locator('#native').inputValue()).startsWith('保留用户原有要求\n\n'));
     assert.equal(await page.getByRole('button', { name: '发送', exact: true }).isEnabled(), true);
     const nativeSendStyle = await page.getByRole('button', { name: '发送', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor);
     await page.getByRole('button', { name: '任务历史', exact: true }).click();
@@ -853,6 +858,15 @@ try {
     assert.equal(await dialog.locator('.dcAgentExtraFields').evaluate(el=>el.open),false);
     await dialog.getByRole('button',{name:'下一步',exact:true}).click();
     assert.match(await dialog.locator('.dcAgentPromptPreview').textContent(),/额外新增字段：无/);
+    const preservedDraft = await page.locator('#native').inputValue();
+    const preservedCommands = fixtureCommands.size;
+    // Modify the previous wizard draft so it is ordinary user content, not a reusable template.
+    await page.locator('#native').fill(preservedDraft + '\n用户追加的要求');
+    await dialog.getByRole('button',{name:'回填到对话框'}).click();
+    assert.equal(await page.locator('#native').inputValue(), preservedDraft + '\n用户追加的要求', 'cancel preserves edited draft');
+    assert.equal(fixtureCommands.size, preservedCommands, 'cancel never prepares a command');
+    assert.equal(await dialog.isVisible(), true, 'cancel retains wizard settings');
+    await dialog.getByRole('combobox',{name:'已有草稿时的回填方式'}).selectOption('replace');
     await dialog.getByRole('button',{name:'回填到对话框'}).click();
     await page.waitForFunction(()=>window.store.getSnapshot().workflowTask?.mappings?.length===15 && window.store.getSnapshot().workflowTask?.fieldSelection?.length===13);
     assert.equal(await page.evaluate(()=>new Set(window.store.getSnapshot().fieldSelection).size),13);
@@ -873,8 +887,8 @@ try {
     await page.getByRole('button', {name:'任务历史',exact:true}).click();
     await drawer.waitFor({state:'visible'});
     await drawer.getByRole('button', {name: '当前任务', exact: true}).click();
-    assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('处理结果', { exact: true }).count(), 1);
-    assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('1/1 条', { exact: true }).count(), 1);
+    await drawer.locator('.dcAgentTaskStatus').getByText('处理结果', { exact: true }).waitFor();
+    await drawer.locator('.dcAgentTaskStatus').getByText('1/1 条', { exact: true }).waitFor();
     assert.equal(await drawer.locator('.dcAgentTaskStatus').getByText('0 条', { exact: true }).count(), 2);
     await drawer.getByRole('button', {name: '下载 清洗补全结果.xlsx', exact: true}).waitFor();
     const resultGridLayout = await drawer.locator('.dcAgentGrid').evaluate(grid => {

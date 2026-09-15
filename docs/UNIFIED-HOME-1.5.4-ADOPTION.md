@@ -1,4 +1,23 @@
-# DSH-UX-001 v1.5.4 采用记录
+# DSH-UX-001 首页规范采用记录
+
+## v1.5.6 / UX49-CLEAN（2026-09-15，未发布）
+
+依据共享 `DSH智能体开发交互规范方案.md` 的 UX-49、§11.1、§14，并核对 UX-48；协同清单 `DSH-UX-049-四智能体首页初始引导协同.md` 及总账同日交接。这里只记录采用与差异，不复制规范全文。
+
+- 审计基线：remote main `fc7d57240b843e1a57998cf0ebbe4f39c086befb`，npm latest 0.9.15 / gitHead `6d8b37a7a0efae1aa2fddc72d61fc5e732f3231f`。原仓 main 的未提交 client/test 修改保持原样，另建独立分支。
+- 已有正确项：独立清洗 Session namespace、宿主原生输入接口、实际接纳后开台、标题 settling→hero 修复、历史来源只读与主结果/报告分层。
+- 真实缺陷：入口无条件 setDraft；普通会话异步恢复时按宽泛签名清理草稿；已有业务入口再次点击会开台；向导缺少已有内容确认与晚到写入检查。以上已收紧。
+- 初始模板 `dsh-initial-draft/data-cleaning/1` / version 1，UTF-8 SHA-256 `2b84b86f669e64e970381e4c7ab8547c77d5e10ee7d5441543c893b9f1272e2b`。仅精确相等才排除；不 trim、不按前后缀忽略用户修改。
+- 初始化仅由本入口成功创建的全新 ID 触发，在打开会话前操作未挂载的原生 shell，避免 Host setDraft 的选区写入抢占已挂载输入焦点。snapshot 缺失或非 plain、draft 非空、draftRev 非零、imageIds/occurrences 非空均跳过。建立一次性记录、订阅后重读、微任务后再次快照；期间用户输入/附件/组合事件、会话切换或卸载使写入失效，无轮询补回。
+- 清洗业务 Skill 将信息充分性检查置于任何工具之前：占位符/缺名单或待补字段先澄清；没有注册全局发送拦截。安全凭证所指暂存来源仍可提供名单和范围，不重复要求上传。
+- 向导按 UX-10 提供替换/追加/取消，默认保留用户内容；同一 Session 未改的向导草稿更新而非重复叠加。异步回填重读草稿版本、附件和当前业务归属。
+- 本地门禁：`npm run check` 通过（296 项测试，语法/文档/营销/69 文件 pack 白名单）；Chromium 浅深色 × 5 尺寸 10/10；XLSX 预览 390/800/1440px 3/3。包含附件、IME 事件、晚到修改/清空、卸载、A/B、普通 Session、Tab X/折叠恢复、草稿回填替换/追加/取消与零开台断言。
+- 真实 DSH：`scripts/ux49-native-smoke.mjs`，独立 Profile、无模型/MCP 凭据。DSH 0.1.2-rc.1 + Sidebar 0.18.1 + 清洗候选/招投标 0.5.11/访前尽调 0.1.35/填表 0.2.30 共装通过。原生模板、正确 Hero 标题、不移动焦点、主动清空不补回、刷新保留修改、A/B/普通会话隔离、零业务 API mutation、零可见工作台、零浏览器异常均通过。
+- 实机客户端 SHA-256 `bacfd1faa7eff584ddec3e948ee3f2e19f1d710224de9068d9a62415345a28a1`，测试包 SHA-256 `e93fac1541934a43bc54789283d57c378fbd721fe0d8fc86b922b2a69c5747c5`。原始报告/截图在 `/var/folders/ws/tmsn44b140lf8b89ml5qqjf00000gn/T/cleaning-ux49-native-HtQGy0/`；本地日志 `/private/tmp/ux49-{check,ui,artifact,native}-release-candidate.log`，UI 截图 `_scratch/ui-layout/`。测试包不是 npm 发布物；随后文档和验收脚本路径清理不改变已验收客户端字节。
+- 未验证边界：真实模型执行占位符澄清（仅验证 Skill 优先规则，不冒充实际模型决策）、系统级真实中文输入法（已覆盖组合事件）、收费 QCC/OCR、多账号/其他 Host 版本，以及其余三产品各自 UX49 候选版本。正式 3080/Profile 未修改。
+- 本次仅 commit/push/PR/CI；不合并、不升版本、不 tag/Release/npm publish。
+
+## v1.5.4 历史采用记录
 
 日期：2026-09-14。基线：0.9.11 / a0ec971db0d25d42f67f99e4328cca6f49a2bc2f。
 本轮仅本地代码与验收，不发布，不修改正式 Profile 或全局 DSH。
