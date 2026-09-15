@@ -206,7 +206,7 @@ Host 制品下载按钮。alpha.2 继续只检查 Host/路由/制品 Bridge，�
   XLSX 因此以 Base64 文本落盘。未来切换二进制 seam 必须保留旧 `v1` 制品读取兼容。
 - v2 已生成制品可跨 Host 重启恢复，但浏览器 runtime 中尚未导出的原始行不会持久化；恢复中途任务
   仍需用户重新提供输入。制品只在当前工作区，不承诺跨设备同步。
-# UX-49 原生初始草稿兼容边界（未发布，2026-09-15）
+# UX-49 原生初始草稿兼容边界（0.9.16，2026-09-15）
 
 - 采用记录见 `UNIFIED-HOME-1.5.4-ADOPTION.md` 的 v1.5.6 小节。仅新建清洗 Session 初始化，旧 Session/刷新/重挂载只恢复归属，不迁移或补回草稿。
 - 本机核对 DSH 0.1.2-rc.1 的公开 `conversation.input.shell(sessionId)`：`snapshot.draft / draftRev / phase / imageIds / occurrences` 与 `setDraft`。缺失任一必要快照能力时保守跳过，不使用 DOM 空文本推断可写，不读取私有 editor。

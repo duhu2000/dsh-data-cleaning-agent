@@ -9,7 +9,7 @@
 数据清洗补全智能体：面向 Excel/CSV/JSON 企业名单，提供数据清洗、表格清洗、清洗补全、去重、企业数据补全与字段补全，支持企查查 MCP 和结果导出。
 
 ```sh
-dsh plugin --profile web add dsh-data-cleaning-agent@0.9.15
+dsh plugin --profile web add dsh-data-cleaning-agent@0.9.16
 ```
 
 请先满足下文的 DSH、连接器及侧边栏依赖要求；安装后完整停止并重启对应 Profile。
@@ -27,7 +27,9 @@ dsh plugin --profile web add dsh-data-cleaning-agent@0.9.15
 
 > 在 DeepSeek Harness 中清洗、补全、画像企业名单数据的智能体插件：本地 CSV/XLSX/JSON 引擎 + 可选企查查（Qichacha/QCC）MCP 企业数据补全，由企查查（Qichacha/QCC）团队发起并维护。
 >
-> 当前源码版本 / Current source version: **0.9.15**（正式版本）
+> 当前源码版本 / Current source version: **0.9.16**（正式版本）
+
+0.9.16 实施 UX-49：首页仅为清洗入口新建的会话预填一次原生可编辑引导，保护已有文字、附件、中文组合输入与异步竞态。主动清空、刷新或切回不会补回；不自动发送、调用工具或展开工作台。未补全模板先澄清名单和字段。真实 DSH 隔离验收及未验证边界见[规范采用记录](docs/UNIFIED-HOME-1.5.4-ADOPTION.md)。
 
 0.9.15 发布 Host 驱动的单向工作流：统一“导入与核验 → 规则与体检 → 主体匹配 → 字段补全 → 结果下载”五步导航。未来节点给出明确锁定反馈，历史节点保留查看但不挂载业务写操作；导入后先核验完整名单，再从表格底部确认进入规则页。紧凑状态区展示节点、来源、时间、任务范围和明确结果计数。0.9.13 的真实提交接纳、后台会话隔离与手动收起保护保持不变。升级后请新建清洗会话验证，旧 Session 迁移不在本版验收范围。
 
