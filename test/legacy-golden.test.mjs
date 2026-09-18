@@ -32,14 +32,23 @@ test('v0.8.2 golden: duplicate-header/backfill fixes audited; other behavior unc
     'lib/artifacts.js': '0ce08d0fba95d4c46b017caa3a7d4773482fa9f4397fd3ae2a592bca48d78e49',
     // Planning is shared by draft preflight and execution; all 24 output cases unchanged.
     // Failed rows now retain normalized error identifiers for exception exports.
-    'lib/qcc.js': '1a74b7288d94b2d446e7f25353aa820dfa2d9cb65971cb13f78348761bcb8769',
+    // V3.25 explicit nested region/industry leaves and scalar product projection.
+    'lib/qcc.js': '24e4bf8a2c9cf24d67c4f3ff46a5d329f6aa5086f7d3459a38f16d0b974aeb5d',
     'lib/qcc-safety.js': '57267a973ea369ca1ea0affd831bfccf334123054b31cac18a85803d3399fb68',
-    'lib/qcc-field-catalog.js': '7055dd390c40e8e3b5090d5122770c57485225b32f8ae8f010cd3246d287aaf3',
+    'lib/qcc-field-catalog.js': '98c222bf35644aacef1ecf7063cf2e948c343a70ada39310996cfa3b1a351ce9',
   });
   // Audited additive controller contract; all pre-existing labels/tools/cases remain frozen.
   golden.contract.tools.actualController = 'mcp__qcc-company__get_actual_controller';
   Object.assign(golden.contract.fields,Object.fromEntries(ACTUAL_CONTROLLER_GROUP.fields.map(f=>[f.id,f.label])));
   Object.assign(golden.contract.fields, Object.fromEntries(SNAPSHOT_GROUPS.flatMap(g => g.fields.map(f => [f.id, f.label]))));
+  Object.assign(golden.contract.fields, {
+    province: '省份', city: '城市', district: '区域', area_code: '地区代码',
+    industry_section: '国标行业门类', industry_large: '国标行业大类',
+    industry_middle: '国标行业中类', industry_small: '国标行业小类',
+    qcc_industry_level1: '企查查行业一级', qcc_industry_level2: '企查查行业二级',
+    qcc_industry_level3: '企查查行业三级', qcc_industry_level4: '企查查行业四级',
+    main_products: '主营产品', company_scale: '企业规模',
+  });
   // Audited delivery change: XLSX only, execution metadata moved to a report.
   const artifacts = golden.cases.find(item => item.id === 'artifacts');
   const complete = structuredClone(artifacts.expected.find(a => a.kind === 'complete' && a.format === 'xlsx'));

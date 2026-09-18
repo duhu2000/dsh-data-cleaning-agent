@@ -10,7 +10,9 @@ Related agents: [数据清洗补全](https://github.com/duhu2000/dsh-data-cleani
 
 > A data cleaning & completion agent plugin for DeepSeek Harness: local CSV/XLSX/JSON engine plus optional Qichacha (QCC) MCP enterprise-data enrichment. Initiated and maintained by the Qichacha (QCC) team.
 >
-> Current source version / 当前源码版本: **0.9.16** (stable release)
+> Current source version / 当前源码版本: **0.9.17** (stable release)
+
+0.9.17 adds 14 region, industry-level, product and enterprise-size fields (150 total), supports both legacy industry text and nested responses, and improves field search and column mapping. Defaults remain unchanged; missing levels are never inferred. Products reflect only the upstream first 10 entries. See [field expansion and verification boundaries](docs/CORE-FIELDS-20260918.md).
 
 0.9.16 implements UX-49: a one-time editable native guide for new cleaning-entry Sessions, with existing text, attachment, IME and asynchronous-race guards. Clearing, refreshing or returning never restores it. Initialization does not send, call tools or open the workbench. Incomplete templates request the missing list and fields first. See the [adoption record](docs/UNIFIED-HOME-1.5.4-ADOPTION.md) for isolated DSH evidence and unverified boundaries.
 

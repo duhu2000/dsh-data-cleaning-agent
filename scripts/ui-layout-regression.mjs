@@ -256,7 +256,7 @@ try {
     const dialog = page.getByRole('dialog', { name: '数据清洗补全任务生成器' });
     await dialog.waitFor();
     await dialog.getByRole('button', { name: '3 清洗与补全' }).click();
-    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input[type="checkbox"]').count(), 136);
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input[type="checkbox"]').count(), 150);
     const credit = dialog.getByRole('checkbox', { name: '统一社会信用代码', exact: true });
     await credit.uncheck();
     assert.equal(await credit.isChecked(), false);
@@ -267,8 +267,13 @@ try {
     assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 4);
     assert.equal(await dialog.getByRole('checkbox', { name: '实际控制人名称', exact: true }).count(), 1);
     await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill('行业');
-    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 3);
+    assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 11);
     assert.equal(await dialog.getByRole('checkbox', { name: '进出口行业种类', exact: true }).count(), 1);
+    for (const [query, label] of [['区县', '区域'], ['企查查一级行业', '企查查行业一级'], ['企业规模', '企业规模'], ['主要产品', '主营产品']]) {
+      await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill(query);
+      assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 1);
+      assert.equal(await dialog.getByRole('checkbox', { name: label, exact: true }).count(), 1);
+    }
     await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill('不存在的字段');
     assert.equal(await dialog.locator('.dcAgentPromptFieldGrid input').count(), 0);
     await dialog.getByRole('searchbox', { name: '查找补全字段' }).fill('');
@@ -604,9 +609,9 @@ try {
     await fieldSearch.fill('实控人');
     assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 4);
     await fieldSearch.fill('行业');
-    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 3);
+    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 11);
     await fieldSearch.fill('');
-    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 136);
+    assert.equal(await drawer.locator('.dcAgentFieldGroup input').count(), 150);
     await drawer.getByRole('button', { name: '导入与核验', exact: true }).click();
     const beforeNavigation = await page.evaluate(() => JSON.stringify(window.store.getSnapshot().workflowTask));
     for (const name of ['主体匹配', '字段补全', '结果下载']) {
@@ -824,7 +829,7 @@ try {
     assert.equal(await dialog.locator('input[type=file]').evaluate(el=>el.files[0]?.name), 'bank-template.xlsx');
     await dialog.getByRole('button', {name:'下一步',exact:true}).click();
     assert.equal(await dialog.locator('.dcAgentMappingRow').count(),23);
-    assert.equal(await dialog.locator('[data-status=confirmed]').count(),9);
+    assert.equal(await dialog.locator('[data-status=confirmed]').count(),12);
     const choose = async (sourceField, targetField) => {
       const row = dialog.locator('.dcAgentMappingRow').filter({has:page.getByTitle(sourceField,{exact:true})});
       await row.locator('summary').click();
@@ -833,8 +838,8 @@ try {
       await row.locator(`input[type="radio"][value="${targetField}"]`).check();
     };
     for (const [column,field] of [['注册资本','reg_capital'],['注册资本（重复列 2）','reg_capital'],['法定代表人','legal_rep'],['法定代表人（重复列 2）','legal_rep'],['企业状态','reg_status'],['所属行业','industry_category']]) await choose(column,field);
-    assert.equal(await dialog.locator('[data-status=confirmed]').count(),15);
-    assert.equal(await dialog.locator('[data-status=unmatched]').count(),7);
+    assert.equal(await dialog.locator('[data-status=confirmed]').count(),18);
+    assert.equal(await dialog.locator('[data-status=unmatched]').count(),4);
     assert.equal(await dialog.locator('[data-status=review]').count(),1);
     const revenueRow = dialog.locator('.dcAgentMappingRow').filter({has:page.getByTitle('主营业务收入',{exact:true})});
     await revenueRow.locator('summary').click();
@@ -854,7 +859,7 @@ try {
     await revenueRow.locator('summary').click();
     await page.screenshot({path:join(out,`bank-mapping-${colorScheme}-${width}x${height}.png`)});
     await dialog.getByRole('button',{name:'下一步',exact:true}).click();
-    await dialog.getByText('已按确认映射选择 13 个原列补全字段', {exact:false}).waitFor();
+    await dialog.getByText('已按确认映射选择 16 个原列补全字段', {exact:false}).waitFor();
     assert.equal(await dialog.locator('.dcAgentExtraFields').evaluate(el=>el.open),false);
     await dialog.getByRole('button',{name:'下一步',exact:true}).click();
     assert.match(await dialog.locator('.dcAgentPromptPreview').textContent(),/额外新增字段：无/);
@@ -868,8 +873,8 @@ try {
     assert.equal(await dialog.isVisible(), true, 'cancel retains wizard settings');
     await dialog.getByRole('combobox',{name:'已有草稿时的回填方式'}).selectOption('replace');
     await dialog.getByRole('button',{name:'回填到对话框'}).click();
-    await page.waitForFunction(()=>window.store.getSnapshot().workflowTask?.mappings?.length===15 && window.store.getSnapshot().workflowTask?.fieldSelection?.length===13);
-    assert.equal(await page.evaluate(()=>new Set(window.store.getSnapshot().fieldSelection).size),13);
+    await page.waitForFunction(()=>window.store.getSnapshot().workflowTask?.mappings?.length===18 && window.store.getSnapshot().workflowTask?.fieldSelection?.length===16);
+    assert.equal(await page.evaluate(()=>new Set(window.store.getSnapshot().fieldSelection).size),16);
     await dialog.waitFor({ state: 'detached' });
     assert.match(await page.locator('#native').inputValue(), /安全任务凭证：dcq-/);
     assert.equal(await drawer.isVisible(), false, 'draft refill does not reveal the workbench');

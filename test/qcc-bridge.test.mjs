@@ -357,6 +357,8 @@ test('工商、画像字段与风险标签按 QCC 返回原文映射，不推导
   assert.equal(fields.branch_insured_count, '12');
   assert.deepEqual(mapProfileFields({ 简介: '企业简介原文', 企查查行业: 'IT技术服务', 产业链概览: '产业链原文' }), {
     qcc_industry: 'IT技术服务',
+    qcc_industry_level1: '', qcc_industry_level2: '', qcc_industry_level3: '', qcc_industry_level4: '',
+    main_products: '', company_scale: '',
     company_profile: '企业简介原文',
     industry_chain_overview: '产业链原文',
   });
@@ -521,6 +523,37 @@ test('Bridge 跨第一、二批字段只调用所选 6 个来源工具且输出�
   assert.equal(result.rows[0].risk_administrative_penalty_count, 2);
   assert.equal(result.rows[0].related_risk_operating_exception_count, 1);
   for (const value of Object.values(result.rows[0])) assert.equal(typeof value === 'object' && value !== null, false);
+});
+
+test('新增层级字段按维度去重调用，保留原值且不返回未选择字段', async () => {
+  const tools = fakeTools({
+    [QCC_TOOL_NAMES.entityLookup]: async () => success(mcpValue({
+      匹配结果: '唯一精确匹配', 企业信息: { 企业名称: '合成契约企业', 统一社会信用代码: 'SYNTHETIC' },
+    })),
+    [QCC_TOOL_NAMES.registration]: async () => success(mcpValue({
+      地区信息: { 省份: '源省', 城市: '源市', 区域: '源区', 地区代码: '001234' },
+      国标行业: { 门类: '门类', 大类: '大类', 中类: '中类', 小类: '小类' },
+    })),
+    [QCC_TOOL_NAMES.profile]: async () => success(mcpValue({
+      企查查行业: { 一级: '一', 二级: '二', 三级: '三', 四级: '四' }, 主营产品: ['甲', '乙'], 企业规模: '小型',
+    })),
+  });
+  const fields = ['province', 'city', 'district', 'area_code', 'industry_section', 'industry_large',
+    'industry_middle', 'industry_small', 'qcc_industry_level1', 'qcc_industry_level2',
+    'qcc_industry_level3', 'qcc_industry_level4', 'main_products', 'company_scale'];
+  const result = await new QccHostBridge({ tools, toolWaitMs: 0 }).enrichRows(
+    [{ name: '合成契约企业', province: '原省' }], { fieldSelection: fields });
+  assert.deepEqual(tools.calls.map(call => call.name), [QCC_TOOL_NAMES.entityLookup, QCC_TOOL_NAMES.registration, QCC_TOOL_NAMES.profile]);
+  const row = result.rows[0];
+  assert.equal(row.province, '原省');
+  assert.equal(row.city, '源市');
+  assert.equal(row.area_code, '001234');
+  assert.equal(row.industry_small, '小类');
+  assert.equal(row.qcc_industry_level4, '四');
+  assert.equal(row.main_products, '甲；乙');
+  assert.equal(row.company_scale, '小型');
+  assert.equal(row.industry_category, undefined);
+  assert.equal(row.qcc_industry, undefined);
 });
 
 test('所选工商和画像字段全部落列，国标行业与企查查行业分别映射', async () => {

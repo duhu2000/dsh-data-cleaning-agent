@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { projectFirstSnapshot, SNAPSHOT_GROUP_ORDER } from 'qcc-field-contracts';
 import { QCC_FIELD_CATALOG } from '../lib/qcc-field-catalog.js';
 import { QccHostBridge } from '../lib/qcc.js';
-test('snapshot catalog has 136 fields in agreed order', () => {
+test('snapshot catalog has 150 fields in agreed order', () => {
   assert.deepEqual(QCC_FIELD_CATALOG.map(g => g.id), SNAPSHOT_GROUP_ORDER);
-  assert.equal(QCC_FIELD_CATALOG.flatMap(g => g.fields).length, 136);
+  assert.equal(QCC_FIELD_CATALOG.flatMap(g => g.fields).length, 150);
 });
 test('UBO only projects first owner, never manager or second owner', () => {
   const data = { 受益所有人信息: { 受益所有人: [{受益所有人名称:'甲'}, {受益所有人名称:'乙'}], 日常经营管理人员:[{名称:'丙'}] }};

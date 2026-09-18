@@ -5,6 +5,7 @@
 import { execFileSync } from 'node:child_process';
 
 const WHITELIST = [
+  /^docs\/CORE-FIELDS-20260918\.md$/,
   /^package\.json$/,
   /^cordis\.patch\.yml$/,
   /^README\.md$/,

@@ -67,17 +67,15 @@ test('输出可多列对同一字段，主体锚点与单列目标仍唯一', ()
   assert.throws(() => validateMappings([...output, { sourceField: '法人1', targetField: 'reg_capital' }]), { code: 'DC_WORKFLOW_DUPLICATE_MAPPING' });
 });
 
-test('补全目录开放 30 个基础字段、第一批 40 字段与第二批 58 字段', () => {
+test('补全目录增加 14 项地区、行业、产品与规模字段，保留既有字段', () => {
   const fields = FIELD_CATALOG.flatMap((group) => group.fields);
   const ids = fields.map((field) => field.id);
-  assert.equal(ids.length, 136);
+  assert.equal(ids.length, 150);
   assert.deepEqual(INPUT_ONLY_MAPPING_FIELDS, [{ id: 'phone', label: '联系电话' }]);
   assert.equal(ids.includes('phone'), false);
-  assert.equal(ids.includes('industry_large'), false);
-  assert.equal(ids.includes('industry_middle'), false);
-  assert.equal(ids.includes('province'), false);
-  assert.equal(ids.includes('city'), false);
-  assert.equal(ids.includes('district'), false);
+  for (const id of ['industry_large', 'industry_middle', 'province', 'city', 'district', 'area_code',
+    'industry_section', 'industry_small', 'qcc_industry_level1', 'qcc_industry_level2',
+    'qcc_industry_level3', 'qcc_industry_level4', 'main_products', 'company_scale']) assert.ok(ids.includes(id));
   assert.equal(ids.includes('risk_summary'), false);
   assert.equal(ids.includes('trademark_summary'), false);
   assert.equal(ids.includes('contact_preferred_phone'), true);
@@ -89,11 +87,11 @@ test('补全目录开放 30 个基础字段、第一批 40 字段与第二批 58
   assert.equal(fields.find((field) => field.id === 'industry_category')?.label, '国标行业');
   assert.equal(fields.find((field) => field.id === 'qcc_industry')?.label, '企查查行业');
   assert.deepEqual(FIELD_CATALOG.map((group) => [group.label, group.sourceTool, group.fields.length]), [
-    ['企业工商信息', 'get_company_registration_info', 27],
+    ['企业工商信息', 'get_company_registration_info', 35],
     ['联系方式', 'get_contact_info', 6],
     ['实际控制人', 'get_actual_controller', 4],
     ['受益所有人', 'get_beneficial_owners', 1],
-    ['企业简介', 'get_company_profile', 3],
+    ['企业简介', 'get_company_profile', 9],
     ['财务数据', 'get_financial_data', 3],
     ['税务开票信息', 'get_tax_invoice_info', 8],
     ['上市信息', 'get_listing_info', 15],
@@ -103,10 +101,10 @@ test('补全目录开放 30 个基础字段、第一批 40 字段与第二批 58
   ]);
 
   const draft = normalizeWorkflowDraft({
-    fieldSelection: ['credit_no', 'phone', 'industry_large', 'qcc_industry', 'contact_preferred_phone', 'risk_dishonest_count'],
+    fieldSelection: ['credit_no', 'phone', 'unknown_field', 'qcc_industry', 'contact_preferred_phone', 'risk_dishonest_count'],
   });
   assert.deepEqual(draft.fieldSelection, ['credit_no', 'qcc_industry', 'contact_preferred_phone', 'risk_dishonest_count']);
-  assert.equal(normalizeWorkflowDraft({ fieldSelection: ids }).fieldSelection.length, 136);
+  assert.equal(normalizeWorkflowDraft({ fieldSelection: ids }).fieldSelection.length, 150);
 });
 
 test('匹配契约不暴露虚构置信度字段', () => {
