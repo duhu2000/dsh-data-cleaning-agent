@@ -1403,19 +1403,19 @@ test('银行模板表头：确认映射驱动范围，重复输出共用字段�
     const api = loadClient().exports.__testing;
     const headers = ['公司名称','统一社会信用代码','注册号','企业类型','经营范围','注册资本','核准日期 YYYY-MM-DD','法定代表人','成立日期','企业状态','所属省份','所属市','所属区县','所属行业','注册地址','企业划型','主营业务','法定代表人（重复列 2）','邮编','主营业务收入','注册资本（重复列 2）','从业人数','实际控制人'];
     let mappings = api.guessMappings(headers);
-    assert.equal(mappings.length, 9);
+    assert.equal(mappings.length, 12);
     assert.equal(mappings.find(m => m.sourceField.startsWith('核准日期')).targetField, 'approval_date');
     const hints = api.mappingRecommendations(headers);
-    for (const name of ['所属省份','所属市','所属区县','企业划型','主营业务','邮编','从业人数']) {
+    for (const name of ['企业划型','主营业务','邮编','从业人数']) {
       assert.deepEqual(hints.find(h => h.sourceField === name).candidates, []);
     }
     const initial = api.mappedOutputFields(mappings);
     for (const [sourceField,targetField] of [['注册资本','reg_capital'],['注册资本（重复列 2）','reg_capital'],['法定代表人','legal_rep'],['法定代表人（重复列 2）','legal_rep'],['企业状态','reg_status'],['所属行业','industry_category']]) {
       mappings = api.updateColumnMapping(mappings, sourceField, targetField);
     }
-    assert.equal(mappings.length, 15);
+    assert.equal(mappings.length, 18);
     const selected = api.syncMappedSelection(api.guessMappings(headers), mappings, initial);
-    assert.equal(selected.length, 13);
+    assert.equal(selected.length, 16);
     const row = Object.fromEntries(headers.map(h => [h, '']));
     row['公司名称'] = '合成测试企业';
     const result = api.projectCompletionResult({headers, mappings, fieldSelection:selected, rows:[{...row,legal_rep:'合成甲',reg_capital:'100万元',qcc_match_status:'enriched'}]});
@@ -2534,6 +2534,13 @@ test('字段搜索支持维度、中文字段及工具名，不改变原始目�
     assert.deepEqual(visibleCatalogFields(group, 'CREDIT_NO'), [fields[0]]);
     assert.deepEqual(visibleCatalogFields(group, '不存在'), []);
     assert.equal(fields.length, 2);
+    const expanded = ['company_profile', '企业简介', [
+      ['qcc_industry_level1', '企查查行业一级'], ['company_scale', '企业规模'],
+      ['main_products', '主营产品'], ['company_size', '人员规模'],
+    ], 'get_company_profile'];
+    assert.deepEqual(visibleCatalogFields(expanded, '企查查一级行业'), [expanded[2][0]]);
+    assert.deepEqual(visibleCatalogFields(expanded, '企业规模'), [expanded[2][1]]);
+    assert.deepEqual(visibleCatalogFields(expanded, '主要产品'), [expanded[2][2]]);
     const logo = DatabaseLogo({ size: 26 });
     assert.equal(logo.type, 'svg');
     assert.equal(logo.props.width, 26);
@@ -2711,7 +2718,7 @@ test('T3 匹配核验页直接生成说明，不依赖手动检测估算或额�
   }
 });
 
-test('规则页展示 40/58 两批字段并支持按工具维度全选与清空', () => {
+test('规则页展示实时字段数量并支持按工具维度全选与清空', () => {
   let loaded;
   try {
     loaded = loadClient();
@@ -2732,8 +2739,8 @@ test('规则页展示 40/58 两批字段并支持按工具维度全选与清空'
       upload: 'read',
     }));
     const panel = flattenElement(render(overlayReg.component, {}, instance));
-    assert.ok(findNode(panel, (n) => n.children && n.children.includes('第一批 40')));
-    assert.ok(findNode(panel, (n) => n.children && n.children.includes('第二批 58')));
+    assert.ok(findNode(panel, (n) => n.children && n.children.includes('工商与简介 44 项')));
+    assert.ok(findNode(panel, (n) => n.children && n.children.includes('共 150 项可选字段')));
     const selectAllButtons = [];
     collectNodes(panel, (n) => n.type === 'button' && n.children?.includes('全选'), selectAllButtons);
     const clearButtons = [];
